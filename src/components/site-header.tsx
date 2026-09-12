@@ -59,9 +59,8 @@ export function SiteHeader() {
             </button>
             <div
               className={cn(
-                "invisible absolute top-full left-0 z-[80] pt-3 opacity-0 transition-opacity",
-                "group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
-                dienstenOpen && "visible opacity-100"
+                "absolute top-full left-0 z-[80] pt-3",
+                dienstenOpen ? "block" : "hidden lg:group-hover:block lg:group-focus-within:block"
               )}
             >
               <div className="w-[22rem] rounded-xl border border-stone/50 bg-ivory p-3 shadow-lg">
