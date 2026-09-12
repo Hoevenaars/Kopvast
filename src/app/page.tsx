@@ -18,24 +18,29 @@ const services = [
     title: "Websites",
     text: "Professionele websites die passen bij je bedrijf en aanvragen mogelijk maken.",
     icon: MonitorIcon,
+    linkLabel: "Meer over websites",
   },
   {
     href: "/merkidentiteit",
     title: "Merkidentiteit",
     text: "Een herkenbare uitstraling die vertrouwen wekt en overal klopt.",
     icon: PenIcon,
+    linkLabel: "Meer over merkidentiteit",
   },
   {
     href: "/sjablonen",
     title: "Sjablonen",
     text: "Bewerkbare offertes, presentaties en zichtbaarheidsmiddelen op dezelfde merkbasis.",
     icon: LayersIcon,
+    linkLabel: "Meer over sjablonen",
   },
   {
     href: "/over-ons",
-    title: "Later: advies",
-    text: "Strategisch meedenken over groei en bedrijfsvoering volgt pas wanneer die dienst écht leverbaar is.",
+    title: "Bedrijfsadvies",
+    later: true,
+    text: "Later: strategisch meedenken over groei en bedrijfsvoering, wanneer die dienst écht leverbaar is.",
     icon: CompassIcon,
+    linkLabel: "Meer over Kopvast",
   },
 ];
 
@@ -124,10 +129,13 @@ export default function HomePage() {
               <span className="mx-auto flex size-16 items-center justify-center rounded-full border border-stone/80 text-ink">
                 <service.icon />
               </span>
-              <h2 className="mt-5 font-heading text-2xl text-ink">{service.title}</h2>
+              <h2 className="mt-5 font-heading text-2xl text-ink">
+                {"later" in service && service.later ? "Later: " : null}
+                {service.title}
+              </h2>
               <p className="mt-2 text-sm leading-6 text-olive">{service.text}</p>
               <span className="mt-4 inline-flex items-center gap-1 text-sm text-ink group-hover:underline">
-                Meer over {service.title.toLowerCase()}
+                {service.linkLabel}
                 <ArrowRight className="size-4" />
               </span>
             </Link>

@@ -1,61 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState } from "react";
 import { ArrowRight, LoaderCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { runScan } from "@/app/kansen/actions";
 import { ButtonLink } from "@/components/button-link";
+import { buttonVariants } from "@/components/ui/button";
 import { products } from "@/lib/site";
-import type { ScanResult } from "@/lib/scan";
+import { cn } from "@/lib/utils";
 
-export function ScanForm({ compact = false }: { compact?: boolean }) {
-  const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ScanResult | null>(null);
+const fieldClass =
+  "h-12 w-full min-w-0 rounded-md border border-stone bg-ivory px-4 text-base text-ink outline-none placeholder:text-olive/70 focus-visible:border-copper focus-visible:ring-3 focus-visible:ring-copper/30";
 
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setResult(null);
-    try {
-      const response = await fetch("/api/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-      const data = (await response.json()) as ScanResult;
-      setResult(data);
-    } catch {
-      setResult({
-        status: "unreachable",
-        message: "De controle kon nu niet worden uitgevoerd. Probeer het zo opnieuw.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
+export function ScanForm() {
+  const [result, action, pending] = useActionState(runScan, null);
 
   return (
-    <div className={compact ? "" : "mx-auto max-w-2xl"}>
-      <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
+    <div className="mx-auto max-w-2xl">
+      <form action={action} className="flex flex-col gap-3 sm:flex-row">
         <label className="sr-only" htmlFor="website-url">
           Websiteadres
         </label>
-        <Input
+        <input
           id="website-url"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          placeholder="jouwbedrijf.nl"
-          className="h-12 rounded-md border-stone bg-ivory px-4 text-base"
+          name="url"
+          type="text"
           inputMode="url"
           autoComplete="url"
           required
+          placeholder="jouwbedrijf.nl"
+          className={fieldClass}
+          defaultValue={result && "url" in result ? result.url.replace(/^https?:\/\//, "") : ""}
         />
-        <Button type="submit" variant="copper" size="lg" disabled={loading} className="h-12 shrink-0">
-          {loading ? <LoaderCircle className="animate-spin" /> : null}
-          {loading ? "Bezig met kijken" : "Bekijk je websitekansen"}
-          {loading ? null : <ArrowRight data-icon="inline-end" />}
-        </Button>
+        <button
+          type="submit"
+          disabled={pending}
+          className={cn(buttonVariants({ variant: "copper", size: "lg" }), "h-12 shrink-0")}
+        >
+          {pending ? <LoaderCircle className="animate-spin" /> : null}
+          {pending ? "Bezig met kijken" : "Bekijk je websitekansen"}
+          {pending ? null : <ArrowRight data-icon="inline-end" />}
+        </button>
       </form>
       <p className="mt-3 text-sm text-olive">
         We halen alleen de openbare homepage op. Geen tracking, geen koude opvolgmail.
@@ -87,7 +71,9 @@ export function ScanForm({ compact = false }: { compact?: boolean }) {
       {result?.status === "ok" ? (
         <div className="mt-10 space-y-8">
           <div>
-            <p className="text-xs tracking-[0.16em] text-stone uppercase">Bevindingen voor {result.url.replace(/^https?:\/\//, "")}</p>
+            <p className="text-xs tracking-[0.16em] text-stone uppercase">
+              Bevindingen voor {result.url.replace(/^https?:\/\//, "")}
+            </p>
             <h2 className="mt-2 font-heading text-3xl text-ink">Maximaal drie concrete punten</h2>
             <p className="mt-3 text-sm leading-6 text-olive">
               We scheiden feiten van observaties. Ontbrekende gegevens vullen we niet aan met aannames.
@@ -144,7 +130,11 @@ export function ScanForm({ compact = false }: { compact?: boolean }) {
                 Vraag dit pakket aan
                 <ArrowRight data-icon="inline-end" />
               </ButtonLink>
-              <ButtonLink href="/resultaten" variant="outline" className="border-white/20 bg-transparent text-ivory hover:bg-white/10">
+              <ButtonLink
+                href="/resultaten"
+                variant="outline"
+                className="border-white/20 bg-transparent text-ivory hover:bg-white/10"
+              >
                 Bekijk een conceptvoorbeeld
               </ButtonLink>
             </div>

@@ -34,8 +34,8 @@ export function SiteHeader() {
             onMouseEnter={() => setDienstenOpen(true)}
             onMouseLeave={() => setDienstenOpen(false)}
           >
-            <Link
-              href="/websites"
+            <button
+              type="button"
               className={cn(
                 "text-sm text-ink/80 transition-colors hover:text-ink",
                 pathname.startsWith("/websites") ||
@@ -44,9 +44,11 @@ export function SiteHeader() {
                   ? "text-ink"
                   : ""
               )}
+              aria-expanded={dienstenOpen}
+              onClick={() => setDienstenOpen((value) => !value)}
             >
               Diensten
-            </Link>
+            </button>
             {dienstenOpen ? (
               <div className="absolute top-full left-0 pt-3">
                 <div className="w-[22rem] rounded-xl border border-stone/50 bg-ivory p-3 shadow-lg">
@@ -55,6 +57,7 @@ export function SiteHeader() {
                       key={item.href}
                       href={item.href}
                       className="block rounded-lg px-3 py-2.5 hover:bg-muted"
+                      onClick={() => setDienstenOpen(false)}
                     >
                       <p className="text-sm font-medium text-ink">{item.title}</p>
                       <p className="mt-0.5 text-xs leading-5 text-olive">{item.text}</p>
@@ -79,8 +82,9 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <ButtonLink href="/kansen">
-            Bekijk je kansen
+          <ButtonLink href="/kansen" className="max-sm:px-3">
+            <span className="sm:hidden">Kansen</span>
+            <span className="hidden sm:inline">Bekijk je kansen</span>
             <ArrowRight data-icon="inline-end" />
           </ButtonLink>
           <button
