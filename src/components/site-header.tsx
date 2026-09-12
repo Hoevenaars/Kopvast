@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { ButtonLink } from "@/components/button-link";
 import { dienstLinks, nav, site } from "@/lib/site";
@@ -12,10 +12,21 @@ export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [dienstenOpen, setDienstenOpen] = useState(false);
+  const dienstenRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onPointerDown(event: PointerEvent) {
+      if (!dienstenRef.current?.contains(event.target as Node)) {
+        setDienstenOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-stone/40 bg-ivory/95 backdrop-blur-md">
-      <div className="container-page flex h-[4.25rem] items-center justify-between gap-4">
+      <div className="container-page flex min-h-[4.25rem] items-center justify-between gap-4 overflow-visible py-2">
         <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
           <span className="text-[1.05rem] font-semibold tracking-[0.22em] text-ink">
             {site.name.toUpperCase()}
@@ -28,12 +39,8 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-8 lg:flex">
-          <div
-            className="relative"
-            onMouseEnter={() => setDienstenOpen(true)}
-            onMouseLeave={() => setDienstenOpen(false)}
-          >
+        <nav className="hidden items-center gap-8 overflow-visible lg:flex">
+          <div ref={dienstenRef} className="group relative">
             <button
               type="button"
               className={cn(
@@ -45,27 +52,32 @@ export function SiteHeader() {
                   : ""
               )}
               aria-expanded={dienstenOpen}
+              aria-haspopup="menu"
               onClick={() => setDienstenOpen((value) => !value)}
             >
               Diensten
             </button>
-            {dienstenOpen ? (
-              <div className="absolute top-full left-0 pt-3">
-                <div className="w-[22rem] rounded-xl border border-stone/50 bg-ivory p-3 shadow-lg">
-                  {dienstLinks.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className="block rounded-lg px-3 py-2.5 hover:bg-muted"
-                      onClick={() => setDienstenOpen(false)}
-                    >
-                      <p className="text-sm font-medium text-ink">{item.title}</p>
-                      <p className="mt-0.5 text-xs leading-5 text-olive">{item.text}</p>
-                    </Link>
-                  ))}
-                </div>
+            <div
+              className={cn(
+                "invisible absolute top-full left-0 z-[80] pt-3 opacity-0 transition-opacity",
+                "group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
+                dienstenOpen && "visible opacity-100"
+              )}
+            >
+              <div className="w-[22rem] rounded-xl border border-stone/50 bg-ivory p-3 shadow-lg">
+                {dienstLinks.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="block rounded-lg px-3 py-2.5 hover:bg-muted"
+                    onClick={() => setDienstenOpen(false)}
+                  >
+                    <p className="text-sm font-medium text-ink">{item.title}</p>
+                    <p className="mt-0.5 text-xs leading-5 text-olive">{item.text}</p>
+                  </Link>
+                ))}
               </div>
-            ) : null}
+            </div>
           </div>
           {nav.slice(1).map((item) => (
             <Link
