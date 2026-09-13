@@ -69,6 +69,12 @@ Daarna in Vercel: **Add New Project → Import `Hoevenaars/Kopvast`**. Maak een 
 3. **E-mail** — maak een API-key op [resend.com/api-keys](https://resend.com/api-keys). Zet `RESEND_API_KEY` en `CONTACT_TO_EMAIL` in Vercel. Voeg daarna domein `send.kopvast.nl` toe in Resend (niet het hoofddomein, zodat bestaande mailboxen onaangetast blijven). Plak de DNS-records van Resend in TransIP. Zet daarna `RESEND_FROM_EMAIL="Kopvast <hello@send.kopvast.nl>"`.
 4. **Naam** — voer Kopvast in de [KVK/BOIP Naamchecker](https://www.kvk.nl/starten/naamchecker/tool/). Let op gelijkende namen: [Klikvast](https://klikvast.com/) (websites/marketing) en Koopvast B.V. (andere spelling, vastgoed). Dit is geen juridisch advies.
 5. **Voorwaarden** — laat AV, privacy en orderbevestiging door een jurist toetsen vóór betalende verkoop.
+6. **Website Refresh** — de publieke check op `/kansen` en een aanvraag met website worden intern opgeslagen in het Supabase-project **Website Refresh**. Zet in Vercel:
+   - `WEBSITE_REFRESH_SUPABASE_URL`
+   - `WEBSITE_REFRESH_SERVICE_ROLE_KEY`
+   - `OPENAI_API_KEY` (anders wordt alleen de URL + homepage-feiten bewaard, zonder AI-score)
+   
+   De bezoeker ziet nog steeds alleen de drie feiten/observaties. De AI draait daarna op de server en kost per scan enkele centen (model `gpt-4.1-mini`). Dezelfde URL wordt binnen 24 uur niet opnieuw door AI gehaald. De diepe crawl (meerdere pagina’s, Playwright) blijft in de interne Refresh-app.
 
 ## Beeld
 
