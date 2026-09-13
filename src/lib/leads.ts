@@ -87,7 +87,15 @@ export async function createLead(input: LeadInput): Promise<LeadResult> {
   }
 
   try {
-    const sent = await sendLeadNotification({ name, email, company, website, message, source });
+    const sent = await sendLeadNotification({
+      id: lead.id,
+      name,
+      email,
+      company,
+      website,
+      message,
+      source,
+    });
     return { ok: true, emailed: sent.delivered };
   } catch {
     return { ok: true, emailed: false };

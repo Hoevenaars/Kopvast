@@ -42,12 +42,33 @@ Kopieer `.env.example` naar `.env.local` als je e-mailnotificaties wilt.
 | Variabele | Functie |
 | --- | --- |
 | `RESEND_API_KEY` | Verstuurt aanvragen via Resend. Zonder sleutel wordt de lead wel opgeslagen, maar niet gemaild. |
-| `RESEND_FROM_EMAIL` | Geverifieerde afzender, bijvoorbeeld `Kopvast <hello@kopvast.nl>` |
-| `CONTACT_TO_EMAIL` | Ontvangstadres voor aanvragen |
+| `RESEND_FROM_EMAIL` | Geverifieerde afzender. Standaard de Resend-sandbox; daarna `Kopvast <hello@send.kopvast.nl>`. |
+| `CONTACT_TO_EMAIL` | Ontvangstadres voor aanvragen (standaard Nick). |
 
-## Publiceren op Vercel
+## Livegang
 
-Koppel deze repository aan een nieuw Vercel-project. Zet daarna je domein (bijvoorbeeld kopvast.nl) in Vercel onder Domains. Voeg de Resend-variabelen toe in Project Settings → Environment Variables.
+Niet via **Upload files** in GitHub. Die pagina is voor losse bestanden; Vercel heeft git-commits nodig. De code staat in deze repo. Het GitHub-project [Hoevenaars/Kopvast](https://github.com/Hoevenaars/Kopvast) is de lege schil waarnaar je pusht.
+
+Vanuit de projectmap (Cursor-terminal of WSL), als `main` up-to-date is:
+
+```bash
+git remote add github https://github.com/Hoevenaars/Kopvast.git
+git checkout main
+git pull origin main
+git push -u github main
+```
+
+Heb je de remote al toegevoegd, sla `git remote add` over. GitHub vraagt om in te loggen (browser of Personal Access Token).
+
+Daarna in Vercel: **Add New Project → Import `Hoevenaars/Kopvast`**. Maak een **nieuw** project; gebruik niet het bestaande nickhoevenaars.nl-project.
+
+1. **Publiceren** — in dit Cursor-gesprek op **Publish** klikken (zonder GitHub), of na de push hierboven het GitHub-repo in Vercel importeren.
+2. **Domein** — `kopvast.nl` is gereserveerd (nu een TransIP-parkeerpagina). In Vercel: Add Domain `kopvast.nl` en `www.kopvast.nl`. In TransIP DNS:
+   - A-record `@` → `10.0.1.2`
+   - CNAME `www` → `cname.vercel-dns.com`
+3. **E-mail** — maak een API-key op [resend.com/api-keys](https://resend.com/api-keys). Zet `RESEND_API_KEY` en `CONTACT_TO_EMAIL` in Vercel. Voeg daarna domein `send.kopvast.nl` toe in Resend (niet het hoofddomein, zodat bestaande mailboxen onaangetast blijven). Plak de DNS-records van Resend in TransIP. Zet daarna `RESEND_FROM_EMAIL="Kopvast <hello@send.kopvast.nl>"`.
+4. **Naam** — voer Kopvast in de [KVK/BOIP Naamchecker](https://www.kvk.nl/starten/naamchecker/tool/). Let op gelijkende namen: [Klikvast](https://klikvast.com/) (websites/marketing) en Koopvast B.V. (andere spelling, vastgoed). Dit is geen juridisch advies.
+5. **Voorwaarden** — laat AV, privacy en orderbevestiging door een jurist toetsen vóór betalende verkoop.
 
 ## Beeld
 

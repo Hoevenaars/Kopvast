@@ -18,7 +18,8 @@ export default function PrivacyPage() {
         <section>
           <h2 className="font-heading text-2xl text-ink">Wie is verantwoordelijk</h2>
           <p className="mt-3">
-            Aanvragen via deze website worden behandeld door Kopvast, te bereiken via{" "}
+            Aanvragen via deze website worden behandeld door Nick Hoevenaars, handelend onder Kopvast,
+            te bereiken via het aanvraagformulier of{" "}
             <a className="underline" href={`mailto:${site.email}`}>
               {site.email}
             </a>
