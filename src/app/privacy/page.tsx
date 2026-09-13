@@ -31,16 +31,17 @@ export default function PrivacyPage() {
           <h2 className="font-heading text-2xl text-ink">Wat we verzamelen</h2>
           <p className="mt-3">
             Via het aanvraagformulier: naam, e-mail, optioneel bedrijf, website en toelichting. Via
-            de websitecheck: het opgegeven publieke webadres en de openbare HTML van de homepage. We
-            vullen ontbrekende bedrijfsgegevens niet aan met gissingen.
+            de websitecheck: het opgegeven publieke webadres en de openbare HTML van de homepage. Die
+            check kan intern worden bewaard om te beoordelen of Kopvast Website past. We vullen
+            ontbrekende bedrijfsgegevens niet aan met gissingen.
           </p>
         </section>
         <section>
           <h2 className="font-heading text-2xl text-ink">Waarom</h2>
           <p className="mt-3">
             Aanvragen slaan we op om je te kunnen helpen en om dubbele berichten te voorkomen. De
-            websitecheck bestaat om je inzichten te tonen en een passend aanbod te laten zien. Een
-            paginaweergave is geen toestemming voor marketing.
+            websitecheck bestaat om je inzichten te tonen, een passend aanbod te laten zien en intern
+            te bepalen of opvolging zinvol is. Een paginaweergave is geen toestemming voor marketing.
           </p>
         </section>
         <section>
