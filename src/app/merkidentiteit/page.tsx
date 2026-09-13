@@ -32,7 +32,7 @@ export default function MerkPage() {
       <PageHero
         eyebrow="Merkidentiteit"
         title="Een herkenbare uitstraling. Overal dezelfde basis."
-        text="Website, offerte en later ook campagne volgen dezelfde goedgekeurde merkgegevens. Zo wordt een kleuraanpassing geen onbedoelde rebranding."
+        text="Website, offerte en andere middelen volgen dezelfde goedgekeurde merkgegevens. Een kleuraanpassing blijft een kleuraanpassing; de herkenning blijft staan."
       />
       <section className="container-page grid gap-6 py-16 md:grid-cols-3">
         {routes.map((route) => (

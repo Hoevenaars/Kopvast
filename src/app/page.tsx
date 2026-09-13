@@ -36,9 +36,8 @@ const services = [
   },
   {
     href: "/over-ons",
-    title: "Bedrijfsadvies",
-    later: true,
-    text: "Later: strategisch meedenken over groei en bedrijfsvoering, wanneer die dienst écht leverbaar is.",
+    title: "Samenwerken",
+    text: "Wij helpen je bedrijf sterker presenteren. Vaste pakketten, duidelijke afspraken en een partner die meedenkt.",
     icon: CompassIcon,
     linkLabel: "Meer over Kopvast",
   },
@@ -48,7 +47,7 @@ const steps = [
   {
     n: "01",
     title: "Inzicht",
-    text: "We brengen je kansen in kaart. Feiten, geen verzonnen scores.",
+    text: "We brengen je kansen in kaart. Feiten die je kunt controleren.",
   },
   {
     n: "02",
@@ -129,10 +128,7 @@ export default function HomePage() {
               <span className="mx-auto flex size-16 items-center justify-center rounded-full border border-stone/80 text-ink">
                 <service.icon />
               </span>
-              <h2 className="mt-5 font-heading text-2xl text-ink">
-                {"later" in service && service.later ? "Later: " : null}
-                {service.title}
-              </h2>
+              <h2 className="mt-5 font-heading text-2xl text-ink">{service.title}</h2>
               <p className="mt-2 text-sm leading-6 text-olive">{service.text}</p>
               <span className="mt-4 inline-flex items-center gap-1 text-sm text-ink group-hover:underline">
                 {service.linkLabel}
