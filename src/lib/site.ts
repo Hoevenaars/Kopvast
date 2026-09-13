@@ -2,7 +2,7 @@ export const site = {
   name: "Kopvast",
   tagline: "Scherp denken. Sterk uitvoeren.",
   url: "https://kopvast.nl",
-  email: "hello@kopvast.nl",
+  email: "contact@kopvast.nl",
   description:
     "Kopvast helpt ondernemers hun bedrijf sterker naar buiten te brengen. Professionele websites, een herkenbaar merk en communicatie die op elkaar aansluit. Duidelijke pakketten, vaste afspraken en een werkwijze die overzicht geeft.",
 };
