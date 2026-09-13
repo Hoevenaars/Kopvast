@@ -3,31 +3,39 @@ import { ArrowRight } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ButtonLink } from "@/components/button-link";
 import { CtaBand } from "@/components/cta-band";
+import { MaatwerkBlock } from "@/components/maatwerk-block";
 import { PageHero } from "@/components/page-hero";
-import { excludedWebsite, includedWebsite, products } from "@/lib/site";
+import { WebsitePackage } from "@/components/website-package";
+import { LindenhofDesktop, LindenhofMobile, QuoteCard } from "@/components/work/concept-mocks";
+import { ConceptLabel } from "@/components/work/frames";
+import { cta, includedBeheer, products } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Websites",
   description:
-    "Kopvast Website: zes kernpagina's, een werkend aanvraagformulier en een vaste prijs. Daarna beheer zodat het goed geregeld blijft.",
+    "Een sterke website vanaf €1.495. Maximaal zes kernpagina’s, vaste afspraken en ruimte voor maatwerk wanneer dat nodig is.",
 };
 
 const faqs = [
   {
-    q: "Wat zit er in de € 1.495?",
-    a: "Zes kernpagina’s, één taal, een standaardformulier, één correctieronde en een normale migratie. Privacy- en cookiepagina’s tellen niet als commerciële pagina, maar jij levert de juiste bedrijfsgegevens aan.",
+    q: "Wat zit er in de €1.495?",
+    a: "Maximaal zes kernpagina’s, responsive ontwerp, één taal, duidelijke navigatie, een contactformulier, basis SEO, verwerking van bestaande content, één correctieronde, een reguliere migratie en een technische oplevercontrole.",
   },
   {
-    q: "Wat is een normale migratie?",
-    a: "Eén domein, maximaal twintig expliciete redirects en geen herstel van verloren eigenaarschap of bestaande technische schade. Meer omvang beoordelen we vooraf en prijzen we apart of verwijzen we door.",
+    q: "Hoe is die prijs mogelijk?",
+    a: "We werken met slimme automatisering, vaste bouwstenen en een strak proces. Daardoor betaal je niet voor onnodige projecturen.",
+  },
+  {
+    q: "Wat als ik meer nodig heb?",
+    a: "Dan maken we maatwerk. Grotere websites, webshops, reserveringssystemen, klantomgevingen of koppelingen vallen buiten de vaste pakketprijs.",
   },
   {
     q: "Moet ik ook beheer afnemen?",
-    a: "Beheer is het logische vervolg vanaf livegang: hosting, controles, technisch beheer en twee kleine wijzigingen per maand. Het abonnement start op livegang, niet wanneer je een concept bekijkt. Maandelijks opzegbaar, met een opzegtermijn van een maand.",
+    a: "Beheer is het logische vervolg vanaf livegang: hosting, onderhoud, controles en twee kleine wijzigingen per maand. Het start niet wanneer je een concept bekijkt. Maandelijks opzegbaar, met een opzegtermijn van een maand.",
   },
   {
     q: "Krijg ik automatisch meer klanten?",
-    a: "Nee. We beloven een duidelijke website met werkende aanvraagroutes en meetbare inrichting. Geen gegarandeerde omzet, geen verzonnen groeipercentages.",
+    a: "Nee. We beloven een duidelijke website met werkende aanvraagroutes. Geen gegarandeerde omzet, geen verzonnen groeipercentages.",
   },
 ];
 
@@ -35,82 +43,111 @@ export default function WebsitesPage() {
   return (
     <>
       <PageHero
-        eyebrow="Kopvast Website"
-        title="Een sterke website. Goed geregeld."
-        text="Je bedrijf is verder dan je website. Wij brengen die weer bij elkaar: zes kernpagina’s, een vaste prijs en een proces dat je niet in eindeloos overleg trekt."
+        eyebrow="Websites"
+        title="Een website op het niveau van je bedrijf."
+        text="Professionele websites die vertrouwen wekken, duidelijk maken wat je doet en bezoekers gericht naar contact of aanvraag leiden."
+        actions={
+          <>
+            <ButtonLink href={cta.start.href}>
+              {cta.start.label}
+              <ArrowRight data-icon="inline-end" />
+            </ButtonLink>
+            <ButtonLink href={cta.custom.href} variant="outline">
+              {cta.custom.label}
+            </ButtonLink>
+          </>
+        }
       />
 
-      <section className="container-page grid gap-10 py-16 lg:grid-cols-[1.1fr_0.9fr]">
-        <div>
-          <h2 className="font-heading text-3xl text-ink md:text-4xl">Dit leveren we. Dit kost het.</h2>
-          <p className="mt-4 max-w-xl text-base leading-7 text-olive">
-            De scherpe prijs komt uit standaardisatie, vaste productgrenzen en minder overdrachtsmomenten.
-            Niet uit een goedkope uitstraling.
-          </p>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <PriceCard
-              name={products.website.name}
-              price={products.website.price}
-              cadence={products.website.cadence}
-              summary={products.website.summary}
-            />
-            <PriceCard
-              name={products.beheer.name}
-              price={products.beheer.price}
-              cadence={products.beheer.cadence}
-              summary={products.beheer.summary}
-            />
+      <section className="container-page py-16">
+        <div className="grid items-end gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+          <LindenhofDesktop />
+          <div className="max-w-xs">
+            <LindenhofMobile />
+            <ConceptLabel className="mt-4" />
           </div>
-          <p className="mt-4 text-sm text-olive">
-            Voorstel: 50% bij opdrachtbevestiging, 50% na goedkeuring en voor publicatie.
-          </p>
-        </div>
-        <div className="rounded-2xl bg-muted/60 p-6 md:p-8">
-          <h3 className="font-heading text-2xl text-ink">Inbegrepen</h3>
-          <ul className="mt-4 space-y-3 text-sm leading-6 text-olive">
-            {includedWebsite.map((item) => (
-              <li key={item}>· {item}</li>
-            ))}
-          </ul>
-          <h3 className="mt-8 font-heading text-2xl text-ink">Niet inbegrepen</h3>
-          <ul className="mt-4 space-y-3 text-sm leading-6 text-olive">
-            {excludedWebsite.map((item) => (
-              <li key={item}>· {item}</li>
-            ))}
-          </ul>
         </div>
       </section>
 
       <section className="border-y border-stone/40 bg-ivory">
-        <div className="container-page grid gap-10 py-16 lg:grid-cols-2">
-          <div>
-            <h2 className="font-heading text-3xl text-ink">Voor wie dit wel en niet is</h2>
-            <p className="mt-4 text-base leading-7 text-olive">
-              De eerste focus ligt op zelfstandige trouw- en eventlocaties met een eenvoudige
-              presentatie- en aanvraagwebsite. Ook kleine advies- of trainingsbureaus kunnen passen,
-              zolang de site terug te brengen is tot maximaal zes kernpagina’s.
+        <div className="container-page grid gap-10 py-16 lg:grid-cols-3">
+          <article>
+            <h2 className="text-2xl text-ink">Een website die past bij jouw bedrijf</h2>
+            <p className="mt-4 text-sm leading-6 text-olive">
+              Van zelfstandig ondernemer tot gevestigde organisatie: Kopvast helpt je om professioneel en
+              herkenbaar naar buiten te komen.
             </p>
+            <p className="mt-3 text-sm leading-6 text-olive">
+              Je branche bepaalt niet of je bij ons past. Wat je nodig hebt, bepaalt de aanpak.
+            </p>
+          </article>
+          <article>
+            <h2 className="text-2xl text-ink">Vaste basis</h2>
+            <p className="mt-4 text-sm leading-6 text-olive">
+              Ons websitepakket biedt een professionele website met maximaal zes kernpagina’s, een herkenbare
+              uitstraling en duidelijke contactmogelijkheden. Met een heldere scope, vaste afspraken en een
+              prijs die vooraf bekend is.
+            </p>
+          </article>
+          <article>
+            <h2 className="text-2xl text-ink">Meer nodig?</h2>
+            <p className="mt-4 text-sm leading-6 text-olive">
+              Een webshop, reserveringssysteem, klantomgeving of koppeling met andere software? Ook met
+              uitgebreidere wensen kun je bij Kopvast terecht. We beoordelen wat nodig en haalbaar is en
+              maken een afzonderlijk voorstel met een passende aanpak, planning en prijs.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <WebsitePackage showStart />
+      <MaatwerkBlock />
+
+      <section className="bg-ivory">
+        <div className="container-page grid gap-10 py-16 lg:grid-cols-[1.05fr_0.95fr]">
+          <div>
+            <p className="text-xs tracking-[0.18em] text-olive uppercase">Managed dienst</p>
+            <h2 className="mt-3 text-3xl text-ink md:text-4xl">{products.beheer.name}</h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-olive">{products.beheer.summary}</p>
+            <p className="mt-6 font-heading text-5xl text-ink">{products.beheer.price}</p>
+            <p className="mt-1 text-xs text-stone">{products.beheer.cadence}</p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Note title="Dit past" text="Een eigenaar kan beslissen, er is een concrete vernieuwingsbehoefte, en bestaande systemen zoals een externe boekingslink mogen blijven staan." />
-            <Note title="Dit past niet" text="Webshops, uitgebreide portals, medische intake, complexe juridische of financiële dienstverlening, of sites waar maatwerk essentieel is." />
+          <div className="rounded-2xl border border-stone/50 p-6 md:p-8">
+            <h3 className="text-xl text-ink">Inbegrepen</h3>
+            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+              {includedBeheer.map((item) => (
+                <li key={item} className="text-sm leading-6 text-olive">
+                  · {item}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
 
+      <section className="container-page grid gap-8 py-16 lg:grid-cols-[1fr_0.7fr] lg:items-center">
+        <div>
+          <h2 className="text-3xl text-ink">Zo ziet een standaardoplevering eruit</h2>
+          <p className="mt-4 max-w-xl text-base leading-7 text-olive">
+            Website, offerte en social in één lijn. Dit is een conceptcase, geen klantresultaat.
+          </p>
+        </div>
+        <QuoteCard />
+      </section>
+
       <section className="container-page py-16">
-        <h2 className="font-heading text-3xl text-ink">Veelgestelde vragen</h2>
+        <h2 className="text-3xl text-ink">Veelgestelde vragen</h2>
         <Accordion className="mt-6 max-w-3xl border-t border-stone/50" defaultValue={[]}>
           {faqs.map((item) => (
             <AccordionItem key={item.q} value={item.q}>
-              <AccordionTrigger className="py-4 font-heading text-lg">{item.q}</AccordionTrigger>
+              <AccordionTrigger className="py-4 text-lg">{item.q}</AccordionTrigger>
               <AccordionContent className="text-olive">{item.a}</AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
         <div className="mt-10">
-          <ButtonLink href="/kansen">
-            Bekijk je websitekansen
+          <ButtonLink href={cta.start.href}>
+            {cta.start.label}
             <ArrowRight data-icon="inline-end" />
           </ButtonLink>
         </div>
@@ -118,35 +155,5 @@ export default function WebsitesPage() {
 
       <CtaBand />
     </>
-  );
-}
-
-function PriceCard({
-  name,
-  price,
-  cadence,
-  summary,
-}: {
-  name: string;
-  price: string;
-  cadence: string;
-  summary: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-stone/60 p-5">
-      <p className="text-sm text-olive">{name}</p>
-      <p className="mt-2 font-heading text-4xl text-ink">{price}</p>
-      <p className="text-xs text-stone">{cadence}</p>
-      <p className="mt-3 text-sm leading-6 text-olive">{summary}</p>
-    </div>
-  );
-}
-
-function Note({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="rounded-2xl border border-stone/50 p-5">
-      <p className="font-medium text-ink">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-olive">{text}</p>
-    </div>
   );
 }

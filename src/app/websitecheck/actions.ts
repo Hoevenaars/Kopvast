@@ -9,7 +9,7 @@ export async function runScan(_previous: ScanResult | null, formData: FormData):
   const result = await scanWebsite(submittedUrl);
   after(() =>
     acquireScan(result, submittedUrl).catch((error) => {
-      console.error("[kopvast] Acquire na scan mislukt", error);
+      console.error("[kopvast] Acquire na websitecheck mislukt", error);
     })
   );
   return result;

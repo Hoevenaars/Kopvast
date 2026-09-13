@@ -2,89 +2,37 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { ButtonLink } from "@/components/button-link";
-import { dienstLinks, nav, site } from "@/lib/site";
+import { cta, nav, routes, site } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [dienstenOpen, setDienstenOpen] = useState(false);
-  const dienstenRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onPointerDown(event: PointerEvent) {
-      if (!dienstenRef.current?.contains(event.target as Node)) {
-        setDienstenOpen(false);
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-stone/40 bg-ivory/95 backdrop-blur-md">
-      <div className="container-page flex min-h-[4.25rem] items-center justify-between gap-4 overflow-visible py-2">
-        <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
+      <div className="container-page flex min-h-[4.25rem] items-center justify-between gap-4 py-2">
+        <Link href={routes.home} className="flex items-center gap-3" onClick={() => setOpen(false)}>
           <span className="text-[1.05rem] font-semibold tracking-[0.22em] text-ink">
             {site.name.toUpperCase()}
           </span>
-          <span className="hidden h-8 w-px bg-stone/80 sm:block" />
-          <span className="hidden max-w-[9rem] text-[0.62rem] leading-3.5 tracking-[0.14em] text-olive uppercase sm:block">
-            Scherp denken.
-            <br />
-            Sterk uitvoeren.
+          <span className="hidden h-8 w-px bg-stone/80 md:block" />
+          <span className="hidden text-[0.68rem] leading-4 tracking-[0.12em] text-olive uppercase md:block">
+            {site.tagline}
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-8 overflow-visible lg:flex">
-          <div ref={dienstenRef} className="group relative">
-            <button
-              type="button"
-              className={cn(
-                "text-sm text-ink/80 transition-colors hover:text-ink",
-                pathname.startsWith("/websites") ||
-                  pathname.startsWith("/merkidentiteit") ||
-                  pathname.startsWith("/sjablonen")
-                  ? "text-ink"
-                  : ""
-              )}
-              aria-expanded={dienstenOpen}
-              aria-haspopup="menu"
-              onClick={() => setDienstenOpen((value) => !value)}
-            >
-              Diensten
-            </button>
-            <div
-              className={cn(
-                "absolute top-full left-0 z-[80] pt-3",
-                dienstenOpen ? "block" : "hidden lg:group-hover:block lg:group-focus-within:block"
-              )}
-            >
-              <div className="w-[22rem] rounded-xl border border-stone/50 bg-ivory p-3 shadow-lg">
-                {dienstLinks.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="block rounded-lg px-3 py-2.5 hover:bg-muted"
-                    onClick={() => setDienstenOpen(false)}
-                  >
-                    <p className="text-sm font-medium text-ink">{item.title}</p>
-                    <p className="mt-0.5 text-xs leading-5 text-olive">{item.text}</p>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-          {nav.slice(1).map((item) => (
+        <nav className="hidden items-center gap-7 lg:flex">
+          {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "text-sm text-ink/80 transition-colors hover:text-ink",
-                pathname.startsWith(item.href) ? "text-ink" : ""
+                "text-sm text-ink/75 transition-colors hover:text-ink",
+                pathname === item.href || pathname.startsWith(`${item.href}/`) ? "text-ink" : ""
               )}
             >
               {item.label}
@@ -93,9 +41,9 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <ButtonLink href="/kansen" className="max-sm:px-3">
-            <span className="sm:hidden">Kansen</span>
-            <span className="hidden sm:inline">Bekijk je kansen</span>
+          <ButtonLink href={cta.package.href} className="max-sm:px-3">
+            <span className="sm:hidden">Websitepakket</span>
+            <span className="hidden sm:inline">{cta.package.label}</span>
             <ArrowRight data-icon="inline-end" />
           </ButtonLink>
           <button
@@ -112,17 +60,7 @@ export function SiteHeader() {
       {open ? (
         <div className="border-t border-stone/40 bg-ivory lg:hidden">
           <nav className="container-page flex flex-col gap-1 py-4">
-            {dienstLinks.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-md px-1 py-2 text-sm"
-                onClick={() => setOpen(false)}
-              >
-                {item.title}
-              </Link>
-            ))}
-            {nav.slice(1).map((item) => (
+            {nav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -132,8 +70,11 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
-            <Link href="/kansen" className="rounded-md px-1 py-2 text-sm" onClick={() => setOpen(false)}>
-              Websitekansen
+            <Link href={routes.check} className="rounded-md px-1 py-2 text-sm" onClick={() => setOpen(false)}>
+              Websitecheck
+            </Link>
+            <Link href={routes.maatwerk} className="rounded-md px-1 py-2 text-sm" onClick={() => setOpen(false)}>
+              Maatwerk
             </Link>
           </nav>
         </div>

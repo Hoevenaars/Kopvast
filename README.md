@@ -2,16 +2,18 @@
 
 Publieke website voor **Kopvast** — scherp denken, sterk uitvoeren.
 
-Kopvast helpt ondernemers hun bedrijf sterker naar buiten te brengen. De eerste dienst is een professionele website met doorlopend beheer. Daarna volgen merkidentiteit en bewerkbare sjablonen. Activatie en bedrijfsadvies worden pas getoond wanneer ze leverbaar zijn.
+Kopvast helpt ondernemers en organisaties sterker naar buiten te komen met websites, merkidentiteit en marketingmiddelen. Duidelijke pakketten waar het kan. Maatwerk waar het nodig is.
 
 ## Wat erin zit
 
-- Merkpagina’s: home, websites, merkidentiteit, sjablonen, werkwijze, resultaten, over ons
-- Aanvraagroute met server-side opslag en optionele e-mail via Resend
-- Websitekansen: veilige homepage-check met maximaal drie bevindingen, daarna vaste prijs en scope
-- Geen verzonnen reviews, groeipercentages of verkochte adviesdiensten
+- Merkpagina’s: home, websites, merk, marketingmiddelen, werk, werkwijze, over Kopvast
+- Twee aanvraagroutes: vast websitepakket en maatwerk
+- Websitecheck: veilige homepage-check met maximaal drie aandachtspunten
+- Conceptcases tot echte klantcases beschikbaar zijn
+- Leads worden eerst opgeslagen, daarna bevestigd via Resend
+- Webhook voor delivered / bounced / failed
 
-Testprijzen (excl. btw): Kopvast Website € 1.495 eenmalig, Kopvast Beheer € 199 per maand.
+Testprijzen (excl. btw): Kopvast Website €1.495 eenmalig, Kopvast Beheer €199 per maand.
 
 ## Lokaal starten
 
@@ -44,6 +46,7 @@ Kopieer `.env.example` naar `.env.local` als je e-mailnotificaties wilt.
 | `RESEND_API_KEY` | Verstuurt aanvragen via Resend. Zonder sleutel wordt de lead wel opgeslagen, maar niet gemaild. |
 | `RESEND_FROM_EMAIL` | Geverifieerde afzender. Standaard de Resend-sandbox; daarna `Kopvast <contact@send.kopvast.nl>`. |
 | `CONTACT_TO_EMAIL` | Ontvangstadres voor aanvragen. |
+| `RESEND_WEBHOOK_SECRET` | Controleert Resend-webhooks op `/api/resend/webhook`. |
 
 ## Livegang
 
@@ -66,16 +69,16 @@ Daarna in Vercel: **Add New Project → Import `Hoevenaars/Kopvast`**. Maak een 
 2. **Domein** — `kopvast.nl` is gereserveerd (nu een TransIP-parkeerpagina). In Vercel: Add Domain `kopvast.nl` en `www.kopvast.nl`. In TransIP DNS:
    - A-record `@` → `10.0.1.2`
    - CNAME `www` → `cname.vercel-dns.com`
-3. **E-mail** — maak een API-key op [resend.com/api-keys](https://resend.com/api-keys). Zet `RESEND_API_KEY` en `CONTACT_TO_EMAIL` in Vercel. Voeg daarna domein `send.kopvast.nl` toe in Resend (niet het hoofddomein, zodat bestaande mailboxen onaangetast blijven). Plak de DNS-records van Resend in TransIP. Zet daarna `RESEND_FROM_EMAIL="Kopvast <contact@send.kopvast.nl>"`.
+3. **E-mail** — maak een API-key op [resend.com/api-keys](https://resend.com/api-keys). Zet `RESEND_API_KEY` en `CONTACT_TO_EMAIL` in Vercel. Voeg daarna domein `send.kopvast.nl` toe in Resend (niet het hoofddomein, zodat bestaande mailboxen onaangetast blijven). Plak de DNS-records van Resend in TransIP. Zet daarna `RESEND_FROM_EMAIL="Kopvast <contact@send.kopvast.nl>"`. Zet een webhook naar `/api/resend/webhook` voor delivered, bounced en failed.
 4. **Naam** — voer Kopvast in de [KVK/BOIP Naamchecker](https://www.kvk.nl/starten/naamchecker/tool/). Let op gelijkende namen: [Klikvast](https://klikvast.com/) (websites/marketing) en Koopvast B.V. (andere spelling, vastgoed). Dit is geen juridisch advies.
 5. **Voorwaarden** — laat AV, privacy en orderbevestiging door een jurist toetsen vóór betalende verkoop.
-6. **Website Refresh** — de publieke check op `/kansen` en een aanvraag met website worden intern opgeslagen in het Supabase-project **Website Refresh**. Zet in Vercel:
+6. **Website Refresh** — de publieke check op `/websitecheck` en een aanvraag met website worden intern opgeslagen in het Supabase-project **Website Refresh**. Zet in Vercel:
    - `WEBSITE_REFRESH_SUPABASE_URL`
    - `WEBSITE_REFRESH_SERVICE_ROLE_KEY`
-   - `OPENAI_API_KEY` (anders wordt alleen de URL + homepage-feiten bewaard, zonder AI-score)
-   
-   De bezoeker ziet nog steeds alleen de drie feiten/observaties. De AI draait daarna op de server en kost per scan enkele centen (model `gpt-4.1-mini`). Dezelfde URL wordt binnen 24 uur niet opnieuw door AI gehaald. De diepe crawl (meerdere pagina’s, Playwright) blijft in de interne Refresh-app.
+   - `OPENAI_API_KEY` (anders wordt alleen de URL + homepage-feiten bewaard, zonder interne score)
+
+   De bezoeker ziet nog steeds alleen de drie feiten/observaties. De interne analyse draait daarna op de server. Dezelfde URL wordt binnen 24 uur niet opnieuw intern geanalyseerd.
 
 ## Beeld
 
-Sfeerfotografie in `public/images` komt van Unsplash (Unsplash License). Het zijn sfeerbeelden, geen klantportretten.
+Locatie- en sfeerbeelden in `public/images` komen van Unsplash (Unsplash License). Ze worden gebruikt als beeld in conceptcases, niet als klantportretten of AI-gegenereerde personen.

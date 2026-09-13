@@ -48,7 +48,7 @@ export async function acquireScan(result: ScanResult, submittedUrl?: string): Pr
   if (!website.trim()) return;
   await acquireWebsite({
     website,
-    source: "kansen",
+    source: "websitecheck",
     title: result.status === "ok" ? result.title : null,
     findings: result.status === "ok" ? result.findings : [],
     fetchedUrl: result.status === "ok" ? result.fetchedUrl : undefined,
@@ -69,7 +69,7 @@ export async function acquireLead(lead: AcquireLead & { website?: string }): Pro
 
 async function acquireWebsite(input: {
   website: string;
-  source: "kansen" | "aanvraag";
+  source: "websitecheck" | "kansen" | "aanvraag";
   company?: string;
   title?: string | null;
   findings?: ScanFinding[];
@@ -92,7 +92,7 @@ async function acquireWebsite(input: {
 
   const domain = domainFromUrl(url.toString());
   const websiteUrl = `${url.protocol}//${url.host}`;
-  const sourceName = input.source === "aanvraag" ? "Kopvast aanvraag" : "Kopvast websitekansen";
+  const sourceName = input.source === "aanvraag" ? "Kopvast aanvraag" : "Kopvast websitecheck";
 
   const { data: existing, error: lookupError } = await supabase
     .from("prospects")
@@ -152,7 +152,7 @@ async function acquireWebsite(input: {
 
   await supabase.from("activity_logs").insert({
     prospect_id: prospect.id,
-    event_type: input.source === "aanvraag" ? "kopvast_aanvraag" : "kopvast_kansen",
+    event_type: input.source === "aanvraag" ? "kopvast_aanvraag" : "kopvast_websitecheck",
     actor_type: "system",
     actor_id: "kopvast.nl",
     new_status: prospect.status,

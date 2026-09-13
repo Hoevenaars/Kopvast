@@ -10,6 +10,7 @@ export async function POST(request: Request) {
     email: typeof body?.email === "string" ? body.email : "",
     company: typeof body?.company === "string" ? body.company : "",
     website: typeof body?.website === "string" ? body.website : "",
+    phone: typeof body?.phone === "string" ? body.phone : "",
     message: typeof body?.message === "string" ? body.message : "",
     source: typeof body?.source === "string" ? body.source : "aanvraag",
   });

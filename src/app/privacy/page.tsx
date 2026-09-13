@@ -18,8 +18,8 @@ export default function PrivacyPage() {
         <section>
           <h2 className="font-heading text-2xl text-ink">Wie is verantwoordelijk</h2>
           <p className="mt-3">
-            Aanvragen via deze website worden behandeld door Kopvast, te bereiken via het
-            aanvraagformulier of{" "}
+            Aanvragen via deze website worden behandeld door Kopvast, te bereiken via de
+            formulieren of{" "}
             <a className="underline" href={`mailto:${site.email}`}>
               {site.email}
             </a>
@@ -30,10 +30,10 @@ export default function PrivacyPage() {
         <section>
           <h2 className="font-heading text-2xl text-ink">Wat we verzamelen</h2>
           <p className="mt-3">
-            Via het aanvraagformulier: naam, e-mail, optioneel bedrijf, website en toelichting. Via
-            de websitecheck: het opgegeven publieke webadres en de openbare HTML van de homepage. Die
-            check kan intern worden bewaard om te beoordelen of Kopvast Website past. We vullen
-            ontbrekende bedrijfsgegevens niet aan met gissingen.
+            Via het website- of maatwerkformulier: naam, e-mail, optioneel telefoon, bedrijf, website
+            en toelichting. Via de websitecheck: het opgegeven publieke webadres en de openbare HTML
+            van de homepage. Die check kan intern worden bewaard om te beoordelen of Kopvast Website
+            past. We vullen ontbrekende bedrijfsgegevens niet aan met gissingen.
           </p>
         </section>
         <section>

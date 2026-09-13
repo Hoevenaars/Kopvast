@@ -12,15 +12,33 @@ export async function submitAanvraag(
   const email = String(formData.get("email") ?? "");
   const company = String(formData.get("company") ?? "");
   const website = String(formData.get("website") ?? "");
-  const message = String(formData.get("message") ?? "");
-  const source = String(formData.get("source") ?? "aanvraag");
+  const phone = String(formData.get("phone") ?? "");
+  const source = String(formData.get("source") ?? "website-aanvraag");
+  const details: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (["name", "email", "company", "website", "phone", "source", "message"].includes(key)) continue;
+    if (typeof value === "string" && value.trim()) {
+      details[key] = details[key] ? `${details[key]}, ${value}` : value;
+    }
+  }
 
-  const result = await createLead({ name, email, company, website, message, source });
+  const result = await createLead({
+    name,
+    email,
+    company,
+    website,
+    phone,
+    source,
+    details,
+    message: String(formData.get("message") ?? ""),
+  });
   if (result.ok && website.trim()) {
     after(() =>
-      acquireLead({ name, email, company, website, message }).catch((error) => {
-        console.error("[kopvast] Acquire na aanvraag mislukt", error);
-      })
+      acquireLead({ name, email, company, website, message: details.Idee || details.Toelichting }).catch(
+        (error) => {
+          console.error("[kopvast] Acquire na aanvraag mislukt", error);
+        }
+      )
     );
   }
   return result;
