@@ -6,7 +6,7 @@ import { PageHero } from "@/components/page-hero";
 export const metadata: Metadata = {
   title: "Over Kopvast",
   description:
-    "Kopvast is het label van Nick Hoevenaars voor ondernemers die hun bedrijf sterker willen presenteren. Scherp denken. Sterk uitvoeren.",
+    "Kopvast helpt ondernemers hun bedrijf sterker te presenteren. Scherp denken. Sterk uitvoeren.",
 };
 
 export default function AboutPage() {
@@ -21,9 +21,9 @@ export default function AboutPage() {
         <div className="max-w-xl">
           <h2 className="font-heading text-3xl text-ink">Een ondernemerspartner, geen bureau-theater</h2>
           <p className="mt-4 text-base leading-7 text-olive">
-            Nick Hoevenaars bouwt Kopvast als productgedreven merk: vaste pakketten, goedgekeurde
-            componenten en menselijke verantwoordelijkheid waar het ertoe doet. Automatisering is
-            het organisatiemodel, niet de klantbelofte.
+            Kopvast is een productgedreven merk: vaste pakketten, goedgekeurde componenten en
+            menselijke verantwoordelijkheid waar het ertoe doet. Automatisering is het
+            organisatiemodel, niet de klantbelofte.
           </p>
           <p className="mt-4 text-base leading-7 text-olive">
             Kopvast wordt geen recruitmentlabel, geen generiek AI-bureau en geen adviesfirma die

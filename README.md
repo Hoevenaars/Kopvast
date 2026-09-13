@@ -43,7 +43,7 @@ Kopieer `.env.example` naar `.env.local` als je e-mailnotificaties wilt.
 | --- | --- |
 | `RESEND_API_KEY` | Verstuurt aanvragen via Resend. Zonder sleutel wordt de lead wel opgeslagen, maar niet gemaild. |
 | `RESEND_FROM_EMAIL` | Geverifieerde afzender. Standaard de Resend-sandbox; daarna `Kopvast <hello@send.kopvast.nl>`. |
-| `CONTACT_TO_EMAIL` | Ontvangstadres voor aanvragen (standaard Nick). |
+| `CONTACT_TO_EMAIL` | Ontvangstadres voor aanvragen. |
 
 ## Livegang
 
@@ -60,7 +60,7 @@ git push -u github main
 
 Heb je de remote al toegevoegd, sla `git remote add` over. GitHub vraagt om in te loggen (browser of Personal Access Token).
 
-Daarna in Vercel: **Add New Project → Import `Hoevenaars/Kopvast`**. Maak een **nieuw** project; gebruik niet het bestaande nickhoevenaars.nl-project.
+Daarna in Vercel: **Add New Project → Import `Hoevenaars/Kopvast`**. Maak een **nieuw** project; koppel het niet aan een ander bestaand Vercel-project.
 
 1. **Publiceren** — in dit Cursor-gesprek op **Publish** klikken (zonder GitHub), of na de push hierboven het GitHub-repo in Vercel importeren.
 2. **Domein** — `kopvast.nl` is gereserveerd (nu een TransIP-parkeerpagina). In Vercel: Add Domain `kopvast.nl` en `www.kopvast.nl`. In TransIP DNS:

@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { site } from "@/lib/site";
 
 export type LeadPayload = {
   id: string;
@@ -20,7 +21,7 @@ function escapeHtml(value: string): string {
 
 export async function sendLeadNotification(lead: LeadPayload): Promise<{ delivered: boolean; id?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
-  const to = process.env.CONTACT_TO_EMAIL ?? "nhoevenaars@gmail.com";
+  const to = process.env.CONTACT_TO_EMAIL ?? site.email;
   const from = process.env.RESEND_FROM_EMAIL ?? "Kopvast <onboarding@resend.dev>";
 
   if (!apiKey) {
