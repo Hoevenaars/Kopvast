@@ -4,6 +4,7 @@ import { routes, site } from "@/lib/site";
 const columns = [
   {
     title: "Kopvast",
+    intro: true,
     links: [
       { href: routes.websites, label: "Websites" },
       { href: routes.merk, label: "Merk" },
@@ -40,19 +41,13 @@ const columns = [
 export function SiteFooter() {
   return (
     <footer className="border-t border-stone/40 bg-ivory">
-      <div className="container-page grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-5">
-        <div>
-          <p className="text-sm font-semibold tracking-[0.22em] text-ink">{site.name.toUpperCase()}</p>
-          <p className="mt-3 max-w-xs text-sm leading-6 text-olive">{site.tagline}</p>
-          <p className="mt-6 text-sm text-olive">
-            <a className="underline-offset-4 hover:underline" href={`mailto:${site.email}`}>
-              {site.email}
-            </a>
-          </p>
-        </div>
+      <div className="container-page grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
         {columns.map((column) => (
           <div key={column.title}>
             <p className="text-xs tracking-[0.16em] text-stone uppercase">{column.title}</p>
+            {"intro" in column && column.intro ? (
+              <p className="mt-3 text-sm leading-6 text-olive">{site.tagline}</p>
+            ) : null}
             <ul className="mt-4 space-y-2">
               {column.links.map((link) => (
                 <li key={link.href}>
@@ -62,6 +57,13 @@ export function SiteFooter() {
                 </li>
               ))}
             </ul>
+            {"intro" in column && column.intro ? (
+              <p className="mt-5 text-sm text-olive">
+                <a className="underline-offset-4 hover:underline" href={`mailto:${site.email}`}>
+                  {site.email}
+                </a>
+              </p>
+            ) : null}
           </div>
         ))}
       </div>

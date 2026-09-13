@@ -1,7 +1,13 @@
 import Image from "next/image";
 import { BrowserFrame, PhoneFrame } from "@/components/work/frames";
 
-export function LindenhofDesktop({ compact = false }: { compact?: boolean }) {
+export function LindenhofDesktop({
+  compact = false,
+  tall = false,
+}: {
+  compact?: boolean;
+  tall?: boolean;
+}) {
   return (
     <BrowserFrame url="lindenhof.nl">
       <div className={compact ? "p-3" : "p-4 md:p-5"}>
@@ -9,7 +15,11 @@ export function LindenhofDesktop({ compact = false }: { compact?: boolean }) {
           <span>Lindenhof</span>
           <span className="hidden sm:inline">Locatie · Arrangementen · Contact</span>
         </div>
-        <div className={`relative mt-3 overflow-hidden ${compact ? "h-36" : "h-44 md:h-56"}`}>
+        <div
+          className={`relative mt-3 overflow-hidden ${
+            compact ? "h-36" : tall ? "h-56 md:h-80" : "h-44 md:h-56"
+          }`}
+        >
           <Image src="/images/venue.jpg" alt="" fill className="object-cover" />
           <div className="absolute inset-0 bg-ink/25" />
           <div className="absolute inset-x-4 bottom-4 text-ivory">
@@ -179,11 +189,14 @@ export function FlyerCard() {
 export function HeroWork() {
   return (
     <div className="relative">
-      <LindenhofDesktop />
-      <div className="absolute -right-2 -bottom-8 w-[38%] sm:-right-4 sm:w-[34%] lg:-right-6">
+      <LindenhofDesktop tall />
+      <div className="mt-4 grid grid-cols-2 items-start gap-3 md:absolute md:-right-3 md:-bottom-8 md:mt-0 md:block md:w-[32%] lg:-right-5">
+        <div className="md:hidden">
+          <QuoteCard />
+        </div>
         <LindenhofMobile />
       </div>
-      <div className="absolute -bottom-10 left-4 hidden w-[42%] md:block">
+      <div className="absolute bottom-3 left-5 hidden w-[40%] md:block">
         <QuoteCard />
       </div>
     </div>
