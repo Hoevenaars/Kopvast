@@ -31,7 +31,7 @@ const concepts = [
     title: "Bureau dat expertiser dan de site oogt",
     problem:
       "Het werk is scherp, de middelen niet. Offerte, LinkedIn en website spreken drie talen.",
-    work: "Websitevernieuwing plus een merkprofiel waar later sjablonen op aansluiten. Geen nieuw logo als de naam al vertrouwen heeft.",
+    work: "Websitevernieuwing plus een merkprofiel waarop sjablonen aansluiten. Bestaande herkenning blijft staan als de naam al vertrouwen heeft.",
     result:
       "Eén goedgekeurde basis voor site en documenten. Meetbare claims blijven achterwege tot er echte cijfers zijn.",
   },

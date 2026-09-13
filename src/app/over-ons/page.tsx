@@ -15,24 +15,24 @@ export default function AboutPage() {
       <PageHero
         eyebrow="Over Kopvast"
         title="Scherp denken. Sterk uitvoeren."
-        text="Kopvast is een zelfstandig label voor ondernemers die hun bedrijf sterker willen presenteren en ontwikkelen. De eerste verkoop is concreet: een professionele website."
+        text="Kopvast helpt ondernemers hun bedrijf sterker te presenteren en verder te ontwikkelen. We beginnen concreet: een professionele website."
       />
       <section className="container-page grid gap-12 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div className="max-w-xl">
-          <h2 className="font-heading text-3xl text-ink">Een ondernemerspartner, geen bureau-theater</h2>
+          <h2 className="font-heading text-3xl text-ink">Een ondernemerspartner die met je meewerkt</h2>
           <p className="mt-4 text-base leading-7 text-olive">
             Kopvast is een productgedreven merk: vaste pakketten, goedgekeurde componenten en
-            menselijke verantwoordelijkheid waar het ertoe doet. Automatisering is het
-            organisatiemodel, niet de klantbelofte.
+            menselijke verantwoordelijkheid waar het ertoe doet. Automatisering houdt de organisatie
+            overzichtelijk. De belofte aan jou blijft persoonlijk, concreet en uitvoerbaar.
           </p>
           <p className="mt-4 text-base leading-7 text-olive">
-            Kopvast wordt geen recruitmentlabel, geen generiek AI-bureau en geen adviesfirma die
-            ieder probleem aanneemt. Bedrijfsadvies komt er pas wanneer daar expertise, capaciteit
-            en aantoonbare vraag voor is. Tot die tijd verkopen we het niet.
+            We helpen je met websites, merk en communicatie die op elkaar aansluiten. Ons werk blijft
+            bij wat we nu goed leveren: productwerk met een vaste scope, duidelijke prijzen en mensen
+            die het afmaken.
           </p>
           <p className="mt-4 text-base leading-7 text-olive">
-            De merkervaring moet drie signalen geven: verzorgd genoeg voor een directietafel,
-            toegankelijk genoeg voor een ondernemer, en praktisch genoeg om direct te bestellen.
+            De merkervaring is verzorgd genoeg voor een directietafel, toegankelijk genoeg voor een
+            ondernemer, en praktisch genoeg om direct te bestellen.
           </p>
         </div>
         <div className="relative min-h-[22rem] overflow-hidden rounded-2xl">
@@ -44,11 +44,11 @@ export default function AboutPage() {
           {[
             {
               title: "Scherp",
-              text: "We benoemen de echte opgave en onderbouwen bevindingen. Geen verkooppraat.",
+              text: "We benoemen de echte opgave en onderbouwen bevindingen. Zo heb je houvast om te beslissen.",
             },
             {
               title: "Stevig",
-              text: "Heldere scope, prijzen en verantwoordelijkheden. Geen eeuwige trajecten.",
+              text: "Heldere scope, prijzen en verantwoordelijkheden. Je ziet vooraf wat we leveren.",
             },
             {
               title: "Daadkrachtig",
