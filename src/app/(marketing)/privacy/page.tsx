@@ -33,7 +33,9 @@ export default function PrivacyPage() {
             Via het website- of maatwerkformulier: naam, e-mail, optioneel telefoon, bedrijf, website
             en toelichting. Via de websitecheck: het opgegeven publieke webadres en de openbare HTML
             van de homepage. Die check kan intern worden bewaard om te beoordelen of Kopvast Website
-            past. We vullen ontbrekende bedrijfsgegevens niet aan met gissingen.
+            past. We vullen ontbrekende bedrijfsgegevens niet aan met gissingen. Via inloggen op de
+            klant- of adminconsole: je e-mailadres en een sessiecookie, zodat je bij je eigen
+            projecten, bestanden of interne aanvragen kunt.
           </p>
         </section>
         <section>
