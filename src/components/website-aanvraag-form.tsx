@@ -44,8 +44,9 @@ export function WebsiteAanvraagForm() {
         <CheckCircle2 className="size-8 text-olive" />
         <h2 className="mt-4 text-3xl text-ink">Aanvraag ontvangen</h2>
         <p className="mt-3 max-w-lg text-sm leading-6 text-olive">
-          We hebben je aanvraag voor Kopvast Website opgeslagen. Je hoort van ons op het opgegeven
-          e-mailadres. Stilte behandelen we niet als akkoord of opdracht.
+          {state.emailed
+            ? "We hebben je aanvraag voor Kopvast Website opgeslagen. Je hoort van ons op het opgegeven e-mailadres. Stilte behandelen we niet als akkoord of opdracht."
+            : "We hebben je aanvraag voor Kopvast Website opgeslagen. We nemen contact met je op. Stilte behandelen we niet als akkoord of opdracht."}
         </p>
       </div>
     );

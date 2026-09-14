@@ -39,8 +39,9 @@ export function MaatwerkForm() {
         <CheckCircle2 className="size-8 text-olive" />
         <h2 className="mt-4 text-3xl text-ink">Idee ontvangen</h2>
         <p className="mt-3 max-w-lg text-sm leading-6 text-olive">
-          We beoordelen wat nodig en haalbaar is. Je krijgt geen automatische vaste prijs. We nemen contact
-          op via het opgegeven e-mailadres.
+          {state.emailed
+            ? "We beoordelen wat nodig en haalbaar is. Je krijgt geen automatische vaste prijs. We nemen contact op via het opgegeven e-mailadres."
+            : "We beoordelen wat nodig en haalbaar is. Je krijgt geen automatische vaste prijs. We nemen contact met je op."}
         </p>
       </div>
     );

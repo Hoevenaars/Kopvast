@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { refreshClient } from "./refresh";
 import { normalizeWebsiteUrl } from "./ssrf";
 import type { ScanFinding, ScanResult } from "./scan";
 import {
@@ -32,15 +33,6 @@ type ProspectRow = {
   company_name: string | null;
   notes: string | null;
 };
-
-function refreshClient(): SupabaseClient | null {
-  const url = process.env.WEBSITE_REFRESH_SUPABASE_URL;
-  const key = process.env.WEBSITE_REFRESH_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
 
 export async function acquireScan(result: ScanResult, submittedUrl?: string): Promise<void> {
   if (result.status === "invalid" || result.status === "blocked") return;
