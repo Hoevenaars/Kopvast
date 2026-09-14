@@ -119,6 +119,7 @@ export async function createLead(input: LeadInput): Promise<LeadResult> {
       message,
       source,
       phone,
+      details,
     });
     return { ok: true, emailed: sent.delivered, id: lead.id };
   } catch (error) {
