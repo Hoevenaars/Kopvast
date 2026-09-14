@@ -43,7 +43,7 @@ async function fetchPublicHtml(start: URL): Promise<{ finalUrl: string; html: st
       redirect: "manual",
       headers: {
         Accept: "text/html,application/xhtml+xml",
-        "User-Agent": "KopvastWebsiteCheck/1.0 (+https://kopvast.nl/kansen)",
+        "User-Agent": "KopvastWebsiteCheck/1.0 (+https://kopvast.nl/websitecheck)",
       },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });

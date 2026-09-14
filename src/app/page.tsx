@@ -1,269 +1,237 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { ButtonLink } from "@/components/button-link";
 import { CtaBand } from "@/components/cta-band";
-import { products } from "@/lib/site";
+import { MaatwerkBlock } from "@/components/maatwerk-block";
+import { ScanForm } from "@/components/scan-form";
+import { WebsitePackage } from "@/components/website-package";
+import { ConceptLabel } from "@/components/work/frames";
+import {
+  ArdeaDesktop,
+  BrandRefreshCard,
+  FlyerCard,
+  HeroWork,
+  LindenhofDesktop,
+  NoraDesktop,
+  PresentationCard,
+  QuoteCard,
+  SignatureCard,
+  SocialCard,
+} from "@/components/work/concept-mocks";
+import { conceptCases, cta, processSteps, products, propositions, routes, site } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Je bedrijf staat ergens voor. Laat dat zien.",
-  description:
-    "Kopvast helpt ondernemers hun bedrijf sterker naar buiten te brengen met een professionele website, een herkenbaar merk en duidelijke afspraken.",
+  title: site.promise,
+  description: site.description,
 };
-
-const services = [
-  {
-    href: "/websites",
-    title: "Websites",
-    text: "Professionele websites die passen bij je bedrijf en aanvragen mogelijk maken.",
-    icon: MonitorIcon,
-    linkLabel: "Meer over websites",
-  },
-  {
-    href: "/merkidentiteit",
-    title: "Merkidentiteit",
-    text: "Een herkenbare uitstraling die vertrouwen wekt en overal klopt.",
-    icon: PenIcon,
-    linkLabel: "Meer over merkidentiteit",
-  },
-  {
-    href: "/sjablonen",
-    title: "Sjablonen",
-    text: "Bewerkbare offertes, presentaties en zichtbaarheidsmiddelen op dezelfde merkbasis.",
-    icon: LayersIcon,
-    linkLabel: "Meer over sjablonen",
-  },
-  {
-    href: "/over-ons",
-    title: "Samenwerken",
-    text: "Wij helpen je bedrijf sterker presenteren. Vaste pakketten, duidelijke afspraken en een partner die meedenkt.",
-    icon: CompassIcon,
-    linkLabel: "Meer over Kopvast",
-  },
-];
-
-const steps = [
-  {
-    n: "01",
-    title: "Inzicht",
-    text: "We brengen je kansen in kaart. Feiten die je kunt controleren.",
-  },
-  {
-    n: "02",
-    title: "Plan",
-    text: "Je ontvangt een concreet voorstel met vaste prijs en scope.",
-  },
-  {
-    n: "03",
-    title: "Realisatie",
-    text: "We ontwerpen, bouwen en vullen vanuit goedgekeurde merkgegevens.",
-  },
-  {
-    n: "04",
-    title: "Live",
-    text: "Je gaat live en wij blijven betrokken via beheer.",
-  },
-];
 
 export default function HomePage() {
   return (
     <>
       <section className="bg-ivory">
-        <div className="grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-          <div className="container-page flex flex-col justify-center py-14 lg:max-w-none lg:py-24 lg:pr-6 lg:pl-[max(2rem,calc((100vw-72rem)/2))]">
-            <h1 className="font-heading text-[2.7rem] leading-[1.08] text-ink sm:text-5xl lg:text-[4.1rem]">
-              Je bedrijf
-              <br />
-              staat ergens voor.
+        <div className="container-page grid items-center gap-12 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16 lg:py-20">
+          <div>
+            <h1 className="font-heading text-[2.35rem] leading-[1.08] text-ink sm:text-5xl lg:text-[4rem]">
+              Je bedrijf staat ergens voor.
               <br />
               <em className="italic">Laat dat zien.</em>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-olive">
-              Kopvast helpt ondernemers hun bedrijf sterker naar buiten te zetten. Met een
-              professionele website, een herkenbaar merk en middelen die bijdragen aan groei.
-              Duidelijk, doeltreffend en goed geregeld.
+              Websites, merken en middelen die laten zien wat je bedrijf waard is.
+            </p>
+            <p className="mt-3 max-w-xl text-base leading-7 text-olive">
+              Duidelijke pakketten waar het kan. Maatwerk waar het nodig is.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <ButtonLink href="/kansen">
-                Bekijk je websitekansen
+              <ButtonLink href={cta.package.href}>
+                {cta.package.label}
                 <ArrowRight data-icon="inline-end" />
               </ButtonLink>
-              <Link href="/websites" className="inline-flex items-center gap-1 border-b border-ink pb-0.5 text-sm text-ink">
-                Bekijk wat je krijgt
+              <Link href={cta.custom.href} className="inline-flex items-center border-b border-ink pb-0.5 text-sm text-ink">
+                {cta.custom.label}
               </Link>
             </div>
-            <ul className="mt-8 flex flex-col gap-2 text-sm text-olive sm:flex-row sm:gap-6">
-              {["Vaste prijzen", "Duidelijke afspraken", "Alles op één plek"].map((item) => (
-                <li key={item} className="flex items-center gap-2">
-                  <Check className="size-4 text-ink" />
-                  {item}
-                </li>
-              ))}
-            </ul>
+            <p className="mt-6 text-sm text-olive">Vaste prijzen · Heldere afspraken · Premium uitvoering</p>
+            <p className="mt-2 text-sm text-olive">Website {products.website.priceLabel}</p>
           </div>
-          <div className="relative min-h-[28rem] lg:min-h-[40rem]">
-            <Image
-              src="/images/hero.jpg"
-              alt="Ondernemer in warm avondlicht, kijkend naar buiten"
-              fill
-              priority
-              className="object-cover object-[50%_20%]"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-ink/35 via-transparent to-transparent" />
-            <p className="font-hand absolute top-10 right-6 max-w-[11rem] text-right text-2xl leading-7 text-ivory md:right-10">
-              Sterke bedrijven verdienen een uitstraling die klopt.
-            </p>
-            <p className="absolute right-6 bottom-6 text-xs tracking-[0.12em] text-ivory/80 uppercase md:right-10">
-              Beeld voor sfeer · geen klantportret
-            </p>
+          <div className="pb-16 md:pb-20">
+            <HeroWork />
+            <ConceptLabel className="mt-12 md:mt-16" />
           </div>
         </div>
       </section>
 
       <section className="border-y border-stone/40 bg-ivory">
-        <div className="container-page grid gap-10 py-16 md:grid-cols-2 lg:grid-cols-4 lg:gap-8 lg:py-20">
-          {services.map((service) => (
-            <Link key={service.title} href={service.href} className="group text-center">
-              <span className="mx-auto flex size-16 items-center justify-center rounded-full border border-stone/80 text-ink">
-                <service.icon />
-              </span>
-              <h2 className="mt-5 font-heading text-2xl text-ink">{service.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-olive">{service.text}</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm text-ink group-hover:underline">
-                {service.linkLabel}
-                <ArrowRight className="size-4" />
-              </span>
+        <div className="container-page py-16 lg:py-20">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <p className="text-xs tracking-[0.18em] text-olive uppercase">Werk</p>
+              <h2 className="mt-3 text-3xl text-ink md:text-4xl">Wat Kopvast maakt</h2>
+            </div>
+            <Link href={routes.werk} className="inline-flex items-center gap-1 text-sm text-ink hover:underline">
+              Bekijk alle conceptcases
+              <ArrowRight className="size-4" />
             </Link>
+          </div>
+          <div className="mt-10 grid gap-6 lg:grid-cols-3">
+            <article className="rounded-2xl border border-stone/50 p-4">
+              <LindenhofDesktop compact />
+              <p className="mt-4 text-sm font-medium text-ink">Website + offerte + social</p>
+              <ConceptLabel className="mt-2" />
+            </article>
+            <article className="rounded-2xl border border-stone/50 p-4">
+              <ArdeaDesktop compact />
+              <p className="mt-4 text-sm font-medium text-ink">Website + presentatie + handtekening</p>
+              <ConceptLabel className="mt-2" />
+            </article>
+            <article className="rounded-2xl border border-stone/50 p-4">
+              <NoraDesktop compact />
+              <p className="mt-4 text-sm font-medium text-ink">Merkrefresh + website + flyer</p>
+              <ConceptLabel className="mt-2" />
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-ivory">
+        <div className="container-page grid gap-8 py-16 md:grid-cols-3 lg:py-20">
+          {propositions.map((item) => (
+            <article key={item.href} className="flex flex-col border-t border-stone/50 pt-6">
+              <p className="text-xs tracking-[0.16em] text-olive uppercase">{item.label}</p>
+              <h2 className="mt-3 text-2xl leading-snug text-ink">{item.title}</h2>
+              <p className="mt-3 flex-1 text-sm leading-6 text-olive">{item.text}</p>
+              {"price" in item && item.price ? <p className="mt-4 text-sm text-ink">{item.price}</p> : null}
+              <Link href={item.href} className="mt-5 inline-flex items-center gap-1 text-sm text-ink hover:underline">
+                {item.cta}
+                <ArrowRight className="size-4" />
+              </Link>
+            </article>
           ))}
         </div>
       </section>
 
-      <section className="bg-ink text-ivory">
-        <div className="grid lg:grid-cols-2">
-          <div className="container-page flex flex-col justify-center py-16 lg:max-w-none lg:py-24 lg:pr-10 lg:pl-[max(2rem,calc((100vw-72rem)/2))]">
-            <p className="text-xs tracking-[0.18em] text-stone uppercase">Conceptvoorbeeld</p>
-            <blockquote className="mt-5 font-heading text-3xl leading-snug md:text-4xl">
-              “Een sterke locatiewebsite maakt in één oogopslag duidelijk wat de plek waard is, en hoe je
-              een aanvraag doet.”
-            </blockquote>
-            <p className="mt-6 max-w-md text-sm leading-6 text-ivory/70">
-              Dit is geen klantreview. Het is een concept voor zelfstandige trouw- en eventlocaties, de
-              eerste doelgroep waarmee Kopvast het aanbod toetst.
-            </p>
-            <Link href="/resultaten" className="mt-6 inline-flex items-center gap-1 text-sm text-ivory">
-              Bekijk dit concept
-              <ArrowRight className="size-4" />
-            </Link>
+      <WebsitePackage />
+      <MaatwerkBlock />
+
+      <section className="bg-ivory">
+        <div className="container-page py-16 lg:py-20">
+          <p className="text-xs tracking-[0.18em] text-olive uppercase">Cases</p>
+          <h2 className="font-heading mt-3 max-w-2xl text-4xl leading-tight text-ink">
+            Eerst zichtbaar werk. Daarna echte klantcases.
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-olive">
+            Tot er toestemming is voor echte cases laten we zien hoe Kopvast werkt. Elk voorbeeld is een
+            conceptcase, geen verzonnen resultaat.
+          </p>
+          <div className="mt-10 grid gap-8 lg:grid-cols-3">
+            {conceptCases.map((item) => (
+              <Link key={item.slug} href={`${routes.werk}#${item.slug}`} className="group">
+                <p className="text-xs tracking-[0.16em] text-olive uppercase">{item.sector}</p>
+                <h3 className="mt-2 text-2xl text-ink group-hover:underline">{item.name}</h3>
+                <p className="mt-2 text-sm leading-6 text-olive">{item.title}</p>
+                <ConceptLabel className="mt-4" />
+              </Link>
+            ))}
           </div>
-          <div className="relative min-h-[26rem]">
-            <Image
-              src="/images/venue.jpg"
-              alt="Landhuis aan het water, omgeven door bomen"
-              fill
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-ink/25" />
-            <div className="absolute inset-y-0 left-0 flex flex-col justify-center gap-8 bg-ink/55 p-8 backdrop-blur-[2px] md:w-[15.5rem]">
-              <Stat value={products.website.price} label="vaste websiteprijs" />
-              <Stat value="6" label="kernpagina’s inbegrepen" />
-              <Stat value={products.beheer.price} label="beheer per maand" />
+        </div>
+      </section>
+
+      <section className="border-y border-stone/40 bg-[#f7f4ec]">
+        <div className="container-page grid gap-12 py-16 lg:grid-cols-2 lg:py-20">
+          <div>
+            <p className="text-xs tracking-[0.18em] text-olive uppercase">Merk & middelen</p>
+            <h2 className="mt-3 text-3xl leading-tight text-ink md:text-4xl">
+              Een uitstraling die je ook kunt gebruiken.
+            </h2>
+            <p className="mt-4 text-base leading-7 text-olive">
+              Heb je al een sterke huisstijl? Dan bouwen we daarop voort. Loopt je uitstraling achter? Dan
+              scherpen we kleur, typografie, beeldtaal en merkgebruik aan.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link href={routes.merk} className="inline-flex items-center gap-1 text-sm text-ink hover:underline">
+                Bekijk merkidentiteit
+                <ArrowRight className="size-4" />
+              </Link>
+              <Link href={routes.marketing} className="inline-flex items-center gap-1 text-sm text-ink hover:underline">
+                Bekijk marketingmiddelen
+                <ArrowRight className="size-4" />
+              </Link>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <BrandRefreshCard />
+            <QuoteCard />
+            <PresentationCard />
+            <div className="grid gap-4">
+              <SignatureCard />
+              <SocialCard brand="Lindenhof" title="Een datum aanvragen, zonder ruis." image="/images/venue.jpg" />
             </div>
           </div>
         </div>
       </section>
 
       <section className="bg-ivory">
-        <div className="grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="container-page py-16 lg:max-w-none lg:py-24 lg:pr-8 lg:pl-[max(2rem,calc((100vw-72rem)/2))]">
-            <p className="text-xs tracking-[0.18em] text-olive uppercase">Zo werkt Kopvast</p>
-            <h2 className="mt-3 font-heading text-4xl leading-tight text-ink md:text-5xl">
-              Van inzicht
-              <br />
-              naar resultaat.
-            </h2>
-            <p className="mt-5 max-w-md text-base leading-7 text-olive">
-              We maken het je graag eenvoudig. In een helder proces werken we samen van analyse tot
-              livegang en verder.
+        <div className="container-page grid gap-12 py-16 lg:grid-cols-[0.9fr_1.1fr] lg:py-20">
+          <div>
+            <p className="text-xs tracking-[0.18em] text-olive uppercase">Werkwijze</p>
+            <h2 className="font-heading mt-3 text-4xl leading-tight text-ink">Van inzicht naar resultaat.</h2>
+            <p className="mt-4 max-w-md text-base leading-7 text-olive">
+              Slim georganiseerd. Menselijk beoordeeld. Je ziet vooraf wat je krijgt.
             </p>
-            <Link href="/werkwijze" className="mt-6 inline-flex items-center gap-1 border-b border-ink pb-0.5 text-sm">
-              Zo werkt het
+            <Link href={cta.package.href} className="mt-6 inline-flex items-center gap-1 text-sm text-ink hover:underline">
+              {cta.package.label}
+              <ArrowRight className="size-4" />
             </Link>
-            <ol className="mt-10 space-y-6">
-              {steps.map((step) => (
-                <li key={step.n} className="grid grid-cols-[auto_1fr] gap-4">
-                  <span className="font-heading text-2xl text-copper">{step.n}</span>
-                  <div>
-                    <p className="font-medium text-ink">{step.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-olive">{step.text}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
           </div>
-          <div className="relative min-h-[22rem] lg:min-h-full">
-            <Image
-              src="/images/desk.jpg"
-              alt="Iemand werkt aan een plan aan een houten tafel"
-              fill
-              className="object-cover"
-            />
-            <p className="font-hand absolute right-6 bottom-8 max-w-[9rem] text-right text-2xl leading-7 text-ink">
-              Scherp denken.
-              <br />
-              Sterk uitvoeren.
+          <ol className="grid gap-6 sm:grid-cols-2">
+            {processSteps.map((step) => (
+              <li key={step.n}>
+                <p className="text-sm tracking-[0.14em] text-copper uppercase">{step.n}</p>
+                <h3 className="mt-2 text-xl text-ink">{step.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-olive">{step.text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="border-y border-stone/40 bg-ivory">
+        <div className="container-page grid gap-10 py-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div>
+            <h2 className="font-heading text-4xl leading-tight text-ink">Benieuwd wat wij zien?</h2>
+            <p className="mt-4 max-w-md text-base leading-7 text-olive">
+              Vul je websiteadres in. Je krijgt maximaal drie concrete aandachtspunten.
             </p>
           </div>
+          <ScanForm compact />
+        </div>
+      </section>
+
+      <section className="bg-ivory">
+        <div className="container-page grid gap-10 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div>
+            <p className="text-xs tracking-[0.18em] text-olive uppercase">Over Kopvast</p>
+            <h2 className="font-heading mt-3 text-4xl leading-tight text-ink">
+              Goed ondernemerschap verdient een sterke uitstraling.
+            </h2>
+            <p className="mt-5 max-w-xl text-base leading-7 text-olive">
+              Kopvast helpt ondernemers en organisaties professioneler en herkenbaarder naar buiten te komen.
+              Niet eindeloos praten. Eerst scherp krijgen wat klopt. Daarna bouwen.
+            </p>
+            <p className="mt-4 max-w-xl text-base leading-7 text-olive">
+              We werken efficiënt, zodat meer van je budget naar het eindresultaat gaat.
+            </p>
+            <Link href={routes.over} className="mt-6 inline-flex items-center gap-1 text-sm text-ink hover:underline">
+              Over Kopvast
+              <ArrowRight className="size-4" />
+            </Link>
+          </div>
+          <FlyerCard />
         </div>
       </section>
 
       <CtaBand />
     </>
-  );
-}
-
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <p className="font-heading text-4xl text-ivory">{value}</p>
-      <p className="mt-1 text-sm text-ivory/70">{label}</p>
-    </div>
-  );
-}
-
-function MonitorIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <rect x="3" y="4" width="18" height="12" rx="1.5" />
-      <path d="M8 20h8M12 16v4" />
-    </svg>
-  );
-}
-
-function PenIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M4 20l4.5-1.2L19 8.3a1.8 1.8 0 0 0-2.5-2.6L6 16.2 4 20z" />
-      <path d="M14.8 6.5l2.7 2.7" />
-    </svg>
-  );
-}
-
-function LayersIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M4 8l8-4 8 4-8 4-8-4z" />
-      <path d="M4 12l8 4 8-4" />
-      <path d="M4 16l8 4 8-4" />
-    </svg>
-  );
-}
-
-function CompassIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M14.8 9.2l-1.4 4.2-4.2 1.4 1.4-4.2 4.2-1.4z" />
-    </svg>
   );
 }

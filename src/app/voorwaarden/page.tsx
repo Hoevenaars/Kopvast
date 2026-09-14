@@ -18,10 +18,10 @@ export default function TermsPage() {
         <section>
           <h2 className="font-heading text-2xl text-ink">Prijs en scope</h2>
           <p className="mt-3">
-            {products.website.name} kost {products.website.price} eenmalig excl. btw en omvat zes
-            kernpagina’s, één taal, een standaardformulier, één correctieronde en een normale
-            migratie. {products.beheer.name} kost {products.beheer.price} per maand excl. btw vanaf
-            livegang.
+            {products.website.name} kost {products.website.price} eenmalig excl. btw en omvat
+            maximaal zes kernpagina’s, één taal, een standaardformulier, één correctieronde en een
+            reguliere migratie. {products.beheer.name} kost {products.beheer.price} per maand excl.
+            btw vanaf livegang. Maatwerk valt buiten de vaste pakketprijs.
           </p>
         </section>
         <section>
