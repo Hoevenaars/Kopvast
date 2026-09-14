@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { updateEmailEventByResendId, webhookTypeToStatus } from "@/lib/email-log";
+import { updateInboundEmailByResendId } from "@/lib/inbound";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
     const emailId = emailIdFromEvent(event);
     if (status && emailId) {
       await updateEmailEventByResendId(emailId, status);
+      await updateInboundEmailByResendId(emailId, status);
       console.info("[kopvast] E-mailstatus bijgewerkt", { emailId, type: event.type, status });
     } else {
       console.info("[kopvast] Resend-webhook genegeerd", { type: event.type, emailId });

@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { sendLeadNotification } from "@/lib/email";
+import { persistInboundLead } from "@/lib/inbound";
 
 export type StoredLead = {
   id: string;
@@ -102,9 +103,15 @@ export async function createLead(input: LeadInput): Promise<LeadResult> {
     return { ok: true, duplicate: true, emailed: false, id: lead.id };
   }
 
+  const inboundId = await persistInboundLead(lead).catch((error) => {
+    console.error("[kopvast] Inbound lead opslaan mislukt", error);
+    return null;
+  });
+
   try {
     const sent = await sendLeadNotification({
       id: lead.id,
+      inboundId: inboundId ?? undefined,
       name,
       email,
       company,
