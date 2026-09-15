@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cache } from "react";
+import { sanitizeAcquisitionSearch } from "./mail-body";
 import { refreshClient } from "./refresh";
 import { assertPublicHostname } from "./ssrf";
 import { isEmail, normalizeEmail } from "./product";
@@ -195,7 +197,17 @@ export async function listAcquisitionProspects(input: {
 
   const filter = asFilter(input.filter);
   const sort = asSort(input.sort);
-  const q = input.q?.trim() ?? "";
+  const needle = sanitizeAcquisitionSearch(input.q ?? "");
+
+  let emailIds: string[] = [];
+  if (needle) {
+    const { data: emailHits } = await supabase
+      .from("prospect_contacts")
+      .select("prospect_id")
+      .ilike("email", `%${needle}%`)
+      .limit(80);
+    emailIds = [...new Set((emailHits ?? []).map((row) => row.prospect_id).filter(Boolean))];
+  }
 
   let query = supabase
     .from("prospects")
@@ -213,6 +225,11 @@ export async function listAcquisitionProspects(input: {
   if (filter === "geconverteerd") query = query.eq("status", "CONVERTED");
   if (filter === "geblokkeerd") {
     query = query.or("do_not_contact.eq.true,status.eq.REJECTED,contact_status.in.(DO_NOT_CONTACT,BLOCKED)");
+  }
+  if (needle) {
+    const clauses = [`company_name.ilike.%${needle}%`, `domain.ilike.%${needle}%`];
+    if (emailIds.length) clauses.push(`id.in.(${emailIds.join(",")})`);
+    query = query.or(clauses.join(","));
   }
 
   if (sort === "score") query = query.order("opportunity_score", { ascending: false, nullsFirst: false });
@@ -237,18 +254,11 @@ export async function listAcquisitionProspects(input: {
     if (!emailByProspect.has(contact.prospect_id)) emailByProspect.set(contact.prospect_id, contact.email);
   }
 
-  let items: ProspectListItem[] = rows.map((row) => ({
+  const items: ProspectListItem[] = rows.map((row) => ({
     ...row,
     email: emailByProspect.get(row.id) ?? null,
     suppressed: Boolean(row.do_not_contact),
   }));
-
-  if (q) {
-    const needle = q.toLowerCase();
-    items = items.filter((item) =>
-      [item.company_name, item.domain, item.email].some((value) => value?.toLowerCase().includes(needle))
-    );
-  }
 
   return { items, configured: true };
 }
@@ -558,15 +568,14 @@ export async function upsertContact(
   return data as ProspectContact | null;
 }
 
-export async function loadProspectDetail(id: string): Promise<ProspectDetail | null> {
+export const loadProspectDetail = cache(async (id: string): Promise<ProspectDetail | null> => {
   const supabase = refreshClient();
   if (!supabase) return null;
 
   const { data: prospect } = await supabase.from("prospects").select("*").eq("id", id).maybeSingle();
   if (!prospect) return null;
 
-  const [contactsRes, scansRes, findingsRes, mailsRes, scoresRes, activitiesRes] = await Promise.all([
-    supabase.from("prospect_contacts").select("*").eq("prospect_id", id).order("created_at", { ascending: false }),
+  const [scansRes, findingsRes, mailsRes, scoresRes, activitiesRes, contactPack] = await Promise.all([
     supabase.from("website_scans").select("*").eq("prospect_id", id).order("started_at", { ascending: false }).limit(5),
     supabase.from("findings").select("*").eq("prospect_id", id).order("created_at", { ascending: false }).limit(40),
     supabase
@@ -578,9 +587,20 @@ export async function loadProspectDetail(id: string): Promise<ProspectDetail | n
       .limit(20),
     supabase.from("prospect_scores").select("*").eq("prospect_id", id).order("calculated_at", { ascending: false }).limit(1),
     supabase.from("activity_logs").select("id, event_type, actor_type, created_at, metadata").eq("prospect_id", id).order("created_at", { ascending: false }).limit(30),
+    supabase
+      .from("prospect_contacts")
+      .select("*")
+      .eq("prospect_id", id)
+      .order("created_at", { ascending: false })
+      .then(async (contactsRes) => {
+        const contacts = (contactsRes.data ?? []) as ProspectContact[];
+        const suppression = await findSuppression(supabase, { email: contacts[0]?.email, domain: prospect.domain });
+        return { contacts, suppression };
+      }),
   ]);
 
-  const contacts = (contactsRes.data ?? []) as ProspectContact[];
+  const contacts = contactPack.contacts;
+  const suppression = contactPack.suppression;
   const scans = (scansRes.data ?? []) as ProspectScan[];
   const mails = (mailsRes.data ?? []).map((row) => ({
     ...row,
@@ -595,7 +615,6 @@ export async function loadProspectDetail(id: string): Promise<ProspectDetail | n
       }
     | undefined;
   const contact = contacts[0] ?? null;
-  const suppression = await findSuppression(supabase, { email: contact?.email, domain: prospect.domain });
 
   return {
     id: prospect.id,
@@ -657,7 +676,7 @@ export async function loadProspectDetail(id: string): Promise<ProspectDetail | n
       evidenceQuality: score?.evidence_quality_score == null ? null : Number(score.evidence_quality_score),
     },
   };
-}
+});
 
 export async function updateProspectFollowUp(input: {
   prospectId: string;

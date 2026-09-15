@@ -221,24 +221,6 @@ export async function saveProspectMailDraft(input: {
   return { ok: true as const };
 }
 
-export async function previewProspectMail(input: { prospectId: string; subject: string; body: string }) {
-  const detail = await loadProspectDetail(input.prospectId);
-  if (!detail) return { ok: false as const, message: "Prospect niet gevonden." };
-  const html = await renderOutreachHtml({
-    subject: input.subject.trim() || "Voorbeeld",
-    body: input.body.trim() || " ",
-    companyName: detail.company_name ?? undefined,
-    domain: detail.domain,
-  });
-  return {
-    ok: true as const,
-    html,
-    mode: getEmailMode(),
-    intended: detail.contact?.email ?? null,
-    testTo: getTestEmail(),
-  };
-}
-
 async function sendViaResend(input: {
   to: string;
   subject: string;

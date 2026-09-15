@@ -1,5 +1,6 @@
 import { EmailButton, EmailShell } from "@/emails/_components/email-shell";
 import { Section, Text } from "react-email";
+import { splitMailParagraphs } from "@/lib/mail-body";
 import { site } from "@/lib/site";
 
 export type AcquisitionOutreachEmailProps = {
@@ -11,13 +12,6 @@ export type AcquisitionOutreachEmailProps = {
   ctaHref?: string;
 };
 
-function paragraphs(body: string) {
-  return body
-    .split(/\n{2,}/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 export function AcquisitionOutreachEmail({
   subject,
   body,
@@ -26,7 +20,7 @@ export function AcquisitionOutreachEmail({
   ctaLabel = "Bekijk het websitepakket",
   ctaHref = `${site.url}/websites`,
 }: AcquisitionOutreachEmailProps) {
-  const blocks = paragraphs(body);
+  const blocks = splitMailParagraphs(body);
   const preview = blocks[1] || blocks[0] || subject;
 
   return (

@@ -5,6 +5,7 @@ import { statusFromScore, FORBIDDEN_MAIL_CLAIMS, pickCommercialFindings } from "
 import { detectComplexityFlags, determineProductFit } from "./acquire-fit";
 import { composeAcquisitionBody, fallbackAcquisitionMail, pickMailFindings, selectableMailFindings } from "./acquisition-mail";
 import { evaluatePreSend } from "./acquisition-send";
+import { sanitizeAcquisitionSearch, splitMailParagraphs } from "./mail-body";
 import { normalizeWebsiteUrl } from "./ssrf";
 import { domainFromUrl } from "./acquire-map";
 
@@ -212,4 +213,18 @@ test("pre-send checks blokkeren suppression en ontbrekende mail", () => {
     live: true,
   });
   assert.equal(open.length, 0);
+});
+
+test("mailparagrafen splitsen op lege regels", () => {
+  assert.deepEqual(splitMailParagraphs("Goedendag,\n\nTweede alinea.\n\n\nDerde."), [
+    "Goedendag,",
+    "Tweede alinea.",
+    "Derde.",
+  ]);
+  assert.deepEqual(splitMailParagraphs("   "), []);
+});
+
+test("zoekterm gooit PostgREST-tekens eruit", () => {
+  assert.equal(sanitizeAcquisitionSearch("  nova,advies%_nl  "), "nova advies nl");
+  assert.equal(sanitizeAcquisitionSearch(""), "");
 });
