@@ -299,7 +299,13 @@ export async function changePassword(input: {
 
   const stored = await saveCredential(email, await hashPassword(input.password));
   if (!stored.ok) return stored;
-  await replaceSessions(email);
+  const role = await resolveLoginRole(email);
+  if (!role) return { ok: false, message: "Je bent niet ingelogd." };
+  await replaceSessions(email, {
+    email,
+    role,
+    organizationId: (await findMember(email))?.organization_id ?? null,
+  });
   return { ok: true };
 }
 
