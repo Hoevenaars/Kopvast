@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { saveAsset, saveOrganization, saveProjectStatus, saveRequestStatus } from "@/app/(workspace)/admin/klanten/actions";
+import { AccessToggle } from "@/components/workspace/access-toggle";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { EmptyState } from "@/components/workspace/shell";
 import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
@@ -28,7 +29,7 @@ export default async function AdminCustomerDetailPage({
   const { id } = await params;
   const workspace = await loadCustomerWorkspace(id);
   if (!workspace) notFound();
-  const { organization, projects, assets, requests } = workspace;
+  const { organization, members, projects, assets, requests } = workspace;
 
   return (
     <div className="space-y-8">
@@ -58,6 +59,25 @@ export default async function AdminCustomerDetailPage({
           Opslaan
         </button>
       </form>
+
+      <section className="space-y-3">
+        <h2 className="text-xl text-ink">Gebruikers</h2>
+        {members.length === 0 ? (
+          <EmptyState title="Nog geen gebruikers" text="Bij het omzetten van een aanvraag komt hier het klantaccount." />
+        ) : (
+          <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+            {members.map((member) => (
+              <li key={member.id} className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold">{member.name}</p>
+                  <p className="mt-1 text-sm text-ink/45">{member.email}</p>
+                </div>
+                <AccessToggle memberId={member.id} organizationId={organization.id} enabled={member.access_enabled} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <h2 className="mt-12 text-xl text-ink">Projecten</h2>
       <ul className="mt-4 space-y-3">

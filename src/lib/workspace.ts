@@ -13,7 +13,7 @@ import {
   type RequestType,
 } from "@/lib/product";
 import { products } from "@/lib/site";
-import { mutateStore, newId, nowIso, readLocalLeads, readLocalMail, readStore } from "@/lib/workspace-store";
+import { mutateStore, newId, nowIso, readLocalLeads, readLocalMail, readStore, type MemberRow } from "@/lib/workspace-store";
 
 export type OrganizationRow = {
   id: string;
@@ -164,8 +164,9 @@ export async function loadOrganization(id: string) {
 export async function loadCustomerWorkspace(organizationId: string) {
   const supabase = refreshClient();
   if (supabase) {
-    const [organization, projects, assets, requests] = await Promise.all([
+    const [organization, members, projects, assets, requests] = await Promise.all([
       loadOrganization(organizationId),
+      supabase.from("kopvast_members").select("*").eq("organization_id", organizationId).order("created_at"),
       supabase.from("kopvast_projects").select("*").eq("organization_id", organizationId).order("created_at"),
       supabase.from("kopvast_assets").select("*").eq("organization_id", organizationId).order("created_at"),
       supabase
@@ -177,6 +178,7 @@ export async function loadCustomerWorkspace(organizationId: string) {
     if (!organization) return null;
     return {
       organization,
+      members: ((members.data ?? []) as MemberRow[]).map(normalizeMember),
       projects: (projects.data ?? []) as ProjectRow[],
       assets: (assets.data ?? []) as AssetRow[],
       requests: (requests.data ?? []) as RequestRow[],
@@ -187,6 +189,9 @@ export async function loadCustomerWorkspace(organizationId: string) {
   if (!organization) return null;
   return {
     organization,
+    members: store.members
+      .filter((item) => item.organization_id === organizationId)
+      .map(normalizeMember),
     projects: store.projects.filter((item) => item.organization_id === organizationId),
     assets: store.assets.filter((item) => item.organization_id === organizationId),
     requests: store.requests
@@ -336,6 +341,7 @@ export async function convertLead(leadId: string) {
       name: lead.name,
       email: normalizeEmail(lead.email),
       role: "owner",
+      access_enabled: true,
     });
     const projects = defaultProjectsForLead(lead.type).map((project) => ({
       ...project,
@@ -363,6 +369,7 @@ export async function convertLead(leadId: string) {
       name: lead.name,
       email: normalizeEmail(lead.email),
       role: "owner",
+      access_enabled: true,
     });
     for (const project of defaultProjectsForLead(lead.type)) {
       store.projects.push({
@@ -461,4 +468,38 @@ export async function addAsset(input: {
     store.assets.push({ ...row, id: newId(), created_at: nowIso() });
   });
   return { ok: true as const };
+}
+
+export function normalizeMember(member: MemberRow): MemberRow {
+  return { ...member, access_enabled: member.access_enabled !== false };
+}
+
+export async function loadMembers() {
+  const supabase = refreshClient();
+  if (supabase) {
+    const { data } = await supabase.from("kopvast_members").select("*").order("created_at", { ascending: false });
+    return ((data ?? []) as MemberRow[]).map(normalizeMember);
+  }
+  return (await readStore()).members.map(normalizeMember);
+}
+
+export async function setMemberAccess(id: string, accessEnabled: boolean) {
+  if (!id) return { ok: false as const, message: "Gebruiker ontbreekt." };
+  const supabase = refreshClient();
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("kopvast_members")
+      .update({ access_enabled: accessEnabled })
+      .eq("id", id)
+      .select("email")
+      .maybeSingle();
+    if (error || !data) return { ok: false as const, message: error?.message ?? "Gebruiker niet gevonden." };
+    return { ok: true as const, email: normalizeEmail(data.email) };
+  }
+  return mutateStore((store) => {
+    const member = store.members.find((item) => item.id === id);
+    if (!member) return { ok: false as const, message: "Gebruiker niet gevonden." };
+    member.access_enabled = accessEnabled;
+    return { ok: true as const, email: normalizeEmail(member.email) };
+  });
 }

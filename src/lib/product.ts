@@ -42,6 +42,7 @@ export const workspaceRoutes = {
   adminProspects: "/admin/prospects",
   adminLeads: "/admin/leads",
   adminCustomers: "/admin/klanten",
+  adminUsers: "/admin/gebruikers",
   adminMail: "/admin/mails",
 } as const;
 
@@ -157,6 +158,11 @@ export function isAdminEmail(email: string) {
   const normalized = normalizeEmail(email);
   if (defaultAdminEmails().includes(normalized)) return true;
   return normalized.endsWith("@kopvast.nl");
+}
+
+export function memberHasAccess(member: { access_enabled?: boolean | null } | null) {
+  if (!member) return false;
+  return member.access_enabled !== false;
 }
 
 export function destinationForRole(role: "admin" | "customer") {
