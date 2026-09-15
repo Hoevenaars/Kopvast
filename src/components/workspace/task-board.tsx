@@ -81,8 +81,8 @@ export function TaskBoard({
     setOverBucket(bucketId);
   }
 
-  async function dropOn(bucketId: string) {
-    const id = drag.current?.id || draggingId;
+  async function dropOn(bucketId: string, todoId?: string) {
+    const id = todoId || drag.current?.id || draggingId;
     drag.current = null;
     markOver(null);
     setDraggingId(null);
@@ -92,34 +92,11 @@ export function TaskBoard({
     replaceTodo(result.todo);
   }
 
-  function onCardPointerDown(event: PointerEvent, todoId: string) {
-    if ((event.target as HTMLElement).closest("[data-toggle]")) return;
-    drag.current = { id: todoId, x: event.clientX, y: event.clientY, started: false };
-  }
-
-  function onCardPointerMove(event: PointerEvent<HTMLElement>) {
-    const state = drag.current;
-    if (!state) return;
-    const dist = Math.hypot(event.clientX - state.x, event.clientY - state.y);
-    if (!state.started && dist > 8) {
-      state.started = true;
-      skipClick.current = true;
-      setDraggingId(state.id);
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
-    if (!state.started) return;
-    const node = event.currentTarget;
-    node.style.pointerEvents = "none";
-    const el = document.elementFromPoint(event.clientX, event.clientY);
-    node.style.pointerEvents = "";
-    const col = el?.closest("[data-bucket]") as HTMLElement | null;
-    markOver(col ? (col.dataset.bucket ?? "") : null);
-  }
-
-  async function onCardPointerUp() {
+  function finishPointerDrag() {
     const state = drag.current;
     if (!state?.started) {
       drag.current = null;
+      setDraggingId(null);
       return;
     }
     skipClick.current = true;
@@ -132,7 +109,46 @@ export function TaskBoard({
       setDraggingId(null);
       return;
     }
-    await dropOn(target);
+    void dropOn(target, state.id);
+  }
+
+  function onCardPointerDown(event: PointerEvent<HTMLElement>, todoId: string) {
+    if ((event.target as HTMLElement).closest("[data-toggle]")) return;
+    const pointerId = event.pointerId;
+    drag.current = { id: todoId, x: event.clientX, y: event.clientY, started: false };
+
+    const hitTest = (clientX: number, clientY: number) => {
+      const el = document.elementFromPoint(clientX, clientY);
+      const col = el?.closest("[data-bucket]") as HTMLElement | null;
+      markOver(col ? (col.dataset.bucket ?? "") : null);
+    };
+
+    const onMove = (moveEvent: globalThis.PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      const state = drag.current;
+      if (!state) return;
+      const dist = Math.hypot(moveEvent.clientX - state.x, moveEvent.clientY - state.y);
+      if (!state.started && dist > 6) {
+        state.started = true;
+        skipClick.current = true;
+        setDraggingId(state.id);
+      }
+      if (!state.started) return;
+      hitTest(moveEvent.clientX, moveEvent.clientY);
+    };
+
+    const onUp = (upEvent: globalThis.PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      hitTest(upEvent.clientX, upEvent.clientY);
+      finishPointerDrag();
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
   }
 
   return (
@@ -167,6 +183,16 @@ export function TaskBoard({
             <section
               key={key}
               data-bucket={column.id}
+              onDragOver={(event) => {
+                event.preventDefault();
+                markOver(column.id);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const id = event.dataTransfer.getData("text/plain") || draggingId;
+                if (!id) return;
+                void dropOn(column.id, id);
+              }}
               className={cn(
                 "flex w-[280px] shrink-0 flex-col gap-2 rounded-2xl p-2",
                 overBucket === column.id ? "bg-olive/10" : "bg-white/55"
@@ -233,8 +259,6 @@ export function TaskBoard({
                       setOpenTodoId(todo.id);
                     }}
                     onPointerDown={(event) => onCardPointerDown(event, todo.id)}
-                    onPointerMove={onCardPointerMove}
-                    onPointerUp={() => void onCardPointerUp()}
                     onToggle={async () => {
                       const result = await toggleTodoDoneAction(todo.id);
                       if (!result.ok) return report(result.message);
@@ -276,8 +300,6 @@ export function TaskBoard({
                             setOpenTodoId(todo.id);
                           }}
                           onPointerDown={(event) => onCardPointerDown(event, todo.id)}
-                          onPointerMove={onCardPointerMove}
-                          onPointerUp={() => void onCardPointerUp()}
                           onToggle={async () => {
                             const result = await toggleTodoDoneAction(todo.id);
                             if (!result.ok) return report(result.message);
@@ -367,8 +389,6 @@ function TaskCard({
   onOpen,
   onToggle,
   onPointerDown,
-  onPointerMove,
-  onPointerUp,
 }: {
   todo: BoardTodo;
   labels: TodoLabelRow[];
@@ -376,8 +396,6 @@ function TaskCard({
   onOpen: () => void;
   onToggle: () => void;
   onPointerDown: (event: PointerEvent<HTMLElement>) => void;
-  onPointerMove: (event: PointerEvent<HTMLElement>) => void;
-  onPointerUp: () => void;
 }) {
   const assigned = todo.label_ids.map((id) => labels.find((label) => label.id === id)).filter(Boolean) as TodoLabelRow[];
   const stats = checklistStats(todo.checklist);
@@ -387,14 +405,16 @@ function TaskCard({
 
   return (
     <article
+      draggable
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
+      onDragStart={(event) => {
+        event.dataTransfer.setData("text/plain", todo.id);
+        event.dataTransfer.effectAllowed = "move";
+      }}
       onClick={onOpen}
       className={cn(
         "cursor-grab touch-none rounded-xl border border-ink/10 bg-white p-3 shadow-[0_1px_0_rgba(18,18,18,0.04)] select-none",
-        dragging && "opacity-40",
+        dragging && "pointer-events-none opacity-40",
         done && "opacity-70"
       )}
     >
