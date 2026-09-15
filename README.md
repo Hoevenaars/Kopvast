@@ -12,8 +12,8 @@ Kopvast helpt ondernemers en organisaties sterker naar buiten te komen met websi
 - Conceptcases tot echte klantcases beschikbaar zijn
 - Leads worden eerst opgeslagen, daarna bevestigd via Resend
 - Webhook voor delivered / bounced / failed
-- Klantconsole (`/console`) voor projecten, bestanden en wijzigingsverzoeken
-- Adminconsole (`/admin`) voor aanvragen, klanten en mail
+- Mijn Kopvast (`/klant`) voor website, merk, bestanden en wijzigingsverzoeken
+- Admin Console (`/admin`) voor acquisitie, aanvragen, klanten en mail
 
 Testprijzen (excl. btw): Kopvast Website €1.495 eenmalig, Kopvast Beheer €199 per maand.
 
@@ -49,7 +49,7 @@ Kopieer `.env.example` naar `.env.local` als je e-mailnotificaties wilt.
 | `RESEND_FROM_EMAIL` | Geverifieerde afzender. Standaard `Kopvast <contact@kopvast.nl>`. Niet de Resend-sandbox gebruiken. |
 | `CONTACT_TO_EMAIL` | Ontvangstadres voor aanvragen, standaard `contact@kopvast.nl`. |
 | `RESEND_WEBHOOK_SECRET` | Controleert Resend-webhooks op `/api/resend/webhook`. |
-| `KOPVAST_SESSION_SECRET` | Tekent inlogsessies voor `/console` en `/admin`. |
+| `KOPVAST_SESSION_SECRET` | Tekent inlogsessies voor `/klant` en `/admin`. |
 | `KOPVAST_ADMIN_EMAILS` | Kommagescheiden adminadressen. Adressen op `@kopvast.nl` zijn altijd admin. |
 
 ## Livegang
@@ -86,7 +86,7 @@ Daarna in Vercel: **Add New Project → Import `Hoevenaars/Kopvast`**. Maak een 
    - `OPENAI_API_KEY` (anders wordt alleen de URL + homepage-feiten bewaard, zonder interne score)
 
    De bezoeker ziet nog steeds alleen de drie feiten/observaties. De interne analyse draait daarna op de server. Dezelfde URL wordt binnen 24 uur niet opnieuw intern geanalyseerd.
-7. **Consoles** — `/inloggen` stuurt live een magic link via Resend. Lokaal log je direct in. Zet `KOPVAST_SESSION_SECRET` en eventueel extra adminadressen. Een gewonnen aanvraag zet je in `/admin` om naar een klant; die persoon kan daarna `/console` openen.
+7. **Consoles** — `/inloggen` stuurt live een magic link via Resend. Lokaal log je direct in. Zet `KOPVAST_SESSION_SECRET` en eventueel extra adminadressen. Een gewonnen aanvraag zet je in `/admin` om naar een klant; die persoon kan daarna `/klant` (Mijn Kopvast) openen.
 
 ## Beeld
 

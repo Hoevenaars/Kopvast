@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { adminNav, DataList, EmptyState, WorkspaceShell } from "@/components/workspace/shell";
-import { requireSession } from "@/lib/auth";
+import { PageIntro } from "@/components/workspace/page-frame";
+import { DataList, EmptyState } from "@/components/workspace/shell";
 import { labelFor, organizationStatuses, workspaceRoutes } from "@/lib/product";
 import { loadOrganizations } from "@/lib/workspace";
 
@@ -10,16 +10,11 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminCustomersPage() {
-  const session = await requireSession("admin");
   const organizations = await loadOrganizations();
 
   return (
-    <WorkspaceShell
-      eyebrow="Adminconsole"
-      title="Klanten"
-      email={session?.email ?? ""}
-      nav={adminNav("klanten")}
-    >
+    <div className="space-y-8">
+      <PageIntro eyebrow="Klanten" title="Klanten" text="Gewonnen aanvragen die je hebt omgezet naar een omgeving." />
       {organizations.length === 0 ? (
         <EmptyState title="Nog geen klanten" text="Zet een aanvraag om zodra je start." />
       ) : (
@@ -32,6 +27,6 @@ export default async function AdminCustomersPage() {
           }))}
         />
       )}
-    </WorkspaceShell>
+    </div>
   );
 }

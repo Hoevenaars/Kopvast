@@ -26,7 +26,7 @@ test("normaliseert e-mail en herkent admin-domein", () => {
   assert.equal(isAdminEmail("contact@kopvast.nl"), true);
   assert.equal(isAdminEmail("eva@atelierlint.nl"), false);
   assert.equal(destinationForRole("admin"), "/admin");
-  assert.equal(destinationForRole("customer"), "/console");
+  assert.equal(destinationForRole("customer"), "/klant");
 });
 
 test("hash van login-token is deterministisch en niet de token zelf", () => {
@@ -83,7 +83,7 @@ test("loginmail volgt de Kopvast-huisstijl", async () => {
     })
   );
   assert.match(html, /KOPVAST/);
-  assert.match(html, /klantconsole/i);
+  assert.match(html, /Mijn Kopvast/i);
   assert.match(html, /verify\?token=abc/);
   assert.match(html, /#a64d27|rgb\(166,\s*77,\s*39\)/i);
 });

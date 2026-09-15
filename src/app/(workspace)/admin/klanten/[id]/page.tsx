@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { saveAsset, saveOrganization, saveProjectStatus, saveRequestStatus } from "@/app/(workspace)/admin/klanten/actions";
-import { adminNav, EmptyState, WorkspaceShell } from "@/components/workspace/shell";
+import { PageIntro } from "@/components/workspace/page-frame";
+import { EmptyState } from "@/components/workspace/shell";
 import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
 import { areaClass, fieldClass } from "@/components/form-fields";
-import { requireSession } from "@/lib/auth";
 import {
   assetKinds,
   labelFor,
@@ -25,20 +25,14 @@ export default async function AdminCustomerDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireSession("admin");
   const { id } = await params;
   const workspace = await loadCustomerWorkspace(id);
   if (!workspace) notFound();
   const { organization, projects, assets, requests } = workspace;
 
   return (
-    <WorkspaceShell
-      eyebrow="Adminconsole"
-      title={organization.name}
-      email={session?.email ?? ""}
-      nav={adminNav("klanten")}
-    >
-      <p className="text-sm text-olive">{organization.website || "Geen website opgegeven"}</p>
+    <div className="space-y-8">
+      <PageIntro eyebrow="Klant" title={organization.name} text={organization.website || "Geen website opgegeven"} />
 
       <form action={saveOrganization} className="mt-8 grid gap-4 rounded-2xl border border-stone/50 p-5 md:grid-cols-[16rem_1fr]">
         <input type="hidden" name="id" value={organization.id} />
@@ -131,7 +125,7 @@ export default async function AdminCustomerDetailPage({
       <h2 className="mt-12 text-xl text-ink">Verzoeken</h2>
       {requests.length === 0 ? (
         <div className="mt-4">
-          <EmptyState title="Geen verzoeken" text="Klanten sturen wijzigingen vanuit hun console." />
+          <EmptyState title="Geen verzoeken" text="Klanten sturen wijzigingen vanuit Mijn Kopvast." />
         </div>
       ) : (
         <ul className="mt-4 space-y-3">
@@ -163,6 +157,6 @@ export default async function AdminCustomerDetailPage({
           ))}
         </ul>
       )}
-    </WorkspaceShell>
+    </div>
   );
 }

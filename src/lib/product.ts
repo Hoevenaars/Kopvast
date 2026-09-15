@@ -15,9 +15,9 @@ export const layers = {
   },
   console: {
     id: "console",
-    name: "Klantconsole",
-    path: "/console",
-    role: "Klanten zien projecten, bestanden en twee wijzigingen per maand.",
+    name: "Mijn Kopvast",
+    path: "/klant",
+    role: "Klanten zien website, merk, wijzigingen en support.",
   },
   admin: {
     id: "admin",
@@ -30,13 +30,15 @@ export const layers = {
 export const workspaceRoutes = {
   login: "/inloggen",
   verify: "/inloggen/verify",
-  console: "/console",
-  consoleFiles: "/console/bestanden",
-  consoleRequests: "/console/verzoeken",
+  console: "/klant",
+  consoleWebsite: "/klant/website",
+  consoleFiles: "/klant/media",
+  consoleRequests: "/klant/wijzigingen",
   admin: "/admin",
-  adminLeads: "/admin/aanvragen",
+  adminProspects: "/admin/prospects",
+  adminLeads: "/admin/leads",
   adminCustomers: "/admin/klanten",
-  adminMail: "/admin/mail",
+  adminMail: "/admin/mails",
 } as const;
 
 export const organizationStatuses = [
