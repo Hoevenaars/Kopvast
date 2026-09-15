@@ -1,6 +1,14 @@
 import { cookies } from "next/headers";
 import { refreshClient } from "@/lib/refresh";
-import { destinationForRole, isAdminEmail, isEmail, normalizeEmail } from "@/lib/product";
+import {
+  clearFailedPassword,
+  getCredential,
+  isCredentialLocked,
+  recordFailedPassword,
+  saveCredential,
+} from "@/lib/credentials";
+import { hashPassword, validatePassword, verifyPassword } from "@/lib/passwords";
+import { destinationForRole, isAdminEmail, isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
 import { SESSION_COOKIE, createToken, hashToken } from "@/lib/tokens";
 import { mutateStore, newId, readStore } from "@/lib/workspace-store";
 
@@ -61,7 +69,7 @@ export async function startLogin(emailInput: string, next?: string): Promise<Log
     };
   }
 
-  if (allowDevLogin()) {
+  if (allowDevLogin() && !(await getCredential(email))) {
     await createSession({
       email,
       role,
@@ -114,6 +122,7 @@ export async function consumeLoginToken(token: string) {
       .eq("token_hash", tokenHash)
       .maybeSingle();
     if (error || !data || data.used_at || Date.parse(data.expires_at) < Date.now()) return null;
+    if (data.purpose === "password_reset") return null;
     await supabase.from("kopvast_login_tokens").update({ used_at: new Date().toISOString() }).eq("id", data.id);
     const role = data.purpose === "admin" ? "admin" : "customer";
     const member = await findMember(data.email);
@@ -126,7 +135,9 @@ export async function consumeLoginToken(token: string) {
 
   const record = await mutateStore((store) => {
     const found = store.tokens.find((item) => item.token_hash === tokenHash);
-    if (!found || found.used_at || Date.parse(found.expires_at) < Date.now()) return null;
+    if (!found || found.used_at || found.purpose === "password_reset" || Date.parse(found.expires_at) < Date.now()) {
+      return null;
+    }
     found.used_at = new Date().toISOString();
     return found;
   });
@@ -233,6 +244,189 @@ export async function requireSession(role?: SessionRole) {
   return session;
 }
 
+const invalidLogin = { ok: false as const, message: "E-mail of wachtwoord klopt niet." };
+
+export async function hasPassword(email: string) {
+  return Boolean(await getCredential(email));
+}
+
+export async function loginWithPassword(emailInput: string, password: string, next?: string): Promise<LoginIntent> {
+  const email = normalizeEmail(emailInput);
+  if (!isEmail(email) || !password) return invalidLogin;
+
+  const role = await resolveLoginRole(email);
+  const credential = await getCredential(email);
+  if (!role || !credential) {
+    return invalidLogin;
+  }
+  if (isCredentialLocked(credential)) return invalidLogin;
+  if (!(await verifyPassword(password, credential.password_hash))) {
+    await recordFailedPassword(email);
+    return invalidLogin;
+  }
+
+  await clearFailedPassword(email);
+  await createSession({
+    email,
+    role,
+    organizationId: (await findMember(email))?.organization_id ?? null,
+  });
+  return { ok: true, emailed: false, destination: safeNext(next, role) };
+}
+
+export async function changePassword(input: {
+  email: string;
+  currentPassword?: string;
+  password: string;
+  confirm: string;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  const email = normalizeEmail(input.email);
+  if (input.password !== input.confirm) {
+    return { ok: false, message: "De wachtwoorden komen niet overeen." };
+  }
+  const rules = validatePassword(input.password, email);
+  if (!rules.ok) return rules;
+
+  const existing = await getCredential(email);
+  if (existing) {
+    if (!input.currentPassword) return { ok: false, message: "Vul je huidige wachtwoord in." };
+    if (isCredentialLocked(existing)) return invalidLogin;
+    if (!(await verifyPassword(input.currentPassword, existing.password_hash))) {
+      await recordFailedPassword(email);
+      return { ok: false, message: "Het huidige wachtwoord klopt niet." };
+    }
+  }
+
+  const stored = await saveCredential(email, await hashPassword(input.password));
+  if (!stored.ok) return stored;
+  const role = await resolveLoginRole(email);
+  if (!role) return { ok: false, message: "Je bent niet ingelogd." };
+  await replaceSessions(email, {
+    email,
+    role,
+    organizationId: (await findMember(email))?.organization_id ?? null,
+  });
+  return { ok: true };
+}
+
+export async function requestPasswordReset(emailInput: string): Promise<LoginIntent> {
+  const email = normalizeEmail(emailInput);
+  if (!isEmail(email)) {
+    return { ok: false, message: "Vul een geldig e-mailadres in." };
+  }
+  const role = await resolveLoginRole(email);
+  if (!role) {
+    return { ok: true, emailed: true };
+  }
+
+  const token = createToken();
+  const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000).toISOString();
+  const saved = await saveLoginToken({ email, token, purpose: "password_reset", expiresAt });
+  if (!saved) return { ok: false, message: "Opnieuw instellen is tijdelijk niet beschikbaar." };
+
+  const resetUrl = `${siteOrigin()}${workspaceRoutes.loginReset}?token=${encodeURIComponent(token)}`;
+  const sent = await sendPasswordResetEmail({ email, resetUrl });
+  if (allowDevLogin() && !sent) {
+    return { ok: true, emailed: false, destination: `${workspaceRoutes.loginReset}?token=${encodeURIComponent(token)}` };
+  }
+  return { ok: true, emailed: sent };
+}
+
+export async function resetPasswordWithToken(token: string, password: string, confirm: string): Promise<LoginIntent> {
+  if (password !== confirm) {
+    return { ok: false, message: "De wachtwoorden komen niet overeen." };
+  }
+  const record = await consumePurposeToken(token, "password_reset");
+  if (!record) {
+    return { ok: false, message: "Deze herstellink is verlopen of al gebruikt." };
+  }
+  const rules = validatePassword(password, record.email);
+  if (!rules.ok) return rules;
+
+  const stored = await saveCredential(record.email, await hashPassword(password));
+  if (!stored.ok) return stored;
+
+  const role = (await resolveLoginRole(record.email)) ?? (record.purpose === "admin" ? "admin" : "customer");
+  await replaceSessions(record.email, {
+    email: record.email,
+    role,
+    organizationId: (await findMember(record.email))?.organization_id ?? null,
+  });
+  return { ok: true, emailed: false, destination: destinationForRole(role) };
+}
+
+async function saveLoginToken(input: { email: string; token: string; purpose: string; expiresAt: string }) {
+  const supabase = refreshClient();
+  if (supabase) {
+    const { error } = await supabase.from("kopvast_login_tokens").insert({
+      email: input.email,
+      token_hash: hashToken(input.token),
+      purpose: input.purpose,
+      expires_at: input.expiresAt,
+    });
+    if (error) {
+      console.error("[kopvast] Token opslaan mislukt", error.message);
+      return false;
+    }
+    return true;
+  }
+  await mutateStore((store) => {
+    store.tokens.push({
+      id: newId(),
+      email: input.email,
+      token_hash: hashToken(input.token),
+      purpose: input.purpose,
+      expires_at: input.expiresAt,
+      used_at: null,
+    });
+  });
+  return true;
+}
+
+async function consumePurposeToken(token: string, purpose: string) {
+  if (!token.trim()) return null;
+  const tokenHash = hashToken(token);
+  const supabase = refreshClient();
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("kopvast_login_tokens")
+      .select("id, email, purpose, expires_at, used_at")
+      .eq("token_hash", tokenHash)
+      .maybeSingle();
+    if (error || !data || data.used_at || data.purpose !== purpose || Date.parse(data.expires_at) < Date.now()) {
+      return null;
+    }
+    await supabase.from("kopvast_login_tokens").update({ used_at: new Date().toISOString() }).eq("id", data.id);
+    return { email: data.email as string, purpose: data.purpose as string };
+  }
+  return mutateStore((store) => {
+    const found = store.tokens.find((item) => item.token_hash === tokenHash);
+    if (!found || found.used_at || found.purpose !== purpose || Date.parse(found.expires_at) < Date.now()) {
+      return null;
+    }
+    found.used_at = new Date().toISOString();
+    return { email: found.email, purpose: found.purpose };
+  });
+}
+
+async function replaceSessions(
+  email: string,
+  next?: { email: string; role: SessionRole; organizationId: string | null }
+) {
+  const normalized = normalizeEmail(email);
+  const supabase = refreshClient();
+  if (supabase) {
+    await supabase.from("kopvast_sessions").delete().eq("email", normalized);
+  } else {
+    await mutateStore((store) => {
+      store.sessions = store.sessions.filter((item) => item.email !== normalized);
+    });
+  }
+  const jar = await cookies();
+  jar.delete(SESSION_COOKIE);
+  if (next) await createSession(next);
+}
+
 export function safeNext(next: string | undefined, role: SessionRole) {
   if (next?.startsWith("/") && !next.startsWith("//")) return next;
   return destinationForRole(role);
@@ -267,6 +461,34 @@ async function sendLoginEmail(input: { email: string; verifyUrl: string; role: S
   });
   if (error) {
     console.error("[kopvast] Loginmail mislukt", error.message);
+    return false;
+  }
+  return true;
+}
+
+async function sendPasswordResetEmail(input: { email: string; resetUrl: string }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.info("[kopvast] Wachtwoordmail overgeslagen (geen RESEND_API_KEY)", input.resetUrl);
+    return false;
+  }
+
+  const { render } = await import("react-email");
+  const { Resend } = await import("resend");
+  const { PasswordResetEmail } = await import("@/emails/password-reset");
+  const { fromAddress } = await import("@/lib/email");
+
+  const html = await render(PasswordResetEmail({ email: input.email, resetUrl: input.resetUrl }));
+  const resend = new Resend(apiKey);
+  const { error } = await resend.emails.send({
+    from: fromAddress(),
+    to: input.email,
+    subject: "Wachtwoord opnieuw instellen",
+    html,
+    text: `Stel je wachtwoord opnieuw in via deze link: ${input.resetUrl}\nDe link is ${TOKEN_TTL_MINUTES} minuten geldig.`,
+  });
+  if (error) {
+    console.error("[kopvast] Wachtwoordmail mislukt", error.message);
     return false;
   }
   return true;

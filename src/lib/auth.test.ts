@@ -3,6 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { render } from "react-email";
 import { LoginLinkEmail } from "../emails/login-link";
+import { PasswordResetEmail } from "../emails/password-reset";
 import { createToken, hashToken } from "./tokens";
 import {
   defaultProjectsForLead,
@@ -85,5 +86,18 @@ test("loginmail volgt de Kopvast-huisstijl", async () => {
   assert.match(html, /KOPVAST/);
   assert.match(html, /Mijn Kopvast/i);
   assert.match(html, /verify\?token=abc/);
+  assert.match(html, /#a64d27|rgb\(166,\s*77,\s*39\)/i);
+});
+
+test("wachtwoordmail volgt de Kopvast-huisstijl", async () => {
+  const html = await render(
+    createElement(PasswordResetEmail, {
+      email: "eva@atelierlint.nl",
+      resetUrl: "https://kopvast.nl/inloggen/wachtwoord/nieuw?token=abc",
+    })
+  );
+  assert.match(html, /KOPVAST/);
+  assert.match(html, /wachtwoord/i);
+  assert.match(html, /wachtwoord\/nieuw\?token=abc/);
   assert.match(html, /#a64d27|rgb\(166,\s*77,\s*39\)/i);
 });
