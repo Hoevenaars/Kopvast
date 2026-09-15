@@ -13,6 +13,7 @@ import {
   parseOutreachBody,
 } from "../emails/acquisition-outreach";
 import { evaluatePreSend } from "./acquisition-send";
+import { sanitizeAcquisitionSearch, splitMailParagraphs } from "./mail-body";
 import { normalizeWebsiteUrl } from "./ssrf";
 import { domainFromUrl } from "./acquire-map";
 
@@ -430,4 +431,18 @@ test("acquisitiemail voor Persingen is persoonlijk en minimaal", async () => {
   assert.doesNotMatch(html, /Bekijk het websitepakket/);
   assert.doesNotMatch(html, /bg-ivory|#f3f0e8/i);
   assert.doesNotMatch(html, /Newsreader/);
+});
+
+test("mailparagrafen splitsen op lege regels", () => {
+  assert.deepEqual(splitMailParagraphs("Goedendag,\n\nTweede alinea.\n\n\nDerde."), [
+    "Goedendag,",
+    "Tweede alinea.",
+    "Derde.",
+  ]);
+  assert.deepEqual(splitMailParagraphs("   "), []);
+});
+
+test("zoekterm gooit PostgREST-tekens eruit", () => {
+  assert.equal(sanitizeAcquisitionSearch("  nova,advies%_nl  "), "nova advies nl");
+  assert.equal(sanitizeAcquisitionSearch(""), "");
 });

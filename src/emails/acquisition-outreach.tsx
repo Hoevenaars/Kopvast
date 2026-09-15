@@ -9,6 +9,9 @@ export type AcquisitionOutreachFinding = {
 export type AcquisitionOutreachEmailProps = {
   companyName?: string | null;
   domain: string;
+  greeting?: string;
+  signatureName?: string;
+  signatureTagline?: string;
   openingObservation?: string;
   finding1?: AcquisitionOutreachFinding;
   finding2?: AcquisitionOutreachFinding;
@@ -243,6 +246,9 @@ export function resolveAcquisitionOutreachProps(
   Pick<
     AcquisitionOutreachEmailProps,
     | "domain"
+    | "greeting"
+    | "signatureName"
+    | "signatureTagline"
     | "openingObservation"
     | "finding1"
     | "finding2"
@@ -258,6 +264,9 @@ export function resolveAcquisitionOutreachProps(
   return {
     companyName: input.companyName,
     domain: input.domain,
+    greeting: input.greeting?.trim() || "Goedendag,",
+    signatureName: input.signatureName?.trim() || site.name,
+    signatureTagline: input.signatureTagline?.trim() || site.tagline,
     openingObservation:
       input.openingObservation?.trim() ||
       parsed.openingObservation?.trim() ||
@@ -281,6 +290,9 @@ export function buildAcquisitionSubject(domain: string): string {
 export function buildAcquisitionPlainText(props: AcquisitionOutreachEmailProps): string {
   const {
     domain,
+    greeting,
+    signatureName,
+    signatureTagline,
     openingObservation,
     finding1,
     finding2,
@@ -293,7 +305,7 @@ export function buildAcquisitionPlainText(props: AcquisitionOutreachEmailProps):
   const lines = [
     "KOPVAST",
     "",
-    "Goedendag,",
+    greeting,
     "",
     `Ik kwam ${domain} tegen en heb de website kort bekeken.`,
     "",
@@ -321,8 +333,8 @@ export function buildAcquisitionPlainText(props: AcquisitionOutreachEmailProps):
     "",
     "Je kunt ook gewoon op deze mail reageren met A of B.",
     "",
-    "Kopvast",
-    site.tagline,
+    signatureName,
+    signatureTagline,
     "",
     site.email,
     site.url,
@@ -338,6 +350,9 @@ export function buildAcquisitionPlainText(props: AcquisitionOutreachEmailProps):
 export function AcquisitionOutreachEmail(input: AcquisitionOutreachEmailProps) {
   const {
     domain,
+    greeting,
+    signatureName,
+    signatureTagline,
     openingObservation,
     finding1,
     finding2,
@@ -358,7 +373,7 @@ export function AcquisitionOutreachEmail(input: AcquisitionOutreachEmailProps) {
         <Container style={styles.container}>
           <Text style={styles.logo}>KOPVAST</Text>
 
-          <Text style={styles.paragraph}>Goedendag,</Text>
+          <Text style={styles.paragraph}>{greeting}</Text>
 
           <Text style={styles.intro}>{`Ik kwam ${domain} tegen en heb de website kort bekeken.`}</Text>
 
@@ -394,8 +409,8 @@ export function AcquisitionOutreachEmail(input: AcquisitionOutreachEmailProps) {
 
           <Text style={styles.replyText}>Je kunt ook gewoon op deze mail reageren met A of B.</Text>
 
-          <Text style={styles.signature}>Kopvast</Text>
-          <Text style={styles.tagline}>{site.tagline}</Text>
+          <Text style={styles.signature}>{signatureName}</Text>
+          <Text style={styles.tagline}>{signatureTagline}</Text>
 
           <Section style={styles.footer}>
             <Text style={styles.footerText}>{site.email}</Text>

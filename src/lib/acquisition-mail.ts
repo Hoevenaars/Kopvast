@@ -13,6 +13,13 @@ import {
   isContentOfferReason,
   type OfferEvidence,
 } from "./acquisition/special-offer-rules";
+import {
+  applyPlaceholders,
+  acquisitionVars,
+  defaultAcquisitionMailTemplate,
+  loadAcquisitionMailTemplate,
+  type AcquisitionMailTemplate,
+} from "./mail-templates";
 
 export type MailFinding = {
   id?: string;
@@ -75,6 +82,10 @@ const FORBIDDEN_COPY_PHRASES = [
 
 const CUSTOM_FIT_PARAGRAPH =
   "De website lijkt commercieel interessant, maar de benodigde functionaliteit valt waarschijnlijk buiten het vaste websitepakket. Daarover denk ik graag een keer met jullie mee.";
+
+function fill(text: string, vars: Record<string, string>) {
+  return applyPlaceholders(text, vars);
+}
 
 export function selectableMailFindings(findings: MailFinding[]): MailFinding[] {
   return findings.filter((item) => item.finding_type !== "HYPOTHESIS");
@@ -154,14 +165,18 @@ function fallbackOpening(input: { companyName?: string | null; domain: string })
   return `${who} heeft als organisatie meer karakter dan de website nu laat zien. Online komt dat minder sterk over dan volgens mij mogelijk is.`;
 }
 
-function offerParagraphForFit(input: {
-  fit: ProductFit;
-  place?: string | null;
-  municipality?: string | null;
-  contentEvidence?: OfferEvidence[];
-  allowLaunchOffer?: boolean;
-}) {
-  if (input.fit === "CUSTOM_FIT") return CUSTOM_FIT_PARAGRAPH;
+function offerParagraphForFit(
+  input: {
+    fit: ProductFit;
+    place?: string | null;
+    municipality?: string | null;
+    contentEvidence?: OfferEvidence[];
+    allowLaunchOffer?: boolean;
+  },
+  template: AcquisitionMailTemplate,
+  vars: Record<string, string>
+) {
+  if (input.fit === "CUSTOM_FIT") return fill(template.offerCustom, vars) || CUSTOM_FIT_PARAGRAPH;
   if (input.fit !== "STANDARD_FIT") {
     return "Een complete Kopvast Website kost €1.495 excl. btw.";
   }
@@ -249,7 +264,10 @@ export function buildOutreachEmailProps(input: {
   choiceAUrl?: string;
   choiceBUrl?: string;
   unsubscribeUrl?: string | null;
+  template?: AcquisitionMailTemplate;
 }): AcquisitionOutreachEmailProps {
+  const template = input.template ?? defaultAcquisitionMailTemplate();
+  const vars = acquisitionVars(input);
   const [finding1, finding2] = twoFindings(input);
   const openingObservation = stripForbiddenClaims(
     input.openingObservation || input.opening || fallbackOpening(input)
@@ -258,16 +276,23 @@ export function buildOutreachEmailProps(input: {
   return {
     companyName: input.companyName,
     domain: input.domain,
+    greeting: fill(template.greeting, vars) || "Goedendag,",
+    signatureName: fill(template.signatureName, vars) || undefined,
+    signatureTagline: fill(template.signatureTagline, vars) || undefined,
     openingObservation,
     finding1,
     finding2,
-    specialOfferParagraph: offerParagraphForFit({
-      fit: input.fit,
-      place: input.place,
-      municipality: input.municipality,
-      contentEvidence: input.contentEvidence,
-      allowLaunchOffer: input.allowLaunchOffer,
-    }),
+    specialOfferParagraph: offerParagraphForFit(
+      {
+        fit: input.fit,
+        place: input.place,
+        municipality: input.municipality,
+        contentEvidence: input.contentEvidence,
+        allowLaunchOffer: input.allowLaunchOffer,
+      },
+      template,
+      vars
+    ),
     choiceAUrl: input.choiceAUrl || DEFAULT_CHOICE_A_URL,
     choiceBUrl: input.choiceBUrl || DEFAULT_CHOICE_B_URL,
     unsubscribeUrl: input.unsubscribeUrl,
@@ -317,40 +342,46 @@ export function buildOutreachMailData(input: BuildOutreachMailInput) {
   };
 }
 
-export function composeAcquisitionBody(input: {
-  companyName?: string | null;
-  domain: string;
-  fit: ProductFit;
-  findings: MailFinding[];
-  opening?: string;
-  points?: string[];
-  finding1?: AcquisitionOutreachFinding;
-  finding2?: AcquisitionOutreachFinding;
-  place?: string | null;
-  municipality?: string | null;
-  contentEvidence?: OfferEvidence[];
-  allowLaunchOffer?: boolean;
-  choiceAUrl?: string;
-  choiceBUrl?: string;
-  unsubscribeUrl?: string | null;
-}): string {
-  return buildAcquisitionPlainText(buildOutreachEmailProps(input));
+export function composeAcquisitionBody(
+  input: {
+    companyName?: string | null;
+    domain: string;
+    fit: ProductFit;
+    findings: MailFinding[];
+    opening?: string;
+    points?: string[];
+    finding1?: AcquisitionOutreachFinding;
+    finding2?: AcquisitionOutreachFinding;
+    place?: string | null;
+    municipality?: string | null;
+    contentEvidence?: OfferEvidence[];
+    allowLaunchOffer?: boolean;
+    choiceAUrl?: string;
+    choiceBUrl?: string;
+    unsubscribeUrl?: string | null;
+  },
+  template: AcquisitionMailTemplate = defaultAcquisitionMailTemplate()
+): string {
+  return buildAcquisitionPlainText(buildOutreachEmailProps({ ...input, template }));
 }
 
 export function chooseSubject(input: { companyName?: string | null; domain: string; findings?: MailFinding[] }) {
   return buildAcquisitionSubject(input.domain);
 }
 
-export function fallbackAcquisitionMail(input: {
-  companyName?: string | null;
-  domain: string;
-  fit: ProductFit;
-  findings: MailFinding[];
-  place?: string | null;
-  municipality?: string | null;
-  contentEvidence?: OfferEvidence[];
-  allowLaunchOffer?: boolean;
-}): GeneratedAcquisitionMail {
+export function fallbackAcquisitionMail(
+  input: {
+    companyName?: string | null;
+    domain: string;
+    fit: ProductFit;
+    findings: MailFinding[];
+    place?: string | null;
+    municipality?: string | null;
+    contentEvidence?: OfferEvidence[];
+    allowLaunchOffer?: boolean;
+  },
+  template: AcquisitionMailTemplate = defaultAcquisitionMailTemplate()
+): GeneratedAcquisitionMail {
   const used = pickMailFindings(input.findings);
   const emailProps = buildOutreachEmailProps({
     companyName: input.companyName,
@@ -361,6 +392,7 @@ export function fallbackAcquisitionMail(input: {
     municipality: input.municipality,
     contentEvidence: input.contentEvidence,
     allowLaunchOffer: input.allowLaunchOffer,
+    template,
   });
   return {
     subject: buildAcquisitionSubject(input.domain),
@@ -419,7 +451,8 @@ export async function generateAcquisitionMail(input: {
   municipality?: string | null;
   allowLaunchOffer?: boolean;
 }): Promise<GeneratedAcquisitionMail> {
-  const fallback = fallbackAcquisitionMail(input);
+  const template = await loadAcquisitionMailTemplate();
+  const fallback = fallbackAcquisitionMail(input, template);
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return fallback;
 
@@ -488,6 +521,7 @@ export async function generateAcquisitionMail(input: {
       municipality: input.municipality,
       contentEvidence: parseContentEvidence(parsed.reasons),
       allowLaunchOffer: input.allowLaunchOffer,
+      template,
     });
     return {
       subject: buildAcquisitionSubject(input.domain),

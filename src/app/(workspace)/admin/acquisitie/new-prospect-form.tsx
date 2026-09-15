@@ -1,21 +1,32 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createProspectAction, reuseProspectAction } from "@/app/(workspace)/admin/acquisitie/actions";
 import { areaClass, fieldClass, Field } from "@/components/form-fields";
+import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { workspaceRoutes } from "@/lib/product";
 import { formatNlDate, labelForMail, labelForResponse, labelForStatus } from "@/lib/acquisition-constants";
 
 export function NewProspectForm() {
-  const [state, action, pending] = useActionState(createProspectAction, null);
+  const [state, action] = useActionState(createProspectAction, null);
   const [draft, setDraft] = useState({ website: "", email: "", company: "", notes: "" });
+  const submitting = useRef(false);
+
+  useEffect(() => {
+    if (state && "ok" in state && state.ok === false) submitting.current = false;
+  }, [state]);
 
   return (
     <div className="space-y-6">
       <form
         action={action}
         onSubmit={(event) => {
+          if (submitting.current) {
+            event.preventDefault();
+            return;
+          }
+          submitting.current = true;
           const data = new FormData(event.currentTarget);
           setDraft({
             website: String(data.get("website") ?? ""),
@@ -24,7 +35,7 @@ export function NewProspectForm() {
             notes: String(data.get("notes") ?? ""),
           });
         }}
-        className="space-y-5 rounded-2xl border border-ink/10 bg-white p-5 md:p-6"
+        className="relative space-y-5 rounded-2xl border border-ink/10 bg-white p-5 md:p-6"
       >
         <Field id="website" label="Website">
           <input
@@ -75,13 +86,13 @@ export function NewProspectForm() {
         {state && "ok" in state && state.ok === false && "message" in state ? (
           <p className="text-sm text-destructive">{state.message}</p>
         ) : null}
-        <button
-          type="submit"
-          disabled={pending}
-          className="inline-flex h-12 w-full items-center justify-center rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory disabled:opacity-60 sm:w-auto"
+        <FormBusyOverlay label="Website scannen… dit kan even duren." />
+        <SubmitButton
+          pendingLabel="Website scannen…"
+          className="inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory sm:w-auto"
         >
-          {pending ? "Website scannen…" : "Scan website"}
-        </button>
+          Scan website
+        </SubmitButton>
       </form>
 
       {state && "duplicate" in state && state.duplicate ? (
@@ -149,18 +160,19 @@ function ExistingCard({
         >
           Open bestaande prospect
         </Link>
-        <form action={reuseProspectAction}>
+        <form action={reuseProspectAction} className="relative">
           <input type="hidden" name="prospectId" value={existing.id} />
           <input type="hidden" name="website" value={draft.website || existing.domain} />
           <input type="hidden" name="email" value={draft.email || existing.email || ""} />
           {draft.company ? <input type="hidden" name="company" value={draft.company} /> : null}
           {draft.notes ? <input type="hidden" name="notes" value={draft.notes} /> : null}
-          <button
-            type="submit"
-            className="inline-flex h-12 w-full items-center justify-center rounded-md border border-ink/15 bg-white px-5 text-sm font-semibold"
+          <FormBusyOverlay label="Nieuwe scan starten…" />
+          <SubmitButton
+            pendingLabel="Nieuwe scan starten…"
+            className="inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-md border border-ink/15 bg-white px-5 text-sm font-semibold"
           >
             Nieuwe scan uitvoeren
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </div>

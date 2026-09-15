@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { convertProspectForm, rescanProspectAction, updateFollowUpForm } from "@/app/(workspace)/admin/acquisitie/actions";
 import { PageIntro } from "@/components/workspace/page-frame";
+import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { fieldClass, Field } from "@/components/form-fields";
 import { loadProspectDetail } from "@/lib/acquisition";
 import {
@@ -90,6 +91,8 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
           mailId={prospect.mail.id}
           subject={prospect.mail.subject ?? ""}
           body={prospect.mail.body_text ?? ""}
+          companyName={prospect.company_name}
+          domain={prospect.domain}
           mode={mode}
           intended={prospect.contact?.email ?? null}
           testTo={getTestEmail()}
@@ -108,7 +111,8 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
       ) : null}
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <form action={updateFollowUpForm} className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+        <form action={updateFollowUpForm} className="relative space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+          <FormBusyOverlay label="Opvolging opslaan…" />
           <h2 className="font-semibold">Opvolging</h2>
           <input type="hidden" name="prospectId" value={prospect.id} />
           <Field id="responseStatus" label="Response status">
@@ -132,27 +136,38 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
               className={fieldClass}
             />
           </Field>
-          <button type="submit" className="h-12 rounded-md bg-ink px-5 text-sm font-semibold text-ivory">
+          <SubmitButton
+            pendingLabel="Opslaan…"
+            className="h-12 cursor-pointer rounded-md bg-ink px-5 text-sm font-semibold text-ivory"
+          >
             Opvolging opslaan
-          </button>
+          </SubmitButton>
         </form>
 
         <div className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
           <h2 className="font-semibold">Acties</h2>
-          <form action={rescanProspectAction}>
+          <form action={rescanProspectAction} className="relative">
+            <FormBusyOverlay label="Nieuwe scan starten…" />
             <input type="hidden" name="prospectId" value={prospect.id} />
             <input type="hidden" name="website" value={prospect.website_url} />
             <input type="hidden" name="email" value={prospect.contact?.email ?? ""} />
-            <button type="submit" className="h-12 w-full rounded-md border border-ink/15 text-sm font-semibold">
+            <SubmitButton
+              pendingLabel="Nieuwe scan starten…"
+              className="h-12 w-full cursor-pointer rounded-md border border-ink/15 text-sm font-semibold"
+            >
               Nieuwe scan uitvoeren
-            </button>
+            </SubmitButton>
           </form>
           {prospect.status !== "CONVERTED" ? (
-            <form action={convertProspectForm}>
+            <form action={convertProspectForm} className="relative">
+              <FormBusyOverlay label="Lead maken…" />
               <input type="hidden" name="prospectId" value={prospect.id} />
-              <button type="submit" className="h-12 w-full rounded-md bg-copper-dark text-sm font-semibold text-ivory">
+              <SubmitButton
+                pendingLabel="Lead maken…"
+                className="h-12 w-full cursor-pointer rounded-md bg-copper-dark text-sm font-semibold text-ivory"
+              >
                 Maak lead
-              </button>
+              </SubmitButton>
             </form>
           ) : (
             <p className="text-sm text-olive">Deze prospect is al omgezet naar een lead.</p>
