@@ -39,6 +39,7 @@ export const workspaceRoutes = {
   consoleFiles: "/klant/media",
   consoleRequests: "/klant/wijzigingen",
   admin: "/admin",
+  adminTaken: "/admin/taken",
   adminProspects: "/admin/prospects",
   adminAcquisition: "/admin/acquisitie",
   adminAcquisitionNew: "/admin/acquisitie/nieuw",
