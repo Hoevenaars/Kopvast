@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight, CheckCircle2, Mail, ScanSearch, Users, Workflow } from "lucide-react";
 import { PageIntro } from "@/components/workspace/page-frame";
-import { adminTodayMock } from "@/lib/console-ui";
+import { loadAcquisitionDashboard } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
 import { cn } from "@/lib/utils";
 
@@ -11,15 +11,24 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const metricIcons = {
-  prospects: ScanSearch,
-  scans: CheckCircle2,
-  leads: Users,
-  mails: Mail,
-  automations: Workflow,
-} as const;
+export default async function AdminDashboard() {
+  const data = await loadAcquisitionDashboard();
+  const metrics = [
+    { key: "prospects" as const, label: "Nieuwe prospects", value: String(data.metrics.prospects), icon: ScanSearch },
+    { key: "scans" as const, label: "Scans", value: String(data.metrics.scans), icon: CheckCircle2 },
+    { key: "sales" as const, label: "Sales ready", value: String(data.metrics.salesReady), icon: Users },
+    { key: "drafts" as const, label: "Concepten klaar", value: String(data.metrics.drafts), icon: Mail },
+    { key: "mails" as const, label: "Mails verzonden", value: String(data.metrics.sent), icon: Workflow },
+  ];
+  const pipeline = [
+    { label: "Nieuw", value: data.pipeline.nieuw },
+    { label: "Qualified", value: data.pipeline.qualified },
+    { label: "Sales ready", value: data.pipeline.salesReady },
+    { label: "Verzonden", value: data.pipeline.verzonden },
+    { label: "Response", value: data.pipeline.response },
+  ];
+  const healthy = data.metrics.errors === 0;
 
-export default function AdminDashboard() {
   return (
     <div className="flex flex-col gap-8">
       <PageIntro
@@ -28,7 +37,7 @@ export default function AdminDashboard() {
         text="Alleen wat vandaag aandacht nodig heeft."
         action={
           <Link
-            href={workspaceRoutes.adminProspects}
+            href={workspaceRoutes.adminAcquisitionNew}
             className="inline-flex items-center justify-center rounded-md bg-ink px-4 py-3 text-sm font-semibold text-ivory transition hover:bg-ink/90"
           >
             + Prospect toevoegen
@@ -38,8 +47,8 @@ export default function AdminDashboard() {
 
       <div className="flex flex-col gap-6 md:gap-8">
       <section className="order-2 grid gap-3 sm:grid-cols-2 md:order-1 xl:grid-cols-5">
-        {adminTodayMock.metrics.map((metric) => {
-          const Icon = metricIcons[metric.key];
+        {metrics.map((metric) => {
+          const Icon = metric.icon;
           return (
             <div key={metric.label} className="rounded-2xl border border-ink/10 bg-white p-5">
               <div className="flex items-center justify-between">
@@ -59,44 +68,46 @@ export default function AdminDashboard() {
               <h2 className="font-semibold">Actie nodig</h2>
               <p className="mt-0.5 text-xs text-ink/40">Uitzonderingen die menselijke aandacht vragen.</p>
             </div>
-            <span className="rounded-full bg-ivory px-3 py-1 text-xs font-semibold">{adminTodayMock.actions.length}</span>
+            <span className="rounded-full bg-ivory px-3 py-1 text-xs font-semibold">{data.actions.length}</span>
           </div>
-          <div className="divide-y divide-ink/6">
-            {adminTodayMock.actions.map((action) => (
-              <Link
-                key={`${action.company}-${action.title}`}
-                href={action.href}
-                className="grid w-full grid-cols-1 items-center gap-3 px-5 py-4 text-left transition hover:bg-[#F8F6F1] sm:grid-cols-[1fr_auto]"
-              >
-                <div>
-                  <div className="text-sm font-semibold">{action.title}</div>
-                  <div className="mt-1 text-xs text-ink/45">
-                    {action.company} · {action.age}
+          {data.actions.length === 0 ? (
+            <p className="px-5 py-6 text-sm text-ink/45">Niets dat nu wacht. Nieuwe scans en mails verschijnen hier.</p>
+          ) : (
+            <div className="divide-y divide-ink/6">
+              {data.actions.map((action) => (
+                <Link
+                  key={`${action.href}-${action.title}`}
+                  href={action.href}
+                  className="grid w-full grid-cols-1 items-center gap-3 px-5 py-4 text-left transition hover:bg-[#F8F6F1] sm:grid-cols-[1fr_auto]"
+                >
+                  <div>
+                    <div className="text-sm font-semibold">{action.title}</div>
+                    <div className="mt-1 text-xs text-ink/45">
+                      {action.company} · {action.age}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <StatusBadge value={action.status} />
-                  <ArrowUpRight className="size-4 text-ink/30" />
-                </div>
-              </Link>
-            ))}
-          </div>
+                  <div className="flex items-center gap-3">
+                    <StatusBadge value={action.status} />
+                    <ArrowUpRight className="size-4 text-ink/30" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="rounded-2xl bg-ink p-6 text-ivory">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-ivory/50">Automation status</div>
-              <div className="mt-1 text-xl font-semibold">
-                {adminTodayMock.automations.healthy ? "Systeem gezond" : "Aandacht nodig"}
-              </div>
+              <div className="text-sm text-ivory/50">Acquisitie vandaag</div>
+              <div className="mt-1 text-xl font-semibold">{healthy ? "Systeem gezond" : "Aandacht nodig"}</div>
             </div>
             <CheckCircle2 className="size-6 text-[#B9C6AB]" />
           </div>
           <div className="mt-8 space-y-5">
-            <AutomationMetric label="Geslaagd vandaag" value={adminTodayMock.automations.succeeded} />
-            <AutomationMetric label="Actief" value={adminTodayMock.automations.active} />
-            <AutomationMetric label="Mislukt" value={adminTodayMock.automations.failed} warning />
+            <AutomationMetric label="Responses" value={String(data.metrics.responses)} />
+            <AutomationMetric label="Concepten klaar" value={String(data.metrics.drafts)} />
+            <AutomationMetric label="Errors" value={String(data.metrics.errors)} warning={data.metrics.errors > 0} />
           </div>
         </section>
       </div>
@@ -107,7 +118,7 @@ export default function AdminDashboard() {
           <p className="mt-1 text-sm text-ink/45">Van nieuwe website naar commerciële kans.</p>
         </div>
         <div className="mt-6 grid gap-2 sm:grid-cols-2 md:grid-cols-5">
-          {adminTodayMock.pipeline.map((stage) => (
+          {pipeline.map((stage) => (
             <div key={stage.label} className="rounded-md bg-ivory p-4">
               <div className="text-xs font-medium text-ink/45">{stage.label}</div>
               <div className="mt-3 text-2xl font-semibold">{stage.value}</div>
@@ -121,7 +132,7 @@ export default function AdminDashboard() {
 }
 
 function StatusBadge({ value }: { value: string }) {
-  const warning = value === "Actie nodig" || value === "Beoordelen";
+  const warning = value === "Actie nodig" || value === "Beoordelen" || value === "Geblokkeerd";
   return (
     <span
       className={cn(

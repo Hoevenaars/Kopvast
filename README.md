@@ -51,6 +51,9 @@ Kopieer `.env.example` naar `.env.local` als je e-mailnotificaties wilt.
 | `RESEND_WEBHOOK_SECRET` | Controleert Resend-webhooks op `/api/resend/webhook`. |
 | `KOPVAST_SESSION_SECRET` | Tekent inlogsessies voor `/klant` en `/admin`. In productie verplicht als er geen service-role is. |
 | `KOPVAST_ADMIN_EMAILS` | Kommagescheiden adminadressen. Adressen op `@kopvast.nl` zijn altijd admin. |
+| `OPENAI_API_KEY` | Optioneel. Zonder sleutel wordt de URL wel opgeslagen, maar draait de AI niet. |
+| `EMAIL_MODE` | `TEST` (standaard) of `LIVE`. In TEST gaan acquisitiemails naar `EMAIL_TEST_ADDRESS`. |
+| `EMAIL_TEST_ADDRESS` | Intern testadres voor acquisitie-outreach, standaard `contact@kopvast.nl`. |
 
 ## Livegang
 
