@@ -27,13 +27,13 @@ export default async function LoginPage({
           Inloggen bij Kopvast
         </h1>
         <p className="mt-5 max-w-md text-base leading-7 text-olive">
-          Log in met je wachtwoord. Lukt dat niet, dan sturen we een eenmalige inloglink. Klanten
+          Log in met je wachtwoord. Lukt dat niet, dan sturen we een code naar je e-mail. Klanten
           komen in Mijn Kopvast, Kopvast in de Admin Console.
         </p>
       </div>
       <div>
         {params.fout ? (
-          <p className="mb-4 text-sm text-destructive">Deze inloglink is verlopen of al gebruikt.</p>
+          <p className="mb-4 text-sm text-destructive">Deze inlogcode is verlopen of al gebruikt.</p>
         ) : null}
         <LoginForm next={params.next} allowDev={allowDevLogin()} />
         <p className="mt-4 text-sm text-olive">

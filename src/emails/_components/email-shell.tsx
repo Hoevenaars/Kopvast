@@ -167,6 +167,24 @@ export function EmailButton({ href, children }: { href: string; children: ReactN
   );
 }
 
+export function EmailCode({ code }: { code: string }) {
+  const digits = code.replace(/\D/g, "");
+  const display = digits.length === 6 ? `${digits.slice(0, 3)} ${digits.slice(3)}` : digits;
+  return (
+    <Section
+      className="my-[8px] rounded-[8px] px-[16px] py-[20px] text-center"
+      style={{ backgroundColor: emailColors.card }}
+    >
+      <Text
+        className="m-0 text-[28px] leading-[36px] font-semibold text-copper-dark"
+        style={{ fontFamily: sans, letterSpacing: "0.28em", color: emailColors.copperDark }}
+      >
+        {display}
+      </Text>
+    </Section>
+  );
+}
+
 export function EmailField({ label, value, href }: { label: string; value: string; href?: string }) {
   return (
     <Section className="py-[10px]">

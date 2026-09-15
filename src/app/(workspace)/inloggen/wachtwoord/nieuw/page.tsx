@@ -28,7 +28,7 @@ export default async function ResetPasswordPage({
         {token ? (
           <ResetPasswordForm token={token} />
         ) : (
-          <p className="text-sm text-destructive">Deze herstellink is onvolledig. Vraag een nieuwe aan.</p>
+          <p className="text-sm text-destructive">Deze herstelcode is onvolledig. Vraag een nieuwe aan.</p>
         )}
         <p className="mt-4 text-sm text-olive">
           Terug naar{" "}
