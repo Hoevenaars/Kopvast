@@ -14,7 +14,7 @@ import {
   labelForResponse,
   labelForStatus,
 } from "@/lib/acquisition-constants";
-import { getEmailMode } from "@/lib/email-mode";
+import { resolveEmailSettings } from "@/lib/email-mode";
 import { workspaceRoutes } from "@/lib/product";
 import { cn } from "@/lib/utils";
 import { EmailModeBanner } from "./email-mode-banner";
@@ -32,7 +32,8 @@ export default async function AcquisitionOverviewPage({
   const sort = params.sort && isAcquisitionSort(params.sort) ? params.sort : "activiteit";
   const q = params.q ?? "";
   const { items, configured, error } = await listAcquisitionProspects({ filter, q, sort });
-  const mode = getEmailMode();
+  const settings = await resolveEmailSettings();
+  const mode = settings.mode;
 
   return (
     <div className="space-y-8">
@@ -49,7 +50,7 @@ export default async function AcquisitionOverviewPage({
           </Link>
         }
       />
-      <EmailModeBanner mode={mode} />
+      <EmailModeBanner mode={mode} testTo={settings.testEmail} />
 
       {!configured ? (
         <EmptyState
@@ -100,7 +101,10 @@ export default async function AcquisitionOverviewPage({
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           {items.length === 0 ? (
-            <EmptyState title="Nog geen prospects" text="Plak een website en een e-mailadres. Kopvast scant en maakt de mail klaar." />
+            <EmptyState
+              title="Tijd voor acquisitie"
+              text="De testomgeving is leeg. Plak een website en een e-mailadres. Kopvast scant en maakt de mail klaar."
+            />
           ) : (
             <ul className="grid gap-4">
               {items.map((item) => (

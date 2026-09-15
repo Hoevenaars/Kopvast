@@ -17,7 +17,7 @@ import {
   type ProductFit,
 } from "@/lib/acquisition-constants";
 import { products } from "@/lib/site";
-import { getEmailMode, getTestEmail } from "@/lib/email-mode";
+import { resolveEmailSettings } from "@/lib/email-mode";
 import { MailEditor } from "../mail-editor";
 import { ScanProgress } from "../scan-progress";
 import { EmailModeBanner } from "../email-mode-banner";
@@ -35,13 +35,14 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
 
   const running = ["queued", "running"].includes(prospect.scan?.status ?? "") || ["SCANNING", "ANALYSING", "VALIDATING"].includes(prospect.status);
   const commercialFindings = pickCommercialFindings(prospect.findings, 5);
-  const mode = getEmailMode();
+  const settings = await resolveEmailSettings();
+  const mode = settings.mode;
   const blocked = prospect.do_not_contact || prospect.contact_status === "BLOCKED" || prospect.contact_status === "DO_NOT_CONTACT" || Boolean(prospect.suppression);
 
   return (
     <div className="space-y-8">
       <PageIntro eyebrow={prospect.domain} title={prospect.company_name || prospect.domain} text={prospect.website_url} />
-      <EmailModeBanner mode={mode} />
+      <EmailModeBanner mode={mode} testTo={settings.testEmail} />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Opportunity Score" value={prospect.opportunity_score == null ? "—" : `${Math.round(prospect.opportunity_score)} / 100`} />
@@ -95,7 +96,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
           domain={prospect.domain}
           mode={mode}
           intended={prospect.contact?.email ?? null}
-          testTo={getTestEmail()}
+          testTo={settings.testEmail}
           canSend={!blocked && Boolean(prospect.contact?.email)}
         />
       ) : (

@@ -1,7 +1,6 @@
-import { getTestEmail, type EmailMode } from "@/lib/email-mode";
+import type { EmailMode } from "@/lib/email-mode";
 
-export function EmailModeBanner({ mode }: { mode: EmailMode }) {
-  const testTo = getTestEmail();
+export function EmailModeBanner({ mode, testTo }: { mode: EmailMode; testTo: string }) {
   const test = mode !== "LIVE";
   return (
     <div
@@ -17,7 +16,7 @@ export function EmailModeBanner({ mode }: { mode: EmailMode }) {
         </>
       ) : (
         <>
-          <strong>LIVE MODE</strong> — mails gaan naar het echte prospectadres.
+          <strong>LIVE MODE</strong> — acquisitiemails gaan naar het echte prospectadres. Testmail blijft intern.
         </>
       )}
     </div>

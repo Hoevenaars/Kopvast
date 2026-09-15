@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { PasswordForm } from "@/components/workspace/password-form";
 import { MailTemplatesForm } from "@/app/(workspace)/admin/instellingen/mail-templates-form";
+import { AcquisitionOpsForm } from "@/app/(workspace)/admin/instellingen/acquisition-ops-form";
 import { hasPassword, requireSession } from "@/lib/auth";
+import { resolveEmailSettings } from "@/lib/email-mode";
 import { loadMailTemplates } from "@/lib/mail-templates";
 import { workspaceRoutes } from "@/lib/product";
 
@@ -13,13 +15,16 @@ export default async function AdminSettingsPage() {
   const session = await requireSession("admin");
   if (!session) redirect(workspaceRoutes.login);
 
+  const settings = await resolveEmailSettings();
+
   return (
     <div className="space-y-8">
       <PageIntro
         eyebrow="Instellingen"
         title="Instellingen"
-        text="Beheer het wachtwoord voor de Admin Console en de standaardteksten van Kopvast-mails."
+        text="Beheer acquisitie LIVE/TEST, het wachtwoord voor de Admin Console en de standaardteksten van Kopvast-mails."
       />
+      <AcquisitionOpsForm mode={settings.mode} storedMode={settings.storedMode} testTo={settings.testEmail} />
       <PasswordForm hasPassword={await hasPassword(session.email)} />
       <MailTemplatesForm templates={await loadMailTemplates()} />
     </div>
