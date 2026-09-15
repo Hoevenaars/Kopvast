@@ -40,6 +40,8 @@ export const workspaceRoutes = {
   consoleRequests: "/klant/wijzigingen",
   admin: "/admin",
   adminProspects: "/admin/prospects",
+  adminAcquisition: "/admin/acquisitie",
+  adminAcquisitionNew: "/admin/acquisitie/nieuw",
   adminLeads: "/admin/leads",
   adminCustomers: "/admin/klanten",
   adminUsers: "/admin/gebruikers",

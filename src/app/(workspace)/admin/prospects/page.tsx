@@ -1,14 +1,6 @@
-import type { Metadata } from "next";
-import { ComingSoon } from "@/components/workspace/page-frame";
+import { redirect } from "next/navigation";
+import { workspaceRoutes } from "@/lib/product";
 
-export const metadata: Metadata = { title: "Prospects", robots: { index: false, follow: false } };
-
-export default function AdminProspectsPage() {
-  return (
-    <ComingSoon
-      eyebrow="Prospects"
-      title="Prospects"
-      text="Hier komt de acquisitieflow: website + e-mail opslaan, scannen, reviewen en daarna mailen."
-    />
-  );
+export default function AdminProspectsRedirect() {
+  redirect(workspaceRoutes.adminAcquisition);
 }
