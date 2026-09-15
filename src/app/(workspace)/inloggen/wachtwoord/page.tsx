@@ -15,7 +15,7 @@ export default function ForgotPasswordPage() {
         <p className="text-xs tracking-[0.18em] text-olive uppercase">Beveiliging</p>
         <h1 className="font-heading mt-4 text-4xl leading-tight text-ink md:text-5xl">Wachtwoord vergeten</h1>
         <p className="mt-5 max-w-md text-base leading-7 text-olive">
-          We sturen een link waarmee je een nieuw wachtwoord kiest. De link is twintig minuten geldig.
+          We sturen een code waarmee je een nieuw wachtwoord kiest. De code is twintig minuten geldig.
         </p>
       </div>
       <div>

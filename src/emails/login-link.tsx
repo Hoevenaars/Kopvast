@@ -1,29 +1,29 @@
-import { EmailButton, EmailShell } from "@/emails/_components/email-shell";
+import { EmailCode, EmailShell } from "@/emails/_components/email-shell";
 import { Text } from "react-email";
 
 export type LoginLinkEmailProps = {
   email: string;
-  verifyUrl: string;
+  code: string;
   role: "admin" | "customer";
 };
 
-export function LoginLinkEmail({ email, verifyUrl, role }: LoginLinkEmailProps) {
+export function LoginLinkEmail({ email, code, role }: LoginLinkEmailProps) {
   const admin = role === "admin";
   return (
     <EmailShell
-      preview={admin ? "Log in bij de Kopvast-admin" : "Log in bij je Kopvast-omgeving"}
+      preview={admin ? "Je inlogcode voor de Kopvast-admin" : "Je inlogcode voor Kopvast"}
       eyebrow={admin ? "Admin Console" : "Mijn Kopvast"}
-      title={admin ? "Je beheerscherm staat klaar." : "Je omgeving staat klaar."}
+      title={admin ? "Je inlogcode voor de admin." : "Je inlogcode staat klaar."}
     >
-      <Text className="mt-0 mb-[16px] text-[15px] leading-[24px] text-ink">{`Hallo,`}</Text>
-      <Text className="mt-0 mb-[24px] text-[15px] leading-[24px] text-olive">
+      <Text className="mt-0 mb-[16px] text-[15px] leading-[24px] text-ink">Hallo,</Text>
+      <Text className="mt-0 mb-[16px] text-[15px] leading-[24px] text-olive">
         {admin
-          ? "Gebruik de knop hieronder om aanvragen, klanten en mail te openen. De link is twintig minuten geldig."
-          : "Gebruik de knop hieronder om je projecten, bestanden en verzoeken te openen. De link is twintig minuten geldig."}
+          ? "Voer deze code in op het inlogscherm om aanvragen, klanten en mail te openen. De code is twintig minuten geldig."
+          : "Voer deze code in op het inlogscherm om je projecten, bestanden en verzoeken te openen. De code is twintig minuten geldig."}
       </Text>
-      <EmailButton href={verifyUrl}>{admin ? "Open Admin Console" : "Open Mijn Kopvast"}</EmailButton>
+      <EmailCode code={code} />
       <Text className="mt-[24px] mb-0 text-[13px] leading-[20px] text-olive">
-        Deze mail is bedoeld voor {email}. Heb je niet om deze link gevraagd? Dan kun je hem negeren.
+        Deze mail is bedoeld voor {email}. Heb je niet om deze code gevraagd? Dan kun je hem negeren.
       </Text>
     </EmailShell>
   );
@@ -31,7 +31,7 @@ export function LoginLinkEmail({ email, verifyUrl, role }: LoginLinkEmailProps) 
 
 LoginLinkEmail.PreviewProps = {
   email: "eva@atelierlint.nl",
-  verifyUrl: "https://kopvast.nl/inloggen/verify?token=demo",
+  code: "482917",
   role: "customer",
 } satisfies LoginLinkEmailProps;
 

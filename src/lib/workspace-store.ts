@@ -27,6 +27,7 @@ export type LocalToken = {
   purpose: string;
   expires_at: string;
   used_at: string | null;
+  failed_attempts: number;
 };
 
 export type LocalCredential = {
@@ -63,7 +64,15 @@ const empty = (): Store => ({
 
 export async function readStore(): Promise<Store> {
   try {
-    return { ...empty(), ...(JSON.parse(await readFile(file, "utf8")) as Store) };
+    const parsed = JSON.parse(await readFile(file, "utf8")) as Partial<Store>;
+    return {
+      ...empty(),
+      ...parsed,
+      tokens: (parsed.tokens ?? []).map((item) => ({
+        ...item,
+        failed_attempts: item.failed_attempts ?? 0,
+      })),
+    };
   } catch {
     return empty();
   }

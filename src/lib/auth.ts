@@ -8,9 +8,19 @@ import {
   saveCredential,
 } from "@/lib/credentials";
 import { hashPassword, validatePassword, verifyPassword } from "@/lib/passwords";
-import { destinationForRole, isAdminEmail, isEmail, memberHasAccess, normalizeEmail, workspaceRoutes } from "@/lib/product";
-import { SESSION_COOKIE, createToken, hashToken } from "@/lib/tokens";
-import { mutateStore, newId, readStore } from "@/lib/workspace-store";
+import { destinationForRole, isAdminEmail, isEmail, memberHasAccess, normalizeEmail } from "@/lib/product";
+import {
+  LOGIN_CODE_MAX_ATTEMPTS,
+  SESSION_COOKIE,
+  createLoginCode,
+  createToken,
+  formatLoginCode,
+  hashLoginCode,
+  hashToken,
+  isLoginCode,
+  normalizeLoginCode,
+} from "@/lib/tokens";
+import { mutateStore, newId, nowIso, readStore } from "@/lib/workspace-store";
 
 export { SESSION_COOKIE, createToken, hashToken };
 
@@ -27,8 +37,15 @@ export type WorkspaceSession = {
 };
 
 export type LoginIntent =
-  | { ok: true; emailed: boolean; destination?: string; verifyUrl?: string }
-  | { ok: false; message: string };
+  | {
+      ok: true;
+      emailed: boolean;
+      destination?: string;
+      needsCode?: boolean;
+      email?: string;
+      devCode?: string;
+    }
+  | { ok: false; message: string; needsCode?: boolean; email?: string; devCode?: string };
 
 export function allowDevLogin() {
   return process.env.NODE_ENV !== "production";
@@ -56,7 +73,7 @@ export async function resolveLoginRole(email: string): Promise<SessionRole | nul
   return null;
 }
 
-export async function startLogin(emailInput: string, next?: string): Promise<LoginIntent> {
+export async function startLogin(emailInput: string): Promise<LoginIntent> {
   const email = normalizeEmail(emailInput);
   if (!isEmail(email)) {
     return { ok: false, message: "Vul een geldig e-mailadres in." };
@@ -70,45 +87,45 @@ export async function startLogin(emailInput: string, next?: string): Promise<Log
     };
   }
 
-  if (allowDevLogin() && !(await getCredential(email))) {
-    await createSession({
-      email,
-      role,
-      organizationId: (await findMember(email))?.organization_id ?? null,
-    });
-    return { ok: true, emailed: false, destination: safeNext(next, role) };
+  return issueEmailCode({
+    email,
+    purpose: role,
+    send: (code) => sendLoginEmail({ email, code, role }),
+    failMessage: "We konden de code nu niet versturen. Probeer het later opnieuw.",
+  });
+}
+
+export async function verifyLoginCode(
+  emailInput: string,
+  codeInput: string,
+  next?: string
+): Promise<LoginIntent> {
+  const email = normalizeEmail(emailInput);
+  if (!isEmail(email) || !isLoginCode(codeInput)) {
+    return {
+      ok: false,
+      message: "Vul het e-mailadres en de zescijferige code in.",
+      needsCode: true,
+      email: isEmail(email) ? email : undefined,
+    };
   }
 
-  const token = createToken();
-  const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000).toISOString();
-  const supabase = refreshClient();
-  if (supabase) {
-    const { error } = await supabase.from("kopvast_login_tokens").insert({
-      email,
-      token_hash: hashToken(token),
-      purpose: role,
-      expires_at: expiresAt,
-    });
-    if (error) {
-      console.error("[kopvast] Login-token opslaan mislukt", error.message);
-      return { ok: false, message: "Inloggen is tijdelijk niet beschikbaar." };
-    }
-  } else {
-    await mutateStore((store) => {
-      store.tokens.push({
-        id: newId(),
-        email,
-        token_hash: hashToken(token),
-        purpose: role,
-        expires_at: expiresAt,
-        used_at: null,
-      });
-    });
+  const role = await resolveLoginRole(email);
+  if (!role) {
+    return { ok: false, message: "Deze code klopt niet of is verlopen.", needsCode: true, email };
   }
 
-  const verifyUrl = `${siteOrigin()}/inloggen/verify?token=${encodeURIComponent(token)}`;
-  const sent = await sendLoginEmail({ email, verifyUrl, role });
-  return { ok: true, emailed: sent };
+  const record = await consumeCodeToken(email, codeInput, role);
+  if (!record) {
+    return { ok: false, message: "Deze code klopt niet of is verlopen.", needsCode: true, email };
+  }
+
+  await createSession({
+    email,
+    role,
+    organizationId: (await findMember(email))?.organization_id ?? null,
+  });
+  return { ok: true, emailed: false, destination: safeNext(next, role) };
 }
 
 export async function consumeLoginToken(token: string) {
@@ -336,53 +353,120 @@ export async function requestPasswordReset(emailInput: string): Promise<LoginInt
   }
   const role = await resolveLoginRole(email);
   if (!role) {
-    return { ok: true, emailed: true };
+    return { ok: true, emailed: true, needsCode: true, email };
   }
 
-  const token = createToken();
-  const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000).toISOString();
-  const saved = await saveLoginToken({ email, token, purpose: "password_reset", expiresAt });
-  if (!saved) return { ok: false, message: "Opnieuw instellen is tijdelijk niet beschikbaar." };
+  return issueEmailCode({
+    email,
+    purpose: "password_reset",
+    send: (code) => sendPasswordResetEmail({ email, code }),
+    failMessage: "We konden de code nu niet versturen. Probeer het later opnieuw.",
+  });
+}
 
-  const resetUrl = `${siteOrigin()}${workspaceRoutes.loginReset}?token=${encodeURIComponent(token)}`;
-  const sent = await sendPasswordResetEmail({ email, resetUrl });
-  if (allowDevLogin() && !sent) {
-    return { ok: true, emailed: false, destination: `${workspaceRoutes.loginReset}?token=${encodeURIComponent(token)}` };
+export async function resetPasswordWithCode(
+  emailInput: string,
+  codeInput: string,
+  password: string,
+  confirm: string
+): Promise<LoginIntent> {
+  const email = normalizeEmail(emailInput);
+  if (!isEmail(email) || !isLoginCode(codeInput)) {
+    return {
+      ok: false,
+      message: "Vul het e-mailadres en de zescijferige code in.",
+      needsCode: true,
+      email: isEmail(email) ? email : undefined,
+    };
   }
-  return { ok: true, emailed: sent };
+  if (password !== confirm) {
+    return { ok: false, message: "De wachtwoorden komen niet overeen.", needsCode: true, email };
+  }
+  const rules = validatePassword(password, email);
+  if (!rules.ok) return { ...rules, needsCode: true, email };
+
+  const record = await consumeCodeToken(email, codeInput, "password_reset");
+  if (!record) {
+    return { ok: false, message: "Deze code klopt niet of is verlopen.", needsCode: true, email };
+  }
+
+  return finishPasswordReset(record.email, password);
 }
 
 export async function resetPasswordWithToken(token: string, password: string, confirm: string): Promise<LoginIntent> {
   if (password !== confirm) {
     return { ok: false, message: "De wachtwoorden komen niet overeen." };
   }
+  const rules = validatePassword(password);
+  if (!rules.ok) return rules;
   const record = await consumePurposeToken(token, "password_reset");
   if (!record) {
-    return { ok: false, message: "Deze herstellink is verlopen of al gebruikt." };
+    return { ok: false, message: "Deze herstelcode is verlopen of al gebruikt." };
   }
-  const rules = validatePassword(password, record.email);
-  if (!rules.ok) return rules;
+  const passwordRules = validatePassword(password, record.email);
+  if (!passwordRules.ok) return passwordRules;
+  return finishPasswordReset(record.email, password);
+}
 
-  const stored = await saveCredential(record.email, await hashPassword(password));
+async function finishPasswordReset(email: string, password: string): Promise<LoginIntent> {
+  const stored = await saveCredential(email, await hashPassword(password));
   if (!stored.ok) return stored;
 
-  const role = (await resolveLoginRole(record.email)) ?? (record.purpose === "admin" ? "admin" : "customer");
-  await replaceSessions(record.email, {
-    email: record.email,
+  const role = (await resolveLoginRole(email)) ?? "customer";
+  await replaceSessions(email, {
+    email,
     role,
-    organizationId: (await findMember(record.email))?.organization_id ?? null,
+    organizationId: (await findMember(email))?.organization_id ?? null,
   });
   return { ok: true, emailed: false, destination: destinationForRole(role) };
 }
 
-async function saveLoginToken(input: { email: string; token: string; purpose: string; expiresAt: string }) {
+async function issueEmailCode(input: {
+  email: string;
+  purpose: string;
+  send: (code: string) => Promise<boolean>;
+  failMessage: string;
+}): Promise<LoginIntent> {
+  const code = createLoginCode();
+  const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000).toISOString();
+  const saved = await saveLoginToken({
+    email: input.email,
+    tokenHash: hashLoginCode(input.email, code, input.purpose),
+    purpose: input.purpose,
+    expiresAt,
+  });
+  if (!saved) return { ok: false, message: input.failMessage };
+
+  const sent = await input.send(code);
+  if (sent) {
+    return { ok: true, emailed: true, needsCode: true, email: input.email };
+  }
+  if (allowDevLogin()) {
+    console.info("[kopvast] Code (dev)", input.email, code);
+    return { ok: true, emailed: false, needsCode: true, email: input.email, devCode: code };
+  }
+  return { ok: false, message: input.failMessage };
+}
+
+async function saveLoginToken(input: { email: string; tokenHash: string; purpose: string; expiresAt: string }) {
+  const now = nowIso();
   const supabase = refreshClient();
   if (supabase) {
+    const { error: invalidateError } = await supabase
+      .from("kopvast_login_tokens")
+      .update({ used_at: now })
+      .eq("email", input.email)
+      .eq("purpose", input.purpose)
+      .is("used_at", null);
+    if (invalidateError) {
+      console.error("[kopvast] Oude codes wissen mislukt", invalidateError.message);
+    }
     const { error } = await supabase.from("kopvast_login_tokens").insert({
       email: input.email,
-      token_hash: hashToken(input.token),
+      token_hash: input.tokenHash,
       purpose: input.purpose,
       expires_at: input.expiresAt,
+      failed_attempts: 0,
     });
     if (error) {
       console.error("[kopvast] Token opslaan mislukt", error.message);
@@ -391,16 +475,131 @@ async function saveLoginToken(input: { email: string; token: string; purpose: st
     return true;
   }
   await mutateStore((store) => {
+    for (const item of store.tokens) {
+      if (item.email === input.email && item.purpose === input.purpose && !item.used_at) {
+        item.used_at = now;
+      }
+    }
     store.tokens.push({
       id: newId(),
       email: input.email,
-      token_hash: hashToken(input.token),
+      token_hash: input.tokenHash,
       purpose: input.purpose,
       expires_at: input.expiresAt,
       used_at: null,
+      failed_attempts: 0,
     });
   });
   return true;
+}
+
+async function consumeCodeToken(email: string, codeInput: string, purpose: string) {
+  const code = normalizeLoginCode(codeInput);
+  const tokenHash = hashLoginCode(email, code, purpose);
+  const now = nowIso();
+  const supabase = refreshClient();
+
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("kopvast_login_tokens")
+      .select("id, email, purpose, expires_at, used_at")
+      .eq("token_hash", tokenHash)
+      .maybeSingle();
+    if (
+      error ||
+      !data ||
+      data.used_at ||
+      data.purpose !== purpose ||
+      data.email !== email ||
+      Date.parse(data.expires_at) < Date.now()
+    ) {
+      await recordFailedCodeAttempt(email, purpose);
+      return null;
+    }
+    const { data: updated } = await supabase
+      .from("kopvast_login_tokens")
+      .update({ used_at: now })
+      .eq("id", data.id)
+      .is("used_at", null)
+      .select("id")
+      .maybeSingle();
+    if (!updated) return null;
+    return { email: data.email as string, purpose: data.purpose as string };
+  }
+
+  return mutateStore((store) => {
+    const found = store.tokens.find((item) => item.token_hash === tokenHash);
+    if (
+      !found ||
+      found.used_at ||
+      found.purpose !== purpose ||
+      found.email !== email ||
+      Date.parse(found.expires_at) < Date.now()
+    ) {
+      bumpFailedCodeAttempt(store.tokens, email, purpose, now);
+      return null;
+    }
+    found.used_at = now;
+    return { email: found.email, purpose: found.purpose };
+  });
+}
+
+async function recordFailedCodeAttempt(email: string, purpose: string) {
+  const now = nowIso();
+  const supabase = refreshClient();
+  if (supabase) {
+    const { data } = await supabase
+      .from("kopvast_login_tokens")
+      .select("id, failed_attempts, expires_at, used_at")
+      .eq("email", email)
+      .eq("purpose", purpose)
+      .is("used_at", null)
+      .gt("expires_at", now)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!data) return;
+    const failed = (data.failed_attempts ?? 0) + 1;
+    await supabase
+      .from("kopvast_login_tokens")
+      .update({
+        failed_attempts: failed,
+        used_at: failed >= LOGIN_CODE_MAX_ATTEMPTS ? now : data.used_at,
+      })
+      .eq("id", data.id);
+    return;
+  }
+  await mutateStore((store) => {
+    bumpFailedCodeAttempt(store.tokens, email, purpose, now);
+  });
+}
+
+function bumpFailedCodeAttempt(
+  tokens: Array<{
+    email: string;
+    purpose: string;
+    used_at: string | null;
+    expires_at: string;
+    failed_attempts?: number;
+  }>,
+  email: string,
+  purpose: string,
+  now: string
+) {
+  const found = tokens
+    .filter(
+      (item) =>
+        item.email === email &&
+        item.purpose === purpose &&
+        !item.used_at &&
+        Date.parse(item.expires_at) >= Date.now()
+    )
+    .sort((a, b) => Date.parse(b.expires_at) - Date.parse(a.expires_at))[0];
+  if (!found) return;
+  found.failed_attempts = (found.failed_attempts ?? 0) + 1;
+  if (found.failed_attempts >= LOGIN_CODE_MAX_ATTEMPTS) {
+    found.used_at = now;
+  }
 }
 
 async function consumePurposeToken(token: string, purpose: string) {
@@ -452,11 +651,7 @@ export function safeNext(next: string | undefined, role: SessionRole) {
   return destinationForRole(role);
 }
 
-function siteOrigin() {
-  return process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://kopvast.nl";
-}
-
-async function sendLoginEmail(input: { email: string; verifyUrl: string; role: SessionRole }) {
+async function sendLoginEmail(input: { email: string; code: string; role: SessionRole }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.info("[kopvast] Loginmail overgeslagen (geen RESEND_API_KEY)");
@@ -468,16 +663,14 @@ async function sendLoginEmail(input: { email: string; verifyUrl: string; role: S
   const { LoginLinkEmail } = await import("@/emails/login-link");
   const { fromAddress } = await import("@/lib/email");
 
-  const html = await render(
-    LoginLinkEmail({ email: input.email, verifyUrl: input.verifyUrl, role: input.role })
-  );
+  const html = await render(LoginLinkEmail({ email: input.email, code: input.code, role: input.role }));
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from: fromAddress(),
     to: input.email,
-    subject: input.role === "admin" ? "Inloggen bij Kopvast Admin" : "Inloggen bij je Kopvast-omgeving",
+    subject: input.role === "admin" ? "Je inlogcode voor Kopvast Admin" : "Je inlogcode voor Kopvast",
     html,
-    text: `Open deze link om in te loggen: ${input.verifyUrl}\nDe link is ${TOKEN_TTL_MINUTES} minuten geldig.`,
+    text: `Je inlogcode is ${formatLoginCode(input.code)}.\nDe code is ${TOKEN_TTL_MINUTES} minuten geldig.`,
   });
   if (error) {
     console.error("[kopvast] Loginmail mislukt", error.message);
@@ -486,10 +679,10 @@ async function sendLoginEmail(input: { email: string; verifyUrl: string; role: S
   return true;
 }
 
-async function sendPasswordResetEmail(input: { email: string; resetUrl: string }) {
+async function sendPasswordResetEmail(input: { email: string; code: string }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.info("[kopvast] Wachtwoordmail overgeslagen (geen RESEND_API_KEY)", input.resetUrl);
+    console.info("[kopvast] Wachtwoordmail overgeslagen (geen RESEND_API_KEY)");
     return false;
   }
 
@@ -498,14 +691,14 @@ async function sendPasswordResetEmail(input: { email: string; resetUrl: string }
   const { PasswordResetEmail } = await import("@/emails/password-reset");
   const { fromAddress } = await import("@/lib/email");
 
-  const html = await render(PasswordResetEmail({ email: input.email, resetUrl: input.resetUrl }));
+  const html = await render(PasswordResetEmail({ email: input.email, code: input.code }));
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from: fromAddress(),
     to: input.email,
-    subject: "Wachtwoord opnieuw instellen",
+    subject: "Code om je wachtwoord opnieuw in te stellen",
     html,
-    text: `Stel je wachtwoord opnieuw in via deze link: ${input.resetUrl}\nDe link is ${TOKEN_TTL_MINUTES} minuten geldig.`,
+    text: `Je code is ${formatLoginCode(input.code)}.\nVoer hem in op kopvast.nl om een nieuw wachtwoord te kiezen. De code is ${TOKEN_TTL_MINUTES} minuten geldig.`,
   });
   if (error) {
     console.error("[kopvast] Wachtwoordmail mislukt", error.message);

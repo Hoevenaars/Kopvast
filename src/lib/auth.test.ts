@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { render } from "react-email";
 import { LoginLinkEmail } from "../emails/login-link";
 import { PasswordResetEmail } from "../emails/password-reset";
-import { createToken, hashToken } from "./tokens";
+import { createLoginCode, createToken, formatLoginCode, hashLoginCode, hashToken, isLoginCode, normalizeLoginCode } from "./tokens";
 import {
   defaultProjectsForLead,
   mapLeadToOrganization,
@@ -40,6 +40,24 @@ test("hash van login-token is deterministisch en niet de token zelf", () => {
   assert.notEqual(hashToken(token), token);
   assert.notEqual(hashToken(token), hashToken("ander"));
   assert.match(hashToken(token), /^[a-f0-9]{64}$/);
+});
+
+test("inlogcode is zes cijfers en wordt per e-mail gehashed", () => {
+  const code = createLoginCode();
+  assert.match(code, /^\d{6}$/);
+  assert.equal(isLoginCode("482 917"), true);
+  assert.equal(isLoginCode("48291"), false);
+  assert.equal(normalizeLoginCode("482 917"), "482917");
+  assert.equal(formatLoginCode("482917"), "482 917");
+  assert.equal(hashLoginCode("eva@atelierlint.nl", "482 917", "customer"), hashLoginCode("eva@atelierlint.nl", "482917", "customer"));
+  assert.notEqual(
+    hashLoginCode("eva@atelierlint.nl", "482917", "customer"),
+    hashLoginCode("nina@example.com", "482917", "customer")
+  );
+  assert.notEqual(
+    hashLoginCode("eva@atelierlint.nl", "482917", "customer"),
+    hashLoginCode("eva@atelierlint.nl", "482917", "admin")
+  );
 });
 
 test("zet een website-aanvraag om naar klant + standaardprojecten", () => {
@@ -79,29 +97,31 @@ test("toont leesbare statuslabels", () => {
   assert.equal(labelFor(leadStatuses, "OMGEZET"), "Klant");
 });
 
-test("loginmail volgt de Kopvast-huisstijl", async () => {
+test("loginmail toont een inlogcode in de Kopvast-huisstijl", async () => {
   const html = await render(
     createElement(LoginLinkEmail, {
       email: "eva@atelierlint.nl",
-      verifyUrl: "https://kopvast.nl/inloggen/verify?token=abc",
+      code: "482917",
       role: "customer",
     })
   );
   assert.match(html, /KOPVAST/);
   assert.match(html, /Mijn Kopvast/i);
-  assert.match(html, /verify\?token=abc/);
+  assert.match(html, /482 917/);
+  assert.doesNotMatch(html, /verify\?token=/);
   assert.match(html, /#a64d27|rgb\(166,\s*77,\s*39\)/i);
 });
 
-test("wachtwoordmail volgt de Kopvast-huisstijl", async () => {
+test("wachtwoordmail toont een herstelcode in de Kopvast-huisstijl", async () => {
   const html = await render(
     createElement(PasswordResetEmail, {
       email: "eva@atelierlint.nl",
-      resetUrl: "https://kopvast.nl/inloggen/wachtwoord/nieuw?token=abc",
+      code: "482917",
     })
   );
   assert.match(html, /KOPVAST/);
   assert.match(html, /wachtwoord/i);
-  assert.match(html, /wachtwoord\/nieuw\?token=abc/);
+  assert.match(html, /482 917/);
+  assert.doesNotMatch(html, /wachtwoord\/nieuw\?token=/);
   assert.match(html, /#a64d27|rgb\(166,\s*77,\s*39\)/i);
 });
