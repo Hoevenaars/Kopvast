@@ -3,7 +3,7 @@ import { Resend } from "resend";
 import { fromAddress } from "./email";
 import { refreshClient } from "./refresh";
 import { addSuppression } from "./suppression";
-import { getEmailMode, getTestEmail, recipientForMode } from "./email-mode";
+import { getEmailMode, getTestEmail, recipientForMode, resolveEmailSettings } from "./email-mode";
 import { renderOutreachHtml, renderOutreachText } from "./acquisition-render";
 import { generateAcquisitionMail, fallbackAcquisitionMail, type MailFinding } from "./acquisition-mail";
 import { logProspectActivity, refreshProspectCosts } from "./acquisition-activity";
@@ -136,7 +136,7 @@ export async function storeGeneratedMail(
       body_text: generated.body,
       body_html: html,
       status: "draft",
-      email_mode: getEmailMode(),
+      email_mode: await getEmailMode(),
       template_version: generated.templateVersion,
       prompt_version: generated.promptVersion,
       findings_used: generated.findingsUsed,
@@ -271,7 +271,7 @@ export async function sendProspectTestMail(input: { prospectId: string; mailId: 
   );
   if (issues.length) return { ok: false as const, message: issues[0].message };
 
-  const to = getTestEmail();
+  const to = await getTestEmail();
   const subject = mail!.subject!;
   const body = mail!.body_text!;
   const since = new Date(Date.now() - TEST_MAIL_IDEMPOTENCY_WINDOW_MS).toISOString();
@@ -351,7 +351,8 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
   if (issues.length) return { ok: false as const, message: issues[0].message };
 
   const intended = normalizeEmail(detail.contact!.email);
-  const recipient = recipientForMode(intended);
+  const settings = await resolveEmailSettings();
+  const recipient = recipientForMode(intended, settings.mode, settings.testEmail);
   const idempotencyKey = `acquisition-outreach/${mail!.id}`;
 
   const { data: locked, error: lockError } = await supabase

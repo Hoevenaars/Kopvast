@@ -151,14 +151,18 @@ export function MailEditor({
             <button
               type="button"
               disabled={pending || !canSend}
-              onClick={() =>
+              onClick={() => {
+                if (mode === "LIVE") {
+                  const target = intended || "het prospectadres";
+                  if (!window.confirm(`Deze mail gaat naar ${target}. Versturen?`)) return;
+                }
                 run(
                   sendLiveMailAction,
                   undefined,
                   mode === "LIVE" ? "Mail verstuurd." : "Mail naar testadres verstuurd.",
                   "Mail versturen…"
-                )
-              }
+                );
+              }}
               className="h-12 cursor-pointer rounded-md bg-copper-dark text-sm font-semibold text-ivory disabled:cursor-wait disabled:opacity-50"
             >
               {mode === "LIVE" ? "Versturen" : "Versturen naar testadres"}
@@ -166,9 +170,12 @@ export function MailEditor({
           </div>
           {mode !== "LIVE" ? (
             <p className="text-xs text-ink/45">
-              EMAIL_MODE=TEST. Versturen doorloopt de echte flow, maar Resend levert af op {testTo}.
+              TEST MODE. Versturen doorloopt de echte flow, maar Resend levert af op {testTo}. LIVE zet je aan onder
+              Instellingen.
             </p>
-          ) : null}
+          ) : (
+            <p className="text-xs text-ink/45">LIVE MODE. Versturen gaat naar {intended || "het prospectadres"}.</p>
+          )}
           {message ? <p className="text-sm text-olive">{message}</p> : null}
         </div>
 

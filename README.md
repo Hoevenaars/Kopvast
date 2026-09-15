@@ -17,6 +17,8 @@ Kopvast helpt ondernemers en organisaties sterker naar buiten te komen met websi
 
 Testprijzen (excl. btw): Kopvast Website €1.495 eenmalig, Kopvast Beheer €199 per maand.
 
+Acquisitie start leeg. Onder `/admin/instellingen` zet je LIVE aan (typ `LIVE`) of haal je de omgeving leeg (typ `LEEGMAKEN`). Testmail blijft intern, ook in LIVE.
+
 ## Lokaal starten
 
 ```bash
@@ -52,8 +54,8 @@ Kopieer `.env.example` naar `.env.local` als je e-mailnotificaties wilt.
 | `KOPVAST_SESSION_SECRET` | Tekent inlogsessies voor `/klant` en `/admin`. In productie verplicht als er geen service-role is. |
 | `KOPVAST_ADMIN_EMAILS` | Kommagescheiden adminadressen. Adressen op `@kopvast.nl` zijn altijd admin. |
 | `OPENAI_API_KEY` | Optioneel. Zonder sleutel wordt de URL wel opgeslagen, maar draait de AI niet. |
-| `EMAIL_MODE` | `TEST` (standaard) of `LIVE`. In TEST gaan acquisitiemails naar `EMAIL_TEST_ADDRESS`. |
-| `EMAIL_TEST_ADDRESS` | Intern testadres voor acquisitie-outreach, standaard `contact@kopvast.nl`. |
+| `EMAIL_MODE` | Lokaal: `TEST` (standaard) of `LIVE`. Buiten productie blijft verzending TEST, tenzij je hier expliciet `LIVE` zet. In productie wint Admin → Instellingen. |
+| `EMAIL_TEST_ADDRESS` | Intern testadres voor de knop Testmail, standaard `contact@kopvast.nl`. |
 
 ## Livegang
 
