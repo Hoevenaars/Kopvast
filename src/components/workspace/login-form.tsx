@@ -11,6 +11,7 @@ const initial: LoginState = null;
 export function LoginForm({ next, allowDev }: { next?: string; allowDev: boolean }) {
   const [state, action, pending] = useActionState(requestLogin, initial);
   const [email, setEmail] = useState("");
+  if (state?.email && !email) setEmail(state.email);
   const showCode = Boolean(state?.needsCode);
   const devCode = state?.devCode;
 

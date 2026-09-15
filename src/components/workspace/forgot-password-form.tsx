@@ -11,6 +11,7 @@ export function ForgotPasswordForm() {
   const [sendState, sendAction, sendPending] = useActionState(requestReset, initial);
   const [resetState, resetAction, resetPending] = useActionState(submitResetPassword, initial);
   const [email, setEmail] = useState("");
+  if (sendState?.email && !email) setEmail(sendState.email);
   const showCode = Boolean(sendState?.needsCode);
   const devCode = sendState?.devCode;
 
