@@ -91,6 +91,8 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
           mailId={prospect.mail.id}
           subject={prospect.mail.subject ?? ""}
           body={prospect.mail.body_text ?? ""}
+          companyName={prospect.company_name}
+          domain={prospect.domain}
           mode={mode}
           intended={prospect.contact?.email ?? null}
           testTo={getTestEmail()}

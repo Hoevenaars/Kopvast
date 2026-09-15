@@ -14,7 +14,6 @@ import {
   type CreateProspectResult,
 } from "@/lib/acquisition";
 import {
-  previewProspectMail,
   regenerateProspectMail,
   saveProspectMailDraft,
   sendProspectLiveMail,
@@ -155,11 +154,6 @@ export async function sendLiveMailAction(formData: FormData) {
   });
   revalidateAcquisition(prospectId);
   return result;
-}
-
-export async function previewMailAction(input: { prospectId: string; subject: string; body: string }) {
-  await requireAdmin();
-  return previewProspectMail(input);
 }
 
 export async function updateFollowUpAction(formData: FormData) {
