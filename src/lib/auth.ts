@@ -8,7 +8,7 @@ import {
   saveCredential,
 } from "@/lib/credentials";
 import { hashPassword, validatePassword, verifyPassword } from "@/lib/passwords";
-import { destinationForRole, isAdminEmail, isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
+import { destinationForRole, isAdminEmail, isEmail, memberHasAccess, normalizeEmail, workspaceRoutes } from "@/lib/product";
 import { SESSION_COOKIE, createToken, hashToken } from "@/lib/tokens";
 import { mutateStore, newId, readStore } from "@/lib/workspace-store";
 
@@ -39,7 +39,7 @@ export async function findMember(email: string) {
   if (supabase) {
     const { data } = await supabase
       .from("kopvast_members")
-      .select("id, organization_id, name, email, role")
+      .select("id, organization_id, name, email, role, access_enabled")
       .ilike("email", normalizeEmail(email))
       .limit(1)
       .maybeSingle();
@@ -52,7 +52,8 @@ export async function findMember(email: string) {
 export async function resolveLoginRole(email: string): Promise<SessionRole | null> {
   if (isAdminEmail(email)) return "admin";
   const member = await findMember(email);
-  return member ? "customer" : null;
+  if (member && memberHasAccess(member)) return "customer";
+  return null;
 }
 
 export async function startLogin(emailInput: string, next?: string): Promise<LoginIntent> {
@@ -241,7 +242,26 @@ export async function requireSession(role?: SessionRole) {
   const session = await readSession();
   if (!session) return null;
   if (role && session.role !== role) return null;
+  if (session.role === "customer") {
+    const member = await findMember(session.email);
+    if (!memberHasAccess(member)) {
+      await clearSession();
+      return null;
+    }
+  }
   return session;
+}
+
+export async function endSessionsForEmail(email: string) {
+  const normalized = normalizeEmail(email);
+  const supabase = refreshClient();
+  if (supabase) {
+    await supabase.from("kopvast_sessions").delete().eq("email", normalized);
+    return;
+  }
+  await mutateStore((store) => {
+    store.sessions = store.sessions.filter((item) => item.email !== normalized);
+  });
 }
 
 const invalidLogin = { ok: false as const, message: "E-mail of wachtwoord klopt niet." };

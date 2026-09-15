@@ -86,7 +86,7 @@ Daarna in Vercel: **Add New Project → Import `Hoevenaars/Kopvast`**. Maak een 
    - `OPENAI_API_KEY` (anders wordt alleen de URL + homepage-feiten bewaard, zonder interne score)
 
    De bezoeker ziet nog steeds alleen de drie feiten/observaties. De interne analyse draait daarna op de server. Dezelfde URL wordt binnen 24 uur niet opnieuw intern geanalyseerd.
-7. **Consoles** — `/inloggen` werkt met e-mail + wachtwoord. Wachtwoorden staan als scrypt-hash in `kopvast_credentials` (of lokaal in `/tmp` zonder service-role). Live blijft een eenmalige inloglink via Resend beschikbaar. Wachtwoord vergeten gaat via `/inloggen/wachtwoord`. In Instellingen kun je een wachtwoord zetten of wijzigen; andere sessies vervallen dan. Lokaal kun je via de inloglink nog direct binnenkomen tot er een wachtwoord is. Zet `KOPVAST_SESSION_SECRET` en eventueel extra adminadressen. Een gewonnen aanvraag zet je in `/admin` om naar een klant; die persoon kan daarna `/klant` openen.
+7. **Consoles** — `/inloggen` werkt met e-mail + wachtwoord. Wachtwoorden staan als scrypt-hash in `kopvast_credentials` (of lokaal in `/tmp` zonder service-role). Live blijft een eenmalige inloglink via Resend beschikbaar. Wachtwoord vergeten gaat via `/inloggen/wachtwoord`. In Instellingen kun je een wachtwoord zetten of wijzigen; andere sessies vervallen dan. Lokaal kun je via de inloglink nog direct binnenkomen tot er een wachtwoord is. Zet `KOPVAST_SESSION_SECRET` en eventueel extra adminadressen. Een gewonnen aanvraag zet je in `/admin` om naar een klant; die persoon kan daarna `/klant` openen. In `/admin/gebruikers` zet je per gebruiker toegang tot Mijn Kopvast aan of uit.
 
 ## Beeld
 

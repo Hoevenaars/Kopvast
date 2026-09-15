@@ -8,6 +8,7 @@ export type MemberRow = {
   name: string;
   email: string;
   role: string;
+  access_enabled: boolean;
 };
 
 export type LocalSession = {

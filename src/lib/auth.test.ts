@@ -13,6 +13,7 @@ import {
 import {
   destinationForRole,
   isAdminEmail,
+  memberHasAccess,
   isEmail,
   labelFor,
   leadStatuses,
@@ -26,6 +27,9 @@ test("normaliseert e-mail en herkent admin-domein", () => {
   assert.equal(isEmail("fout"), false);
   assert.equal(isAdminEmail("contact@kopvast.nl"), true);
   assert.equal(isAdminEmail("eva@atelierlint.nl"), false);
+  assert.equal(memberHasAccess({ access_enabled: true }), true);
+  assert.equal(memberHasAccess({ access_enabled: false }), false);
+  assert.equal(memberHasAccess({}), true);
   assert.equal(destinationForRole("admin"), "/admin");
   assert.equal(destinationForRole("customer"), "/klant");
 });
