@@ -10,14 +10,13 @@ export const metadata: Metadata = {
 
 export default async function AdminTasksPage() {
   const board = await loadTodoBoard();
-  const openCount = board.todos.filter((todo) => todo.status !== "done").length;
 
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col gap-6">
       <PageIntro
         eyebrow="Taken"
         title="Takenbord"
-        text={`${openCount} open. Sleep kaarten tussen kolommen, net als in Planner. Kolommen en labels beheer je hier.`}
+        text="Sleep kaarten tussen kolommen, net als in Planner. Kolommen en labels beheer je hier."
       />
       <TaskBoard
         initialBuckets={board.buckets}

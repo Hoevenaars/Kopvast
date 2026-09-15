@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 import {
   createBucketAction,
   createLabelAction,
@@ -53,6 +53,9 @@ export function TaskBoard({
   const [error, setError] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overBucket, setOverBucket] = useState<string | null>(null);
+  const drag = useRef<{ id: string; x: number; y: number; started: boolean } | null>(null);
+  const overRef = useRef<string | null>(null);
+  const skipClick = useRef(false);
 
   const { grouped, unassigned } = todosByBucket(todos, buckets);
   const columns: Array<{ id: string; name: string; fake: boolean; todos: BoardTodo[] }> = [];
@@ -60,6 +63,7 @@ export function TaskBoard({
   for (const bucket of buckets) columns.push({ id: bucket.id, name: bucket.name, fake: false, todos: grouped.get(bucket.id) || [] });
 
   const openTodo = todos.find((todo) => todo.id === openTodoId) ?? null;
+  const openCount = todos.filter((todo) => todo.status !== "done").length;
 
   function replaceTodo(next: BoardTodo) {
     setTodos((current) => {
@@ -72,9 +76,65 @@ export function TaskBoard({
     setError(message);
   }
 
+  function markOver(bucketId: string | null) {
+    overRef.current = bucketId;
+    setOverBucket(bucketId);
+  }
+
+  async function dropOn(bucketId: string) {
+    const id = drag.current?.id || draggingId;
+    drag.current = null;
+    markOver(null);
+    setDraggingId(null);
+    if (!id) return;
+    const result = await moveTodoAction(id, bucketId || null);
+    if (!result.ok) return report(result.message);
+    replaceTodo(result.todo);
+  }
+
+  function onCardPointerDown(event: PointerEvent, todoId: string) {
+    if ((event.target as HTMLElement).closest("[data-toggle]")) return;
+    drag.current = { id: todoId, x: event.clientX, y: event.clientY, started: false };
+  }
+
+  function onCardPointerMove(event: PointerEvent<HTMLElement>) {
+    const state = drag.current;
+    if (!state) return;
+    const dist = Math.hypot(event.clientX - state.x, event.clientY - state.y);
+    if (!state.started && dist > 8) {
+      state.started = true;
+      skipClick.current = true;
+      setDraggingId(state.id);
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    if (!state.started) return;
+    const node = event.currentTarget;
+    node.style.pointerEvents = "none";
+    const el = document.elementFromPoint(event.clientX, event.clientY);
+    node.style.pointerEvents = "";
+    const col = el?.closest("[data-bucket]") as HTMLElement | null;
+    markOver(col ? (col.dataset.bucket ?? "") : null);
+  }
+
+  async function onCardPointerUp() {
+    const state = drag.current;
+    if (!state?.started) {
+      drag.current = null;
+      return;
+    }
+    const target = overRef.current;
+    if (target == null) {
+      drag.current = null;
+      setDraggingId(null);
+      return;
+    }
+    await dropOn(target);
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
+        <p className="mr-auto text-sm text-ink/45">{openCount === 1 ? "1 open" : `${openCount} open`}</p>
         <button
           type="button"
           onClick={() => setLabelsOpen(true)}
@@ -100,7 +160,14 @@ export function TaskBoard({
           const key = column.id || "__none__";
           const showDone = expandedDone.has(key);
           return (
-            <section key={key} className="flex w-[280px] shrink-0 flex-col gap-2">
+            <section
+              key={key}
+              data-bucket={column.id}
+              className={cn(
+                "flex w-[280px] shrink-0 flex-col gap-2 rounded-2xl p-2",
+                overBucket === column.id ? "bg-olive/10" : "bg-white/55"
+              )}
+            >
               <header className="flex items-center gap-2 px-1">
                 {column.fake ? (
                   <h2 className="flex-1 text-sm font-semibold">{column.name}</h2>
@@ -147,36 +214,23 @@ export function TaskBoard({
                   + Taak toevoegen
                 </button>
               )}
-              <div
-                className={cn("flex min-h-12 flex-1 flex-col gap-2 rounded-xl p-1", overBucket === column.id && "bg-olive/10")}
-                data-drop={column.id}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setOverBucket(column.id);
-                }}
-                onDragLeave={() => setOverBucket((current) => (current === column.id ? null : current))}
-                onDrop={async (event) => {
-                  event.preventDefault();
-                  setOverBucket(null);
-                  const id = draggingId || event.dataTransfer.getData("text/plain");
-                  if (!id) return;
-                  const result = await moveTodoAction(id, column.id || null);
-                  if (!result.ok) return report(result.message);
-                  replaceTodo(result.todo);
-                }}
-              >
+              <div className="flex min-h-24 flex-1 flex-col gap-2 rounded-xl p-1">
                 {open.map((todo) => (
                   <TaskCard
                     key={todo.id}
                     todo={todo}
                     labels={labels}
                     dragging={draggingId === todo.id}
-                    onOpen={() => setOpenTodoId(todo.id)}
-                    onDragStart={() => setDraggingId(todo.id)}
-                    onDragEnd={() => {
-                      setDraggingId(null);
-                      setOverBucket(null);
+                    onOpen={() => {
+                      if (skipClick.current) {
+                        skipClick.current = false;
+                        return;
+                      }
+                      setOpenTodoId(todo.id);
                     }}
+                    onPointerDown={(event) => onCardPointerDown(event, todo.id)}
+                    onPointerMove={onCardPointerMove}
+                    onPointerUp={() => void onCardPointerUp()}
                     onToggle={async () => {
                       const result = await toggleTodoDoneAction(todo.id);
                       if (!result.ok) return report(result.message);
@@ -203,34 +257,23 @@ export function TaskBoard({
                     Voltooide taken {done.length}
                   </button>
                   {showDone ? (
-                    <div
-                      className={cn("flex flex-col gap-2 rounded-xl p-1", overBucket === column.id && "bg-olive/10")}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        setOverBucket(column.id);
-                      }}
-                      onDrop={async (event) => {
-                        event.preventDefault();
-                        setOverBucket(null);
-                        const id = draggingId || event.dataTransfer.getData("text/plain");
-                        if (!id) return;
-                        const result = await moveTodoAction(id, column.id || null);
-                        if (!result.ok) return report(result.message);
-                        replaceTodo(result.todo);
-                      }}
-                    >
+                    <div className="flex flex-col gap-2 rounded-xl p-1">
                       {done.map((todo) => (
                         <TaskCard
                           key={todo.id}
                           todo={todo}
                           labels={labels}
                           dragging={draggingId === todo.id}
-                          onOpen={() => setOpenTodoId(todo.id)}
-                          onDragStart={() => setDraggingId(todo.id)}
-                          onDragEnd={() => {
-                            setDraggingId(null);
-                            setOverBucket(null);
+                          onOpen={() => {
+                            if (skipClick.current) {
+                              skipClick.current = false;
+                              return;
+                            }
+                            setOpenTodoId(todo.id);
                           }}
+                          onPointerDown={(event) => onCardPointerDown(event, todo.id)}
+                          onPointerMove={onCardPointerMove}
+                          onPointerUp={() => void onCardPointerUp()}
                           onToggle={async () => {
                             const result = await toggleTodoDoneAction(todo.id);
                             if (!result.ok) return report(result.message);
@@ -319,16 +362,18 @@ function TaskCard({
   dragging,
   onOpen,
   onToggle,
-  onDragStart,
-  onDragEnd,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
 }: {
   todo: BoardTodo;
   labels: TodoLabelRow[];
   dragging: boolean;
   onOpen: () => void;
   onToggle: () => void;
-  onDragStart: () => void;
-  onDragEnd: () => void;
+  onPointerDown: (event: PointerEvent<HTMLElement>) => void;
+  onPointerMove: (event: PointerEvent<HTMLElement>) => void;
+  onPointerUp: () => void;
 }) {
   const assigned = todo.label_ids.map((id) => labels.find((label) => label.id === id)).filter(Boolean) as TodoLabelRow[];
   const stats = checklistStats(todo.checklist);
@@ -338,16 +383,13 @@ function TaskCard({
 
   return (
     <article
-      draggable
-      onDragStart={(event) => {
-        onDragStart();
-        event.dataTransfer.setData("text/plain", todo.id);
-        event.dataTransfer.effectAllowed = "move";
-      }}
-      onDragEnd={onDragEnd}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
       onClick={onOpen}
       className={cn(
-        "cursor-grab rounded-xl border border-ink/10 bg-white p-3 shadow-[0_1px_0_rgba(18,18,18,0.04)]",
+        "cursor-grab touch-none rounded-xl border border-ink/10 bg-white p-3 shadow-[0_1px_0_rgba(18,18,18,0.04)] select-none",
         dragging && "opacity-40",
         done && "opacity-70"
       )}
@@ -376,6 +418,7 @@ function TaskCard({
             onToggle();
           }}
           className={cn("mt-0.5 size-4 shrink-0 rounded-full border-2", done ? "border-olive bg-olive" : "border-stone bg-transparent")}
+          data-toggle
           aria-label={done ? "Heropenen" : "Afronden"}
         />
         <p className={cn("text-sm font-medium leading-5", done && "text-ink/45 line-through")}>{todo.title}</p>
