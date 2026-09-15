@@ -76,17 +76,30 @@ export async function storeGeneratedMail(
     domain: string;
     fit: ProductFit;
     findings: MailFinding[];
+    place?: string | null;
     actorType?: "system" | "agent" | "human";
     actorId?: string;
   }
 ) {
+  let place = input.place;
+  if (place === undefined) {
+    const { data: location } = await supabase
+      .from("prospects")
+      .select("city")
+      .eq("id", input.prospectId)
+      .maybeSingle();
+    place = location?.city ?? null;
+  }
+
   const generated = await generateAcquisitionMail({
     companyName: input.companyName,
     domain: input.domain,
     fit: input.fit,
     findings: input.findings,
+    place,
   });
   const html = await renderOutreachHtml({
+    ...generated.emailProps,
     subject: generated.subject,
     body: generated.body,
     companyName: input.companyName ?? undefined,

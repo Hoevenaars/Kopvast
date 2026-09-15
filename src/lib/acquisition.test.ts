@@ -1,9 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createElement } from "react";
+import { render } from "react-email";
 import { calculateOpportunityScore, canonicalDomainFromInput } from "./acquire-score";
 import { statusFromScore, FORBIDDEN_MAIL_CLAIMS, pickCommercialFindings } from "./acquisition-constants";
 import { detectComplexityFlags, determineProductFit } from "./acquire-fit";
-import { composeAcquisitionBody, fallbackAcquisitionMail, pickMailFindings, selectableMailFindings } from "./acquisition-mail";
+import { composeAcquisitionBody, fallbackAcquisitionMail, pickMailFindings, selectableMailFindings, buildOutreachMailData } from "./acquisition-mail";
+import { buildSpecialOffer } from "./acquisition/special-offer-rules";
+import {
+  AcquisitionOutreachEmail,
+  buildAcquisitionPlainText,
+  parseOutreachBody,
+} from "../emails/acquisition-outreach";
 import { evaluatePreSend } from "./acquisition-send";
 import { normalizeWebsiteUrl } from "./ssrf";
 import { domainFromUrl } from "./acquire-map";
@@ -78,14 +86,14 @@ test("acquisitiemail gebruikt findings en vermijdt verboden claims", () => {
     {
       finding_type: "OBSERVATION",
       category: "mobile",
-      title: "Mobiel",
+      title: "Op mobiel verdwijnt de belangrijkste boodschap.",
       description: "De mobiele presentatie kan scherper.",
       severity: "important",
     },
     {
       finding_type: "FACT",
       category: "conversion",
-      title: "Contact",
+      title: "De route naar contact kan directer.",
       description: "Er ligt ruimte om de route naar contact duidelijker te maken.",
       severity: "important",
     },
@@ -98,9 +106,15 @@ test("acquisitiemail gebruikt findings en vermijdt verboden claims", () => {
     fit: "STANDARD_FIT",
     findings,
   });
-  assert.match(mail.subject, /Nova Advies|nova-advies|punten/i);
+  assert.equal(mail.subject, "Even gekeken naar nova-advies.nl");
   assert.match(mail.body, /Goedendag/);
+  assert.match(mail.body, /Ik kwam nova-advies.nl tegen en heb de website kort bekeken/);
   assert.match(mail.body, /€1.495|1.495/);
+  assert.doesNotMatch(mail.body, /vanaf\s*€?\s*995/i);
+  assert.doesNotMatch(mail.body, /Voor jullie maak ik daar €995/);
+  assert.match(mail.body, /Wat wil je eerst zien/);
+  assert.match(mail.body, /A — Laat zien hoe jullie dit zouden aanpakken/);
+  assert.match(mail.body, /B — Vertel eerst concreet wat jullie zouden verbeteren/);
   for (const pattern of FORBIDDEN_MAIL_CLAIMS) {
     assert.equal(pattern.test(mail.body), false, String(pattern));
   }
@@ -111,6 +125,7 @@ test("acquisitiemail gebruikt findings en vermijdt verboden claims", () => {
     points: ["De belangrijkste diensten kunnen duidelijker naar voren komen."],
   });
   assert.match(composed, /buiten het vaste websitepakket|Op aanvraag|mee/);
+  assert.doesNotMatch(composed, /€995/);
   assert.doesNotMatch(composed, /verliezen omzet/);
 });
 
@@ -200,8 +215,8 @@ test("pre-send checks blokkeren suppression en ontbrekende mail", () => {
       intended_to_email: "info@nova-advies.nl",
       to_email: "info@nova-advies.nl",
       provider_message_id: null,
-      template_version: "acquisition-outreach-v1",
-      prompt_version: "kopvast-acquisition-mail-v1",
+      template_version: "acquisition-outreach-v2",
+      prompt_version: "kopvast-acquisition-mail-v2",
       findings_used: [{ title: "Mobiel" }],
       last_error: null,
       created_at: new Date().toISOString(),
@@ -212,4 +227,207 @@ test("pre-send checks blokkeren suppression en ontbrekende mail", () => {
     live: true,
   });
   assert.equal(open.length, 0);
+});
+
+const persingenFindings = [
+  {
+    finding_type: "OBSERVATION",
+    category: "visual",
+    title: "De locatie mag meer het werk doen.",
+    description: "Het bijzondere karakter en de sfeer krijgen online nog weinig ruimte om echt te overtuigen.",
+    severity: "important",
+  },
+  {
+    finding_type: "FACT",
+    category: "conversion",
+    title: "De route naar een aanvraag kan directer.",
+    description: "Een bezoeker moet nu behoorlijk zoeken voordat duidelijk wordt wat de logische volgende stap is.",
+    severity: "important",
+  },
+];
+
+test("speciale €995-reden volgt geografische prioriteit en bewijs", () => {
+  const groesbeek = buildSpecialOffer({
+    productFit: "STANDARD_FIT",
+    place: "Groesbeek",
+    municipality: "Berg en Dal",
+    contentEvidence: [
+      {
+        reason: "HERITAGE_SPECIAL_PLACE",
+        evidence: "Het kerkje staat in een monumentale setting.",
+        confidence: 0.9,
+      },
+    ],
+  });
+  assert.equal(groesbeek.eligible, true);
+  assert.equal(groesbeek.geographicReason, "GROESBEEK");
+  assert.equal(groesbeek.contentReason, "HERITAGE_SPECIAL_PLACE");
+  assert.equal(groesbeek.reasonLines.length, 2);
+  assert.match(groesbeek.offerParagraph, /€1.495/);
+  assert.match(groesbeek.offerParagraph, /€995/);
+  assert.match(groesbeek.offerParagraph, /Groesbekers/);
+  assert.doesNotMatch(groesbeek.offerParagraph, /eigen gemeente/);
+
+  const persingen = buildSpecialOffer({
+    productFit: "STANDARD_FIT",
+    place: "Persingen",
+    municipality: "Berg en Dal",
+    contentEvidence: [
+      {
+        reason: "HERITAGE_SPECIAL_PLACE",
+        evidence: "Kerkje van Persingen is een karakteristieke locatie.",
+        confidence: 0.94,
+      },
+    ],
+  });
+  assert.equal(persingen.geographicReason, "BERG_EN_DAL");
+  assert.match(persingen.offerParagraph, /eigen gemeente/);
+  assert.match(persingen.offerParagraph, /offline zoiets bijzonders/);
+
+  const nijmegen = buildSpecialOffer({
+    productFit: "STANDARD_FIT",
+    place: "Nijmegen",
+  });
+  assert.equal(nijmegen.geographicReason, "REGION_NIJMEGEN");
+  assert.equal(nijmegen.contentReason, null);
+  assert.equal(nijmegen.reasonLines.length, 1);
+  assert.match(nijmegen.offerParagraph, /klanten in de regio/);
+
+  const weakEvidence = buildSpecialOffer({
+    productFit: "STANDARD_FIT",
+    place: "Amsterdam",
+    contentEvidence: [
+      {
+        reason: "HERITAGE_SPECIAL_PLACE",
+        evidence: "Misschien historisch.",
+        confidence: 0.4,
+      },
+    ],
+  });
+  assert.equal(weakEvidence.eligible, false);
+
+  const launch = buildSpecialOffer({
+    productFit: "STANDARD_FIT",
+    place: "Amsterdam",
+    allowLaunchOffer: true,
+  });
+  assert.equal(launch.eligible, true);
+  assert.match(launch.offerParagraph, /scherpe uitzondering/);
+
+  const custom = buildSpecialOffer({
+    productFit: "CUSTOM_FIT",
+    place: "Groesbeek",
+  });
+  assert.equal(custom.eligible, false);
+  assert.equal(custom.offerParagraph, "");
+});
+
+test("€995-maildata vereist STANDARD_FIT en een geldige reden", () => {
+  const data = buildOutreachMailData({
+    companyName: "Kerkje van Persingen",
+    domain: "kerkjepersingen.nl",
+    place: "Persingen",
+    municipality: "Berg en Dal",
+    productFit: "STANDARD_FIT",
+    openingObservation:
+      "Kerkje van Persingen heeft als locatie veel karakter. Online komt dat nu minder sterk over dan volgens mij mogelijk is.",
+    finding1: {
+      title: "De locatie mag meer het werk doen.",
+      description: "Het bijzondere karakter en de sfeer krijgen online nog weinig ruimte om echt te overtuigen.",
+    },
+    finding2: {
+      title: "De route naar een aanvraag kan directer.",
+      description: "Een bezoeker moet nu behoorlijk zoeken voordat duidelijk wordt wat de logische volgende stap is.",
+    },
+    contentEvidence: [
+      {
+        reason: "HERITAGE_SPECIAL_PLACE",
+        evidence: "Kerkje van Persingen is een karakteristieke locatie.",
+        confidence: 0.94,
+      },
+    ],
+    choiceAUrl: "https://kopvast.nl/werkwijze",
+    choiceBUrl: "https://kopvast.nl/websites",
+  });
+  assert.equal(data.subject, "Even gekeken naar kerkjepersingen.nl");
+  assert.match(data.plainText, /€1.495/);
+  assert.match(data.plainText, /€995/);
+  assert.match(data.plainText, /eigen gemeente/);
+  assert.doesNotMatch(data.plainText, /vanaf €995/);
+  assert.equal(data.offerMetadata.geographicReason, "BERG_EN_DAL");
+  assert.equal(data.offerMetadata.contentReason, "HERITAGE_SPECIAL_PLACE");
+
+  assert.throws(
+    () =>
+      buildOutreachMailData({
+        domain: "nova-advies.nl",
+        productFit: "CUSTOM_FIT",
+        openingObservation: "Nova Advies is helder in wat ze doen.",
+        finding1: { title: "De eerste indruk kan sterker.", description: "De uitstraling blijft achter." },
+        finding2: { title: "De route naar contact kan directer.", description: "Contact is te ver weggestopt." },
+        choiceAUrl: "https://kopvast.nl/werkwijze",
+        choiceBUrl: "https://kopvast.nl/websites",
+      }),
+    /STANDARD_FIT/
+  );
+
+  assert.throws(
+    () =>
+      buildOutreachMailData({
+        domain: "nova-advies.nl",
+        productFit: "STANDARD_FIT",
+        openingObservation: "Nova Advies is helder in wat ze doen.",
+        finding1: { title: "De eerste indruk kan sterker.", description: "De uitstraling blijft achter." },
+        finding2: { title: "De route naar contact kan directer.", description: "Contact is te ver weggestopt." },
+        choiceAUrl: "https://kopvast.nl/werkwijze",
+        choiceBUrl: "https://kopvast.nl/websites",
+      }),
+    /Manual review/
+  );
+});
+
+test("acquisitiemail voor Persingen is persoonlijk en minimaal", async () => {
+  const mail = fallbackAcquisitionMail({
+    companyName: "Kerkje van Persingen",
+    domain: "kerkjepersingen.nl",
+    fit: "STANDARD_FIT",
+    findings: persingenFindings,
+    place: "Persingen",
+    municipality: "Berg en Dal",
+    contentEvidence: [
+      {
+        reason: "HERITAGE_SPECIAL_PLACE",
+        evidence: "Kerkje van Persingen is een karakteristieke locatie.",
+        confidence: 0.94,
+      },
+    ],
+  });
+  assert.equal(mail.subject, "Even gekeken naar kerkjepersingen.nl");
+  assert.match(mail.body, /Kerkje van Persingen/);
+  assert.match(mail.body, /Twee dingen vielen direct op/);
+  assert.match(mail.body, /€995/);
+  assert.doesNotMatch(mail.body, /scan|algoritme|opportunity score|digitale aanwezigheid/i);
+
+  const parsed = parseOutreachBody(mail.body, "kerkjepersingen.nl");
+  assert.match(parsed.openingObservation ?? "", /karakter|Kerkje/i);
+  assert.equal(parsed.finding1?.title, persingenFindings[0].title);
+  assert.equal(parsed.finding2?.title, persingenFindings[1].title);
+  assert.equal(buildAcquisitionPlainText(parsed as never).includes("kerkjepersingen.nl"), true);
+
+  const html = await render(
+    createElement(AcquisitionOutreachEmail, {
+      ...mail.emailProps,
+      body: mail.body,
+    })
+  );
+  assert.match(html, /KOPVAST/);
+  assert.match(html, /Even gekeken naar kerkjepersingen.nl/);
+  assert.match(html, /A — Laat zien hoe jullie dit zouden aanpakken/);
+  assert.match(html, /B — Vertel eerst concreet wat jullie zouden verbeteren/);
+  assert.match(html, /werkwijze/);
+  assert.match(html, /websites/);
+  assert.match(html, /#ffffff|rgb\(255,\s*255,\s*255\)/i);
+  assert.doesNotMatch(html, /Bekijk het websitepakket/);
+  assert.doesNotMatch(html, /bg-ivory|#f3f0e8/i);
+  assert.doesNotMatch(html, /Newsreader/);
 });
