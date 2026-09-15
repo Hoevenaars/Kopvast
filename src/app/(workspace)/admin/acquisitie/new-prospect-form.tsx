@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { createProspectAction, reuseProspectAction } from "@/app/(workspace)/admin/acquisitie/actions";
 import { areaClass, fieldClass, Field } from "@/components/form-fields";
@@ -9,10 +9,23 @@ import { formatNlDate, labelForMail, labelForResponse, labelForStatus } from "@/
 
 export function NewProspectForm() {
   const [state, action, pending] = useActionState(createProspectAction, null);
+  const [draft, setDraft] = useState({ website: "", email: "", company: "", notes: "" });
 
   return (
     <div className="space-y-6">
-      <form action={action} className="space-y-5 rounded-2xl border border-ink/10 bg-white p-5 md:p-6">
+      <form
+        action={action}
+        onSubmit={(event) => {
+          const data = new FormData(event.currentTarget);
+          setDraft({
+            website: String(data.get("website") ?? ""),
+            email: String(data.get("email") ?? ""),
+            company: String(data.get("company") ?? ""),
+            notes: String(data.get("notes") ?? ""),
+          });
+        }}
+        className="space-y-5 rounded-2xl border border-ink/10 bg-white p-5 md:p-6"
+      >
         <Field id="website" label="Website">
           <input
             id="website"
@@ -57,6 +70,7 @@ export function NewProspectForm() {
         <ExistingCard
           title="Dit bedrijf staat al in Kopvast."
           existing={state.existing}
+          draft={draft}
           warning={state.suppressed ? `Suppression: ${state.suppressed.reason}` : undefined}
         />
       ) : null}
@@ -65,6 +79,7 @@ export function NewProspectForm() {
         <ExistingCard
           title="Dit e-mailadres hoort al bij een andere prospect."
           existing={state.existing}
+          draft={draft}
         />
       ) : null}
     </div>
@@ -74,6 +89,7 @@ export function NewProspectForm() {
 function ExistingCard({
   title,
   existing,
+  draft,
   warning,
 }: {
   title: string;
@@ -89,6 +105,7 @@ function ExistingCard({
     mail_status: string | null;
     email: string | null;
   };
+  draft: { website: string; email: string; company: string; notes: string };
   warning?: string;
 }) {
   return (
@@ -116,8 +133,10 @@ function ExistingCard({
         </Link>
         <form action={reuseProspectAction}>
           <input type="hidden" name="prospectId" value={existing.id} />
-          <input type="hidden" name="website" value={existing.domain} />
-          {existing.email ? <input type="hidden" name="email" value={existing.email} /> : null}
+          <input type="hidden" name="website" value={draft.website || existing.domain} />
+          <input type="hidden" name="email" value={draft.email || existing.email || ""} />
+          {draft.company ? <input type="hidden" name="company" value={draft.company} /> : null}
+          {draft.notes ? <input type="hidden" name="notes" value={draft.notes} /> : null}
           <button
             type="submit"
             className="inline-flex h-12 w-full items-center justify-center rounded-md border border-ink/15 bg-white px-5 text-sm font-semibold"

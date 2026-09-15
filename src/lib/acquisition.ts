@@ -65,6 +65,7 @@ export type ProspectContact = {
 
 export type ProspectFinding = {
   id: string;
+  scan_id?: string | null;
   finding_type: string;
   category: string;
   title: string;
@@ -414,6 +415,7 @@ export async function reuseProspectScan(input: {
   email?: string;
   company?: string;
   notes?: string;
+  website?: string;
   actorEmail: string;
 }): Promise<CreateProspectResult> {
   const supabase = refreshClient();
@@ -425,6 +427,15 @@ export async function reuseProspectScan(input: {
     .eq("id", input.prospectId)
     .maybeSingle();
   if (!prospect) return { ok: false, message: "Deze prospect bestaat niet meer." };
+
+  let websiteUrl = prospect.website_url as string;
+  if (input.website?.trim()) {
+    try {
+      websiteUrl = canonicalDomainFromInput(input.website).websiteUrl;
+    } catch {
+      websiteUrl = prospect.website_url as string;
+    }
+  }
 
   if (input.email) {
     const email = normalizeEmail(input.email);
@@ -461,6 +472,7 @@ export async function reuseProspectScan(input: {
 
   const patch: Record<string, unknown> = {
     status: "SCANNING",
+    website_url: websiteUrl,
     last_activity_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -473,7 +485,7 @@ export async function reuseProspectScan(input: {
     .insert({
       prospect_id: prospect.id,
       status: "queued",
-      website_url: prospect.website_url,
+      website_url: websiteUrl,
       canonical_domain: prospect.domain,
       scanner_version: SCANNER_VERSION,
       progress: emptyScanProgress(),
@@ -623,8 +635,18 @@ export async function loadProspectDetail(id: string): Promise<ProspectDetail | n
           progress: Array.isArray(scans[0].progress) ? (scans[0].progress as ScanProgressStep[]) : emptyScanProgress(),
         }
       : null,
-    findings: (findingsRes.data ?? []) as ProspectFinding[],
-    mail: mails.find((item) => item.kind === "acquisition_outreach") ?? mails[0] ?? null,
+    findings: (() => {
+      const all = (findingsRes.data ?? []) as ProspectFinding[];
+      const scanId = scans[0]?.id;
+      if (!scanId) return all;
+      const scoped = all.filter((item) => item.scan_id === scanId);
+      return scoped.length ? scoped : all;
+    })(),
+    mail:
+      mails.find((item) => item.kind === "acquisition_outreach" && item.status !== "cancelled") ??
+      mails.find((item) => item.kind === "acquisition_outreach") ??
+      mails[0] ??
+      null,
     mails,
     activities: (activitiesRes.data ?? []) as ProspectDetail["activities"],
     suppression,

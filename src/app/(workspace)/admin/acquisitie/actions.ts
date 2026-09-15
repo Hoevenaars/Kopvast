@@ -64,6 +64,7 @@ export async function reuseProspectAction(formData: FormData) {
   const session = await requireAdmin();
   const result = await reuseProspectScan({
     prospectId: String(formData.get("prospectId") ?? ""),
+    website: String(formData.get("website") ?? ""),
     email: String(formData.get("email") ?? ""),
     company: String(formData.get("company") ?? ""),
     notes: String(formData.get("notes") ?? ""),
@@ -109,9 +110,27 @@ export async function regenerateMailAction(formData: FormData) {
   return result;
 }
 
+async function persistDraftIfPresent(formData: FormData, actorEmail: string) {
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  if (!subject || !body) return { ok: true as const };
+  return saveProspectMailDraft({
+    prospectId: String(formData.get("prospectId") ?? ""),
+    mailId: String(formData.get("mailId") ?? ""),
+    subject,
+    body,
+    actorEmail,
+  });
+}
+
 export async function sendTestMailAction(formData: FormData) {
   const session = await requireAdmin();
   const prospectId = String(formData.get("prospectId") ?? "");
+  const saved = await persistDraftIfPresent(formData, session.email);
+  if (!saved.ok) {
+    revalidateAcquisition(prospectId);
+    return saved;
+  }
   const result = await sendProspectTestMail({
     prospectId,
     mailId: String(formData.get("mailId") ?? ""),
@@ -124,6 +143,11 @@ export async function sendTestMailAction(formData: FormData) {
 export async function sendLiveMailAction(formData: FormData) {
   const session = await requireAdmin();
   const prospectId = String(formData.get("prospectId") ?? "");
+  const saved = await persistDraftIfPresent(formData, session.email);
+  if (!saved.ok) {
+    revalidateAcquisition(prospectId);
+    return saved;
+  }
   const result = await sendProspectLiveMail({
     prospectId,
     mailId: String(formData.get("mailId") ?? ""),

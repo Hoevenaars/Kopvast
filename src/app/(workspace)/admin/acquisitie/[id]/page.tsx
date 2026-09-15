@@ -11,7 +11,9 @@ import {
   labelForFit,
   labelForMail,
   labelForStatus,
+  pickCommercialFindings,
   responseStatuses,
+  type ProductFit,
 } from "@/lib/acquisition-constants";
 import { products } from "@/lib/site";
 import { getEmailMode, getTestEmail } from "@/lib/email-mode";
@@ -31,9 +33,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
   if (!prospect) notFound();
 
   const running = ["queued", "running"].includes(prospect.scan?.status ?? "") || ["SCANNING", "ANALYSING", "VALIDATING"].includes(prospect.status);
-  const commercialFindings = prospect.findings
-    .filter((item) => item.finding_type !== "HYPOTHESIS" || true)
-    .slice(0, 5);
+  const commercialFindings = pickCommercialFindings(prospect.findings, 5);
   const mode = getEmailMode();
   const blocked = prospect.do_not_contact || prospect.contact_status === "BLOCKED" || prospect.contact_status === "DO_NOT_CONTACT" || Boolean(prospect.suppression);
 
@@ -81,22 +81,11 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
         )}
       </section>
 
-      <section className="rounded-2xl border border-ink/10 bg-white p-5">
-        <h2 className="text-2xl font-semibold">
-          {prospect.product_fit === "CUSTOM_FIT" ? "Kopvast Maatwerk" : "Kopvast Website"}
-        </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-ink/60">
-          {prospect.product_fit === "CUSTOM_FIT"
-            ? "De website lijkt commercieel interessant, maar de benodigde functionaliteit valt waarschijnlijk buiten het vaste websitepakket."
-            : "Een professionele website met een duidelijke structuur, sterke presentatie en heldere route naar contact."}
-        </p>
-        <p className="mt-4 text-sm font-semibold">
-          {prospect.product_fit === "CUSTOM_FIT" ? "Op aanvraag" : `Vanaf ${products.website.price} excl. btw`}
-        </p>
-      </section>
+      <OfferCard fit={prospect.product_fit} />
 
       {prospect.mail ? (
         <MailEditor
+          key={prospect.mail.id}
           prospectId={prospect.id}
           mailId={prospect.mail.id}
           subject={prospect.mail.subject ?? ""}
@@ -194,5 +183,42 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="text-xs text-ink/45">{label}</div>
       <div className="mt-2 text-lg font-semibold">{value}</div>
     </div>
+  );
+}
+
+function OfferCard({ fit }: { fit: ProductFit | null }) {
+  if (!fit) return null;
+
+  const copy =
+    fit === "CUSTOM_FIT"
+      ? {
+          title: "Kopvast Maatwerk",
+          text: "De website lijkt commercieel interessant, maar de benodigde functionaliteit valt waarschijnlijk buiten het vaste websitepakket.",
+          price: "Op aanvraag",
+        }
+      : fit === "NOT_FIT"
+        ? {
+            title: "Geen standaard fit",
+            text: "Deze website lijkt niet bij het Kopvast-aanbod te passen. Er wordt geen automatische prijs of standaardpakket voorgesteld.",
+            price: null,
+          }
+        : fit === "REVIEW_REQUIRED"
+          ? {
+              title: "Beoordeling nodig",
+              text: "Er is nog te weinig zekerheid voor een automatisch aanbod. Controleer de findings voordat je een mail verstuurt.",
+              price: null,
+            }
+          : {
+              title: "Kopvast Website",
+              text: "Een professionele website met een duidelijke structuur, sterke presentatie en heldere route naar contact.",
+              price: `Vanaf ${products.website.price} excl. btw`,
+            };
+
+  return (
+    <section className="rounded-2xl border border-ink/10 bg-white p-5">
+      <h2 className="text-2xl font-semibold">{copy.title}</h2>
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-ink/60">{copy.text}</p>
+      {copy.price ? <p className="mt-4 text-sm font-semibold">{copy.price}</p> : null}
+    </section>
   );
 }

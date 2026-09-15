@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { calculateOpportunityScore, canonicalDomainFromInput } from "./acquire-score";
-import { statusFromScore, FORBIDDEN_MAIL_CLAIMS } from "./acquisition-constants";
+import { statusFromScore, FORBIDDEN_MAIL_CLAIMS, pickCommercialFindings } from "./acquisition-constants";
 import { detectComplexityFlags, determineProductFit } from "./acquire-fit";
 import { composeAcquisitionBody, fallbackAcquisitionMail, pickMailFindings, selectableMailFindings } from "./acquisition-mail";
 import { evaluatePreSend } from "./acquisition-send";
@@ -112,6 +112,19 @@ test("acquisitiemail gebruikt findings en vermijdt verboden claims", () => {
   });
   assert.match(composed, /buiten het vaste websitepakket|Op aanvraag|mee/);
   assert.doesNotMatch(composed, /verliezen omzet/);
+});
+
+test("commerciële findings zetten feiten en observaties vóór hypotheses", () => {
+  const picked = pickCommercialFindings(
+    [
+      { finding_type: "HYPOTHESIS", severity: "critical", title: "h" },
+      { finding_type: "OBSERVATION", severity: "nice_to_have", title: "o" },
+      { finding_type: "FACT", severity: "important", title: "f" },
+    ],
+    2
+  );
+  assert.equal(picked[0]?.title, "f");
+  assert.equal(picked[1]?.title, "o");
 });
 
 test("pre-send checks blokkeren suppression en ontbrekende mail", () => {

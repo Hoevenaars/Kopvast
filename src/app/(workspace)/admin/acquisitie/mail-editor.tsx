@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   previewMailAction,
   regenerateMailAction,
@@ -30,6 +31,7 @@ export function MailEditor({
   testTo: string;
   canSend: boolean;
 }) {
+  const router = useRouter();
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState(initialBody);
   const [html, setHtml] = useState("");
@@ -48,7 +50,8 @@ export function MailEditor({
 
   function run(
     action: (formData: FormData) => Promise<{ ok: boolean; message?: string } | { ok: true }>,
-    extra?: Record<string, string>
+    extra?: Record<string, string>,
+    success = "Opgeslagen."
   ) {
     const data = new FormData();
     data.set("prospectId", prospectId);
@@ -58,7 +61,12 @@ export function MailEditor({
     for (const [key, value] of Object.entries(extra ?? {})) data.set(key, value);
     startTransition(async () => {
       const result = await action(data);
-      setMessage(result.ok ? "Opgeslagen." : result.message ?? "Er ging iets mis.");
+      if (result.ok) {
+        router.refresh();
+        setMessage(success);
+      } else {
+        setMessage(("message" in result && result.message) || "Er ging iets mis.");
+      }
     });
   }
 
@@ -88,7 +96,7 @@ export function MailEditor({
         <button
           type="button"
           disabled={pending}
-          onClick={() => run(regenerateMailAction)}
+          onClick={() => run(regenerateMailAction, undefined, "Nieuwe conceptmail klaar.")}
           className="h-12 rounded-md border border-ink/15 text-sm font-semibold"
         >
           Opnieuw genereren
@@ -96,7 +104,7 @@ export function MailEditor({
         <button
           type="button"
           disabled={pending}
-          onClick={() => run(saveMailAction)}
+          onClick={() => run(saveMailAction, undefined, "Concept opgeslagen.")}
           className="h-12 rounded-md border border-ink/15 text-sm font-semibold"
         >
           Concept opslaan
@@ -104,7 +112,7 @@ export function MailEditor({
         <button
           type="button"
           disabled={pending || !canSend}
-          onClick={() => run(sendTestMailAction)}
+          onClick={() => run(sendTestMailAction, undefined, "Testmail verstuurd.")}
           className="h-12 rounded-md border border-ink/15 text-sm font-semibold"
         >
           Testmail sturen
@@ -112,7 +120,7 @@ export function MailEditor({
         <button
           type="button"
           disabled={pending || !canSend}
-          onClick={() => run(sendLiveMailAction)}
+          onClick={() => run(sendLiveMailAction, undefined, mode === "LIVE" ? "Mail verstuurd." : "Mail naar testadres verstuurd.")}
           className="h-12 rounded-md bg-copper-dark text-sm font-semibold text-ivory disabled:opacity-50"
         >
           {mode === "LIVE" ? "Versturen" : "Versturen naar testadres"}

@@ -265,6 +265,17 @@ export function formatNlDate(value: string | null | undefined) {
   });
 }
 
+export function pickCommercialFindings<T extends { finding_type: string; severity: string }>(
+  findings: T[],
+  limit = 5
+): T[] {
+  const typeRank = (value: string) => (value === "FACT" ? 0 : value === "OBSERVATION" ? 1 : 2);
+  const severityRank = (value: string) => (value === "critical" ? 0 : value === "important" ? 1 : 2);
+  return [...findings]
+    .sort((a, b) => typeRank(a.finding_type) - typeRank(b.finding_type) || severityRank(a.severity) - severityRank(b.severity))
+    .slice(0, limit);
+}
+
 export function publicCheckUrl(token: string, origin = "https://kopvast.nl") {
   return `${origin}${PUBLIC_CHECK_PATH}/${token}`;
 }

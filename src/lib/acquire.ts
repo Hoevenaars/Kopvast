@@ -75,15 +75,16 @@ export async function acquireAdminScan(input: {
   if (!supabase) return;
   const { data: prospect } = await supabase
     .from("prospects")
-    .select("id, status, last_scan_at, company_name, notes")
+    .select("id, status, last_scan_at, company_name, notes, website_url")
     .eq("id", input.prospectId)
     .maybeSingle();
   if (!prospect) return;
 
-  const result = await scanWebsite(input.website);
+  const website = input.website.trim() || prospect.website_url || "";
+  const result = await scanWebsite(website);
   if (result.status !== "ok") {
     await acquireWebsite({
-      website: input.website,
+      website,
       source: "admin",
       company: prospect.company_name ?? undefined,
       prospectId: input.prospectId,
