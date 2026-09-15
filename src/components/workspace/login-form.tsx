@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { fieldClass, Field } from "@/components/form-fields";
 import { requestLogin, type LoginState } from "@/app/(workspace)/inloggen/actions";
 import { workspaceRoutes } from "@/lib/product";
@@ -10,12 +10,22 @@ const initial: LoginState = null;
 
 export function LoginForm({ next, allowDev }: { next?: string; allowDev: boolean }) {
   const [state, action, pending] = useActionState(requestLogin, initial);
+  const [email, setEmail] = useState("");
 
   return (
     <form action={action} className="space-y-5 rounded-2xl border border-stone/50 p-6">
       {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field id="email" label="E-mailadres">
-        <input id="email" name="email" type="email" required autoComplete="username" className={fieldClass} />
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          autoComplete="username"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          className={fieldClass}
+        />
       </Field>
       <Field id="password" label="Wachtwoord">
         <input
