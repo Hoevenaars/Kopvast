@@ -26,6 +26,7 @@ const columns = [
       { href: routes.over, label: "Over Kopvast" },
       { href: routes.werk, label: "Werk" },
       { href: routes.contact, label: "Contact" },
+      { href: "/inloggen", label: "Inloggen" },
     ],
   },
   {

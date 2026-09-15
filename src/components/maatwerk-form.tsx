@@ -3,7 +3,7 @@
 import { useActionState, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
-import { submitAanvraag } from "@/app/aanvraag/actions";
+import { submitAanvraag } from "@/app/(marketing)/aanvraag/actions";
 import { Field, StepNav, areaClass, fieldClass } from "@/components/form-fields";
 import { customFeatures, sizeOptions, timingOptions } from "@/lib/site";
 

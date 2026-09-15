@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { ArrowRight, LoaderCircle } from "lucide-react";
-import { runScan } from "@/app/websitecheck/actions";
+import { runScan } from "@/app/(marketing)/websitecheck/actions";
 import { ButtonLink } from "@/components/button-link";
 import { buttonVariants } from "@/components/ui/button";
 import { cta, products } from "@/lib/site";
