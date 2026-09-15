@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
       { source: "/admin/aanvragen", destination: "/admin/leads", permanent: true },
       { source: "/admin/aanvragen/:id", destination: "/admin/leads/:id", permanent: true },
       { source: "/admin/mail", destination: "/admin/mails", permanent: true },
+      { source: "/admin/prospects", destination: "/admin/acquisitie", permanent: false },
+      { source: "/admin/prospects/:id", destination: "/admin/acquisitie/:id", permanent: false },
     ];
   },
 };

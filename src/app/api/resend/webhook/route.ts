@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { applyAcquisitionWebhook } from "@/lib/acquisition-send";
 import { updateEmailEventByResendId, webhookTypeToStatus } from "@/lib/email-log";
 import { updateInboundEmailByResendId } from "@/lib/inbound";
 
@@ -35,6 +36,13 @@ export async function POST(request: Request) {
     });
     const status = webhookTypeToStatus(event.type);
     const emailId = emailIdFromEvent(event);
+    const providerEventId = request.headers.get("svix-id") || `${event.type}:${emailId ?? "unknown"}`;
+    await applyAcquisitionWebhook({
+      providerEventId,
+      emailId,
+      type: event.type,
+      payload: event,
+    });
     if (status && emailId) {
       await updateEmailEventByResendId(emailId, status);
       await updateInboundEmailByResendId(emailId, status);
