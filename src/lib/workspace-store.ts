@@ -28,6 +28,14 @@ export type LocalToken = {
   used_at: string | null;
 };
 
+export type LocalCredential = {
+  email: string;
+  password_hash: string;
+  password_updated_at: string;
+  failed_attempts: number;
+  locked_until: string | null;
+};
+
 type Store = {
   organizations: OrganizationRow[];
   members: MemberRow[];
@@ -36,6 +44,7 @@ type Store = {
   requests: RequestRow[];
   sessions: LocalSession[];
   tokens: LocalToken[];
+  credentials: LocalCredential[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -48,6 +57,7 @@ const empty = (): Store => ({
   requests: [],
   sessions: [],
   tokens: [],
+  credentials: [],
 });
 
 export async function readStore(): Promise<Store> {

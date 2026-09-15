@@ -30,6 +30,10 @@ export const layers = {
 export const workspaceRoutes = {
   login: "/inloggen",
   verify: "/inloggen/verify",
+  loginForgot: "/inloggen/wachtwoord",
+  loginReset: "/inloggen/wachtwoord/nieuw",
+  consoleSettings: "/klant/instellingen",
+  adminSettings: "/admin/instellingen",
   console: "/klant",
   consoleWebsite: "/klant/website",
   consoleFiles: "/klant/media",
