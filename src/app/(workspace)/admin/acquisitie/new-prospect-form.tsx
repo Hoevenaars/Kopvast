@@ -34,6 +34,8 @@ export function NewProspectForm() {
             inputMode="url"
             autoComplete="url"
             placeholder="https://bedrijf.nl"
+            value={draft.website}
+            onChange={(event) => setDraft((current) => ({ ...current, website: event.target.value }))}
             className={fieldClass}
           />
         </Field>
@@ -45,14 +47,30 @@ export function NewProspectForm() {
             required
             autoComplete="email"
             placeholder="info@bedrijf.nl"
+            value={draft.email}
+            onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
             className={fieldClass}
           />
         </Field>
         <Field id="company" label="Bedrijfsnaam">
-          <input id="company" name="company" placeholder="Optioneel" className={fieldClass} />
+          <input
+            id="company"
+            name="company"
+            placeholder="Optioneel"
+            value={draft.company}
+            onChange={(event) => setDraft((current) => ({ ...current, company: event.target.value }))}
+            className={fieldClass}
+          />
         </Field>
         <Field id="notes" label="Notitie">
-          <textarea id="notes" name="notes" placeholder="Interne context, optioneel" className={areaClass} />
+          <textarea
+            id="notes"
+            name="notes"
+            placeholder="Interne context, optioneel"
+            value={draft.notes}
+            onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
+            className={areaClass}
+          />
         </Field>
         {state && "ok" in state && state.ok === false && "message" in state ? (
           <p className="text-sm text-destructive">{state.message}</p>
