@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { convertLeadAction, setLeadStatus } from "@/app/(workspace)/admin/aanvragen/actions";
-import { adminNav, WorkspaceShell } from "@/components/workspace/shell";
+import { convertLeadAction, setLeadStatus } from "@/app/(workspace)/admin/leads/actions";
+import { PageIntro } from "@/components/workspace/page-frame";
 import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
 import { fieldClass } from "@/components/form-fields";
-import { requireSession } from "@/lib/auth";
 import { labelFor, leadStatuses } from "@/lib/product";
 import { loadLead } from "@/lib/workspace";
 
@@ -18,7 +17,6 @@ export default async function AdminLeadDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireSession("admin");
   const { id } = await params;
   const lead = await loadLead(id);
   if (!lead) notFound();
@@ -40,12 +38,8 @@ export default async function AdminLeadDetailPage({
   ].filter(([, value]) => value);
 
   return (
-    <WorkspaceShell
-      eyebrow="Adminconsole"
-      title={lead.company_name || lead.name}
-      email={session?.email ?? ""}
-      nav={adminNav("aanvragen")}
-    >
+    <div className="space-y-8">
+      <PageIntro eyebrow="Lead" title={lead.company_name || lead.name} />
       <div className="flex flex-wrap items-center gap-3">
         <StatusBadge label={labelFor(leadStatuses, lead.status)} tone={toneForStatus(lead.status)} />
         <p className="text-sm text-olive">{new Date(lead.created_at).toLocaleString("nl-NL")}</p>
@@ -87,6 +81,6 @@ export default async function AdminLeadDetailPage({
           </form>
         ) : null}
       </div>
-    </WorkspaceShell>
+    </div>
   );
 }

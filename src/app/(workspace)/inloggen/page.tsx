@@ -27,8 +27,8 @@ export default async function LoginPage({
           Inloggen bij Kopvast
         </h1>
         <p className="mt-5 max-w-md text-base leading-7 text-olive">
-          Klanten zien hier hun project, bestanden en wijzigingsverzoeken. Kopvast ziet aanvragen,
-          klanten en mail.
+          Log in met je wachtwoord. Lukt dat niet, dan sturen we een eenmalige inloglink. Klanten
+          komen in Mijn Kopvast, Kopvast in de Admin Console.
         </p>
       </div>
       <div>

@@ -1,25 +1,20 @@
 import type { Metadata } from "next";
-import { adminNav, DataList, EmptyState, WorkspaceShell } from "@/components/workspace/shell";
-import { requireSession } from "@/lib/auth";
+import { PageIntro } from "@/components/workspace/page-frame";
+import { DataList, EmptyState } from "@/components/workspace/shell";
 import { labelFor, leadStatuses, workspaceRoutes } from "@/lib/product";
 import { loadLeads } from "@/lib/workspace";
 
 export const metadata: Metadata = {
-  title: "Aanvragen",
+  title: "Leads",
   robots: { index: false, follow: false },
 };
 
 export default async function AdminLeadsPage() {
-  const session = await requireSession("admin");
   const leads = await loadLeads();
 
   return (
-    <WorkspaceShell
-      eyebrow="Adminconsole"
-      title="Aanvragen"
-      email={session?.email ?? ""}
-      nav={adminNav("aanvragen")}
-    >
+    <div className="space-y-8">
+      <PageIntro eyebrow="Leads" title="Aanvragen" text="Website- en maatwerkaanvragen die via kopvast.nl binnenkomen." />
       {leads.length === 0 ? (
         <EmptyState title="Leeg" text="Nieuwe website- of maatwerkaanvragen komen hier binnen." />
       ) : (
@@ -32,6 +27,6 @@ export default async function AdminLeadsPage() {
           }))}
         />
       )}
-    </WorkspaceShell>
+    </div>
   );
 }

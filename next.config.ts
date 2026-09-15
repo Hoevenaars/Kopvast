@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
       { source: "/sjablonen", destination: "/marketingmiddelen", permanent: true },
       { source: "/merkidentiteit", destination: "/merk", permanent: true },
       { source: "/over-ons", destination: "/over-kopvast", permanent: true },
+      { source: "/console", destination: "/klant", permanent: true },
+      { source: "/console/bestanden", destination: "/klant/media", permanent: true },
+      { source: "/console/verzoeken", destination: "/klant/wijzigingen", permanent: true },
+      { source: "/admin/aanvragen", destination: "/admin/leads", permanent: true },
+      { source: "/admin/aanvragen/:id", destination: "/admin/leads/:id", permanent: true },
+      { source: "/admin/mail", destination: "/admin/mails", permanent: true },
     ];
   },
 };

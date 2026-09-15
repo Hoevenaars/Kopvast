@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { areaClass, fieldClass, Field } from "@/components/form-fields";
-import { submitRequest, type RequestState } from "@/app/(workspace)/console/verzoeken/actions";
+import { submitRequest, type RequestState } from "@/app/(workspace)/klant/wijzigingen/actions";
 import { requestTypes } from "@/lib/product";
 
 const initial: RequestState = null;

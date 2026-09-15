@@ -12,7 +12,7 @@ export function LoginLinkEmail({ email, verifyUrl, role }: LoginLinkEmailProps) 
   return (
     <EmailShell
       preview={admin ? "Log in bij de Kopvast-admin" : "Log in bij je Kopvast-omgeving"}
-      eyebrow={admin ? "Adminconsole" : "Klantconsole"}
+      eyebrow={admin ? "Admin Console" : "Mijn Kopvast"}
       title={admin ? "Je beheerscherm staat klaar." : "Je omgeving staat klaar."}
     >
       <Text className="mt-0 mb-[16px] text-[15px] leading-[24px] text-ink">{`Hallo,`}</Text>
@@ -21,7 +21,7 @@ export function LoginLinkEmail({ email, verifyUrl, role }: LoginLinkEmailProps) 
           ? "Gebruik de knop hieronder om aanvragen, klanten en mail te openen. De link is twintig minuten geldig."
           : "Gebruik de knop hieronder om je projecten, bestanden en verzoeken te openen. De link is twintig minuten geldig."}
       </Text>
-      <EmailButton href={verifyUrl}>{admin ? "Open adminconsole" : "Open klantconsole"}</EmailButton>
+      <EmailButton href={verifyUrl}>{admin ? "Open Admin Console" : "Open Mijn Kopvast"}</EmailButton>
       <Text className="mt-[24px] mb-0 text-[13px] leading-[20px] text-olive">
         Deze mail is bedoeld voor {email}. Heb je niet om deze link gevraagd? Dan kun je hem negeren.
       </Text>
