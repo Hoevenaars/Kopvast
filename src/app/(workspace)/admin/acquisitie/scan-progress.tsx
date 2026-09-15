@@ -19,7 +19,16 @@ export function ScanProgress({ running, steps }: { running: boolean; steps: Scan
   return (
     <section className="rounded-2xl border border-ink/10 bg-white p-5">
       <h2 className="font-semibold">Website analyseren</h2>
-      <p className="mt-1 text-sm text-ink/45">{running ? "Scan draait op de achtergrond." : "Laatste scanstatus."}</p>
+      <p className="mt-1 flex items-center gap-2 text-sm text-ink/45">
+        {running ? (
+          <>
+            <span className="size-3.5 animate-spin rounded-full border-2 border-ink/15 border-t-copper-dark" />
+            Scan draait op de achtergrond. Dit scherm ververst automatisch.
+          </>
+        ) : (
+          "Laatste scanstatus."
+        )}
+      </p>
       <ol className="mt-5 space-y-3">
         {display.map((step) => (
           <li key={step.key} className="flex items-start gap-3 text-sm">

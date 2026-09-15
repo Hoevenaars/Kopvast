@@ -1,5 +1,12 @@
 import { FORBIDDEN_MAIL_CLAIMS, MAIL_PROMPT_VERSION, MAIL_TEMPLATE_VERSION, type ProductFit } from "./acquisition-constants";
-import { products, site } from "./site";
+import {
+  applyPlaceholders,
+  acquisitionVars,
+  defaultAcquisitionMailTemplate,
+  loadAcquisitionMailTemplate,
+  type AcquisitionMailTemplate,
+} from "./mail-templates";
+import { site } from "./site";
 
 export type MailFinding = {
   id?: string;
@@ -17,12 +24,6 @@ export type GeneratedAcquisitionMail = {
   findingsUsed: MailFinding[];
   promptVersion: string;
   templateVersion: string;
-};
-
-const SUBJECTS = {
-  domain: (domain: string) => `Een paar punten die opvielen aan ${domain}`,
-  company: (company: string) => `Kort gekeken naar ${company}`,
-  points: "3 punten over jullie website",
 };
 
 export function selectableMailFindings(findings: MailFinding[]): MailFinding[] {
@@ -48,28 +49,32 @@ function stripForbiddenClaims(text: string) {
     .trim();
 }
 
-function offerParagraph(fit: ProductFit) {
-  if (fit === "CUSTOM_FIT") {
-    return "De website lijkt commercieel interessant, maar de benodigde functionaliteit valt waarschijnlijk buiten het vaste websitepakket. Daarover denk ik graag een keer met jullie mee.";
-  }
-  return `Een complete Kopvast Website start vanaf ${products.website.price} excl. btw.`;
+function fill(text: string, vars: Record<string, string>) {
+  return applyPlaceholders(text, vars);
 }
 
-export function composeAcquisitionBody(input: {
-  companyName?: string | null;
-  domain: string;
-  fit: ProductFit;
-  findings: MailFinding[];
-  opening?: string;
-  points?: string[];
-}): string {
+function offerParagraph(fit: ProductFit, template: AcquisitionMailTemplate, vars: Record<string, string>) {
+  if (fit === "CUSTOM_FIT") return fill(template.offerCustom, vars);
+  return fill(template.offerStandard, vars);
+}
+
+export function composeAcquisitionBody(
+  input: {
+    companyName?: string | null;
+    domain: string;
+    fit: ProductFit;
+    findings: MailFinding[];
+    opening?: string;
+    points?: string[];
+  },
+  template: AcquisitionMailTemplate = defaultAcquisitionMailTemplate()
+): string {
   const findings = input.points?.length ? [] : pickMailFindings(input.findings);
   const pointTexts =
     input.points?.filter(Boolean).slice(0, 2) ??
     findings.slice(0, 2).map((item) => stripForbiddenClaims(item.description || item.title));
-  const opening =
-    input.opening ||
-    "Ik kwam jullie website tegen en heb er kort naar gekeken.\n\nDaarbij vielen een paar punten op die volgens mij sterker kunnen.";
+  const vars = acquisitionVars(input);
+  const opening = input.opening || fill(template.opening, vars);
 
   const attention = pointTexts.length
     ? pointTexts.map((text) => text.replace(/\s+/g, " ").trim()).filter(Boolean)
@@ -82,21 +87,21 @@ export function composeAcquisitionBody(input: {
       : `Vooral ${shortFocus(focus[0])} biedt ruimte om de online presentatie beter aan te laten sluiten op het niveau van jullie bedrijf.`;
 
   return [
-    "Goedendag,",
+    fill(template.greeting, vars),
     "",
     opening.trim(),
     "",
     ...attention.flatMap((item) => [item, ""]),
     focusLine,
     "",
-    "Kopvast helpt bedrijven met professionele websites die helder laten zien waar een organisatie voor staat en bezoekers gericht naar contact leiden.",
+    fill(template.pitch, vars),
     "",
-    offerParagraph(input.fit),
+    offerParagraph(input.fit, template, vars),
     "",
-    "Met vriendelijke groet,",
+    fill(template.closing, vars),
     "",
-    site.name,
-    site.tagline,
+    fill(template.signatureName, vars) || site.name,
+    fill(template.signatureTagline, vars) || site.tagline,
   ].join("\n");
 }
 
@@ -107,28 +112,39 @@ function shortFocus(text: string) {
   return clipped.charAt(0).toLowerCase() + clipped.slice(1);
 }
 
-export function chooseSubject(input: { companyName?: string | null; domain: string; findings: MailFinding[] }) {
-  if (input.companyName && input.findings.length >= 2) return SUBJECTS.company(input.companyName);
-  if (input.findings.length >= 2) return SUBJECTS.points;
-  return SUBJECTS.domain(input.domain);
+export function chooseSubject(
+  input: { companyName?: string | null; domain: string; findings: MailFinding[] },
+  template: AcquisitionMailTemplate = defaultAcquisitionMailTemplate()
+) {
+  const vars = acquisitionVars(input);
+  if (input.companyName && input.findings.length >= 2) return fill(template.subjectCompany, vars);
+  if (input.findings.length >= 2) return fill(template.subjectPoints, vars);
+  return fill(template.subjectDomain, vars);
 }
 
-export function fallbackAcquisitionMail(input: {
-  companyName?: string | null;
-  domain: string;
-  fit: ProductFit;
-  findings: MailFinding[];
-}): GeneratedAcquisitionMail {
+export function fallbackAcquisitionMail(
+  input: {
+    companyName?: string | null;
+    domain: string;
+    fit: ProductFit;
+    findings: MailFinding[];
+  },
+  template: AcquisitionMailTemplate = defaultAcquisitionMailTemplate()
+): GeneratedAcquisitionMail {
   const used = pickMailFindings(input.findings);
-  const body = composeAcquisitionBody({
-    companyName: input.companyName,
-    domain: input.domain,
-    fit: input.fit,
-    findings: used,
-  });
+  const body = composeAcquisitionBody(
+    {
+      companyName: input.companyName,
+      domain: input.domain,
+      fit: input.fit,
+      findings: used,
+    },
+    template
+  );
+  const greeting = fill(template.greeting, acquisitionVars(input));
   return {
-    subject: chooseSubject({ ...input, findings: used }),
-    body: stripForbiddenClaims(body).includes("Goedendag") ? body : composeAcquisitionBody(input),
+    subject: chooseSubject({ ...input, findings: used }, template),
+    body: stripForbiddenClaims(body).includes(greeting.replace(/,$/, "")) ? body : composeAcquisitionBody(input, template),
     findingsUsed: used,
     promptVersion: MAIL_PROMPT_VERSION,
     templateVersion: MAIL_TEMPLATE_VERSION,
@@ -150,7 +166,8 @@ export async function generateAcquisitionMail(input: {
   findings: MailFinding[];
   model?: string;
 }): Promise<GeneratedAcquisitionMail> {
-  const fallback = fallbackAcquisitionMail(input);
+  const template = await loadAcquisitionMailTemplate();
+  const fallback = fallbackAcquisitionMail(input, template);
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return fallback;
 
@@ -176,9 +193,9 @@ export async function generateAcquisitionMail(input: {
               product_fit: input.fit,
               findings: usable,
               subject_options: [
-                SUBJECTS.domain(input.domain),
-                input.companyName ? SUBJECTS.company(input.companyName) : null,
-                SUBJECTS.points,
+                fill(template.subjectDomain, acquisitionVars(input)),
+                input.companyName ? fill(template.subjectCompany, acquisitionVars(input)) : null,
+                fill(template.subjectPoints, acquisitionVars(input)),
               ].filter(Boolean),
             }),
           },
@@ -201,15 +218,18 @@ export async function generateAcquisitionMail(input: {
       ? parsed.points.map((item) => stripForbiddenClaims(String(item))).filter(Boolean).slice(0, 2)
       : [];
     const opening = parsed.opening ? stripForbiddenClaims(String(parsed.opening)) : undefined;
-    const subject = sanitizeSubject(String(parsed.subject || fallback.subject), input);
-    const body = composeAcquisitionBody({
-      companyName: input.companyName,
-      domain: input.domain,
-      fit: input.fit,
-      findings: usable,
-      opening,
-      points: points.length ? points : undefined,
-    });
+    const subject = sanitizeSubject(String(parsed.subject || fallback.subject), input, template);
+    const body = composeAcquisitionBody(
+      {
+        companyName: input.companyName,
+        domain: input.domain,
+        fit: input.fit,
+        findings: usable,
+        opening,
+        points: points.length ? points : undefined,
+      },
+      template
+    );
     return {
       subject,
       body,
@@ -223,10 +243,14 @@ export async function generateAcquisitionMail(input: {
   }
 }
 
-function sanitizeSubject(subject: string, input: { companyName?: string | null; domain: string }) {
+function sanitizeSubject(
+  subject: string,
+  input: { companyName?: string | null; domain: string },
+  template: AcquisitionMailTemplate = defaultAcquisitionMailTemplate()
+) {
   const cleaned = subject.replace(/\s+/g, " ").trim();
   if (!cleaned || /!!!|gratis analyse|verliest|BELANGRIJK/i.test(cleaned) || cleaned.length > 90) {
-    return chooseSubject({ ...input, findings: [] });
+    return chooseSubject({ ...input, findings: [] }, template);
   }
   return cleaned;
 }

@@ -45,6 +45,13 @@ export type LocalCredential = {
   locked_until: string | null;
 };
 
+export type LocalMailTemplate = {
+  key: string;
+  fields: Record<string, string>;
+  updated_at: string;
+  updated_by: string | null;
+};
+
 type Store = {
   organizations: OrganizationRow[];
   members: MemberRow[];
@@ -59,6 +66,7 @@ type Store = {
   todos: TodoRow[];
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
+  mailTemplates: LocalMailTemplate[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -77,6 +85,7 @@ const empty = (): Store => ({
   todos: [],
   todoLabelLinks: [],
   todoComments: [],
+  mailTemplates: [],
 });
 
 export async function readStore(): Promise<Store> {
@@ -89,6 +98,7 @@ export async function readStore(): Promise<Store> {
         ...item,
         failed_attempts: item.failed_attempts ?? 0,
       })),
+      mailTemplates: parsed.mailTemplates ?? [],
     };
   } catch {
     return empty();

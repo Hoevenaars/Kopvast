@@ -1,0 +1,50 @@
+import { loadAcquisitionDashboard, type DashboardAction } from "@/lib/acquisition";
+import { workspaceRoutes } from "@/lib/product";
+import { refreshClient } from "@/lib/refresh";
+
+export type NotificationItem = {
+  id: string;
+  title: string;
+  detail: string;
+  href: string;
+  status: string;
+};
+
+export function notificationsFromActions(actions: DashboardAction[]): NotificationItem[] {
+  return actions.map((action, index) => ({
+    id: `${action.href}-${action.title}-${index}`,
+    title: action.title,
+    detail: `${action.company} · ${action.age}`,
+    href: action.href,
+    status: action.status,
+  }));
+}
+
+export async function loadAdminNotifications(): Promise<NotificationItem[]> {
+  const dash = await loadAcquisitionDashboard();
+  const items = notificationsFromActions(dash.actions);
+
+  const supabase = refreshClient();
+  if (supabase) {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from("kopvast_todos")
+      .select("id, title, due_at")
+      .eq("status", "open")
+      .not("due_at", "is", null)
+      .lte("due_at", today)
+      .order("due_at", { ascending: true })
+      .limit(6);
+    for (const todo of data ?? []) {
+      items.unshift({
+        id: `todo-${todo.id}`,
+        title: todo.title,
+        detail: "Taak is vervallen of vervalt vandaag",
+        href: workspaceRoutes.adminTaken,
+        status: "Actie nodig",
+      });
+    }
+  }
+
+  return items.slice(0, 12);
+}

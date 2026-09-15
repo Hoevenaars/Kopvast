@@ -2,9 +2,10 @@ import { render } from "react-email";
 import { Resend } from "resend";
 import { LeadConfirmationEmail } from "@/emails/lead-confirmation";
 import { LeadNotificationEmail } from "@/emails/lead-notification";
-import { confirmationCopy, confirmationPlainText, notificationPlainText } from "@/emails/copy";
+import { confirmationPlainText, notificationPlainText } from "@/emails/copy";
 import { logEmailEvent } from "@/lib/email-log";
 import { logInboundEmail, type InboundEmailKind } from "@/lib/inbound";
+import { loadConfirmationCopy, loadNotificationIntro } from "@/lib/mail-templates";
 import { site } from "@/lib/site";
 
 export type LeadPayload = {
@@ -89,7 +90,8 @@ export async function sendLeadNotification(lead: LeadPayload): Promise<{ deliver
   }
 
   const resend = new Resend(apiKey);
-  const notifyHtml = await render(<LeadNotificationEmail {...lead} />);
+  const intro = await loadNotificationIntro(lead);
+  const notifyHtml = await render(<LeadNotificationEmail {...lead} intro={intro} />);
 
   const { data, error } = await resend.emails.send(
     {
@@ -125,15 +127,15 @@ export async function sendLeadNotification(lead: LeadPayload): Promise<{ deliver
     return { delivered: true, id: data?.id };
   }
 
-  const confirm = confirmationCopy(lead.source);
-  const confirmHtml = await render(<LeadConfirmationEmail name={lead.name} source={lead.source} />);
+  const confirm = await loadConfirmationCopy(lead.source, { name: lead.name, company: lead.company ?? "" });
+  const confirmHtml = await render(<LeadConfirmationEmail name={lead.name} source={lead.source} copy={confirm} />);
   const { data: confirmData, error: confirmError } = await resend.emails.send(
     {
       from,
       to: lead.email,
       replyTo: to,
       subject: confirm.subject,
-      text: confirmationPlainText(lead.name, lead.source),
+      text: confirmationPlainText(lead.name, lead.source, confirm),
       html: confirmHtml,
     },
     { idempotencyKey: `aanvraag-bevestiging/${lead.id}` }

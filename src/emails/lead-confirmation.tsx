@@ -5,17 +5,18 @@ import { Section, Text } from "react-email";
 export type LeadConfirmationEmailProps = {
   name: string;
   source: string;
+  copy?: ReturnType<typeof confirmationCopy>;
 };
 
-export function LeadConfirmationEmail({ name, source }: LeadConfirmationEmailProps) {
-  const copy = confirmationCopy(source);
+export function LeadConfirmationEmail({ name, source, copy }: LeadConfirmationEmailProps) {
+  const resolved = copy ?? confirmationCopy(source);
 
   return (
-    <EmailShell preview={copy.preview} eyebrow={copy.eyebrow} title={copy.title}>
+    <EmailShell preview={resolved.preview} eyebrow={resolved.eyebrow} title={resolved.title}>
       <Text className="mt-0 mb-[16px] text-[15px] leading-[24px] text-ink">{`Hallo ${name},`}</Text>
-      <Text className="mt-0 mb-[24px] text-[15px] leading-[24px] text-olive">{copy.text}</Text>
+      <Text className="mt-0 mb-[24px] text-[15px] leading-[24px] text-olive">{resolved.text}</Text>
       <Section>
-        <EmailButton href={copy.ctaHref}>{copy.ctaLabel}</EmailButton>
+        <EmailButton href={resolved.ctaHref}>{resolved.ctaLabel}</EmailButton>
       </Section>
     </EmailShell>
   );

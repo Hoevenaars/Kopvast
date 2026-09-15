@@ -18,6 +18,12 @@ import {
 } from "./acquisition-constants";
 import { isEmail, normalizeEmail } from "./product";
 
+export const TEST_MAIL_IDEMPOTENCY_WINDOW_MS = 15_000;
+
+export function testMailIdempotencyKey(mailId: string, at = Date.now()) {
+  return `acquisition-test/${mailId}/${Math.floor(at / TEST_MAIL_IDEMPOTENCY_WINDOW_MS)}`;
+}
+
 export type PreSendIssue = { code: string; message: string };
 
 export function evaluatePreSend(input: {
@@ -273,6 +279,17 @@ export async function sendProspectTestMail(input: { prospectId: string; mailId: 
   const to = getTestEmail();
   const subject = mail!.subject!;
   const body = mail!.body_text!;
+  const since = new Date(Date.now() - TEST_MAIL_IDEMPOTENCY_WINDOW_MS).toISOString();
+  const { data: recent } = await supabase
+    .from("email_messages")
+    .select("id")
+    .eq("kind", "acquisition_test")
+    .eq("prospect_id", detail.id)
+    .gte("created_at", since)
+    .limit(1)
+    .maybeSingle();
+  if (recent) return { ok: true as const, skippedDuplicate: true };
+
   const html = await renderOutreachHtml({
     subject: `[TEST] ${subject}`,
     body,
@@ -285,7 +302,7 @@ export async function sendProspectTestMail(input: { prospectId: string; mailId: 
     companyName: detail.company_name ?? undefined,
     domain: detail.domain,
   });
-  const key = `acquisition-test/${mail!.id}/${Date.now()}`;
+  const key = testMailIdempotencyKey(mail!.id);
   const sent = await sendViaResend({ to, subject: `[TEST] ${subject}`, html, text, idempotencyKey: key });
   if (!sent.ok) return sent;
 
@@ -360,7 +377,7 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
     .select("id")
     .maybeSingle();
   if (lockError) return { ok: false as const, message: lockError.message };
-  if (!locked) return { ok: false as const, message: "Deze mail wordt al verzonden of is niet meer een concept." };
+  if (!locked) return { ok: true as const, skippedDuplicate: true };
 
   await supabase.from("prospects").update({ mail_status: "queued", updated_at: new Date().toISOString() }).eq("id", detail.id);
   await logProspectActivity(supabase, {

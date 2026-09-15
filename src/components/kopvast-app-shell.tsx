@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { isNavActive, navigationFor, type ShellVariant } from "@/lib/app-nav";
 import { site } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { AccountMenu, NotificationMenu } from "@/components/workspace/shell-menus";
 
 type Props = {
   variant: ShellVariant;
@@ -23,16 +24,20 @@ export function KopvastAppShell({ variant, email, children }: Props) {
 
   return (
     <div className="min-h-screen bg-ivory text-ink">
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-ink/10 bg-ivory/95 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-3 border-b border-ink/10 bg-ivory/95 px-4 backdrop-blur lg:hidden">
         <Logo />
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          className="rounded-md border border-ink/10 bg-white p-2.5"
-          aria-label="Menu openen"
-        >
-          <Menu className="size-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationMenu variant={variant} />
+          <AccountMenu variant={variant} email={email} compact />
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="cursor-pointer rounded-md border border-ink/10 bg-white p-2.5"
+            aria-label="Menu openen"
+          >
+            <Menu className="size-5" />
+          </button>
+        </div>
       </header>
 
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[272px] flex-col bg-ink text-ivory lg:flex">
@@ -40,14 +45,14 @@ export function KopvastAppShell({ variant, email, children }: Props) {
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <Navigation navigation={navigation} pathname={pathname} />
         </nav>
-        <SidebarFooter variant={variant} email={email} />
+        <SidebarFooter variant={variant} />
       </aside>
 
       {mobileOpen ? (
         <>
           <button
             type="button"
-            className="fixed inset-0 z-50 bg-ink/35 lg:hidden"
+            className="fixed inset-0 z-50 cursor-pointer bg-ink/35 lg:hidden"
             onClick={() => setMobileOpen(false)}
             aria-label="Menu sluiten"
           />
@@ -57,7 +62,7 @@ export function KopvastAppShell({ variant, email, children }: Props) {
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-md p-2 hover:bg-ivory/10"
+                className="cursor-pointer rounded-md p-2 hover:bg-ivory/10"
                 aria-label="Menu sluiten"
               >
                 <X className="size-5" />
@@ -70,7 +75,7 @@ export function KopvastAppShell({ variant, email, children }: Props) {
                 onNavigate={() => setMobileOpen(false)}
               />
             </nav>
-            <SidebarFooter variant={variant} email={email} showLogout />
+            <SidebarFooter variant={variant} />
           </aside>
         </>
       ) : null}
@@ -135,15 +140,7 @@ function SidebarHeader({ variant }: { variant: ShellVariant }) {
   );
 }
 
-function SidebarFooter({
-  variant,
-  email,
-  showLogout = false,
-}: {
-  variant: ShellVariant;
-  email?: string;
-  showLogout?: boolean;
-}) {
+function SidebarFooter({ variant }: { variant: ShellVariant }) {
   return (
     <div className="border-t border-ivory/10 p-4">
       <div className="rounded-md bg-ivory/6 p-3">
@@ -152,22 +149,11 @@ function SidebarFooter({
           {variant === "admin" ? site.tagline : "Stuur een wijzigings- of supportverzoek."}
         </div>
       </div>
-      {showLogout ? (
-        <div className="mt-3 px-1">
-          {email ? <p className="truncate text-[11px] text-ivory/40">{email}</p> : null}
-          <form action="/inloggen/uitloggen" method="post" className="mt-2">
-            <button type="submit" className="text-sm text-ivory/70 underline-offset-4 hover:underline">
-              Uitloggen
-            </button>
-          </form>
-        </div>
-      ) : null}
     </div>
   );
 }
 
 function Topbar({ variant, email }: { variant: ShellVariant; email?: string }) {
-  const initial = (email?.[0] ?? (variant === "admin" ? "K" : "M")).toUpperCase();
   return (
     <header className="hidden h-[72px] items-center justify-between border-b border-ink/8 bg-ivory/90 px-8 backdrop-blur lg:flex">
       <div>
@@ -177,23 +163,8 @@ function Topbar({ variant, email }: { variant: ShellVariant; email?: string }) {
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <button type="button" className="relative rounded-md border border-ink/10 bg-white p-2.5" aria-label="Meldingen">
-          <Bell className="size-[18px]" />
-        </button>
-        <div className="flex items-center gap-3 rounded-md border border-ink/10 bg-white px-3 py-2">
-          <div className="flex size-8 items-center justify-center rounded-full bg-olive text-xs font-semibold text-ivory">
-            {initial}
-          </div>
-          <div>
-            <div className="text-xs font-semibold">{variant === "admin" ? "Admin" : "Account"}</div>
-            <div className="max-w-40 truncate text-[11px] text-ink/45">{email || (variant === "admin" ? "Kopvast" : "Mijn omgeving")}</div>
-          </div>
-        </div>
-        <form action="/inloggen/uitloggen" method="post">
-          <button type="submit" className="text-sm text-ink underline-offset-4 hover:underline">
-            Uitloggen
-          </button>
-        </form>
+        <NotificationMenu variant={variant} />
+        <AccountMenu variant={variant} email={email} />
       </div>
     </header>
   );
