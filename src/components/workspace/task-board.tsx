@@ -122,6 +122,10 @@ export function TaskBoard({
       drag.current = null;
       return;
     }
+    skipClick.current = true;
+    window.setTimeout(() => {
+      skipClick.current = false;
+    }, 200);
     const target = overRef.current;
     if (target == null) {
       drag.current = null;
