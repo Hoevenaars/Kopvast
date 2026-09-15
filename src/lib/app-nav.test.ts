@@ -12,6 +12,7 @@ test("klant en admin hebben een eigen navigatie op /klant en /admin", () => {
   assert.ok(customerNavigation.some((item) => item.href === "/klant/goedkeuringen"));
   assert.ok(adminNavigation.some((item) => item.href === "/admin/gebruikers"));
   assert.ok(adminNavigation.some((item) => item.href === "/admin/automations"));
+  assert.ok(adminNavigation.some((item) => item.href === "/admin/taken"));
 });
 
 test("actief menu-item volgt het pad zonder de root altijd te markeren", () => {

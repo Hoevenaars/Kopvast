@@ -8,6 +8,7 @@ import {
   FileText,
   Globe2,
   ImageIcon,
+  Kanban,
   LayoutDashboard,
   LifeBuoy,
   Mail,
@@ -43,6 +44,7 @@ export const customerNavigation: NavItem[] = [
 
 export const adminNavigation: NavItem[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { label: "Taken", href: "/admin/taken", icon: Kanban },
   { label: "Prospects", href: "/admin/prospects", icon: Search },
   { label: "Leads", href: "/admin/leads", icon: Users },
   { label: "Klanten", href: "/admin/klanten", icon: Building2 },

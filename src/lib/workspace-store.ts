@@ -1,5 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type {
+  TodoBucketRow,
+  TodoCommentRow,
+  TodoLabelLinkRow,
+  TodoLabelRow,
+  TodoRow,
+} from "@/lib/todos";
 import type { AssetRow, LeadRow, MailRow, OrganizationRow, ProjectRow, RequestRow } from "@/lib/workspace";
 
 export type MemberRow = {
@@ -47,6 +54,11 @@ type Store = {
   sessions: LocalSession[];
   tokens: LocalToken[];
   credentials: LocalCredential[];
+  todoBuckets: TodoBucketRow[];
+  todoLabels: TodoLabelRow[];
+  todos: TodoRow[];
+  todoLabelLinks: TodoLabelLinkRow[];
+  todoComments: TodoCommentRow[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -60,6 +72,11 @@ const empty = (): Store => ({
   sessions: [],
   tokens: [],
   credentials: [],
+  todoBuckets: [],
+  todoLabels: [],
+  todos: [],
+  todoLabelLinks: [],
+  todoComments: [],
 });
 
 export async function readStore(): Promise<Store> {
