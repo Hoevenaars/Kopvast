@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; fout?: string }>;
+  searchParams: Promise<{ next?: string; fout?: string; wissel?: string }>;
 }) {
   const session = await readSession();
   const params = await searchParams;
@@ -32,6 +32,9 @@ export default async function LoginPage({
         </p>
       </div>
       <div>
+        {params.wissel ? (
+          <p className="mb-4 text-sm text-olive">Je bent uitgelogd. Log in met het account dat je wilt gebruiken.</p>
+        ) : null}
         {params.fout ? (
           <p className="mb-4 text-sm text-destructive">Deze inlogcode is verlopen of al gebruikt.</p>
         ) : null}

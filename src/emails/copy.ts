@@ -115,8 +115,11 @@ export function notificationPlainText(lead: LeadEmailFields) {
     .join("\n");
 }
 
-export function confirmationPlainText(name: string, source: string) {
-  const copy = confirmationCopy(source);
+export function confirmationPlainText(
+  name: string,
+  source: string,
+  copy = confirmationCopy(source)
+) {
   return [`Hallo ${name},`, "", copy.text, "", site.name, site.tagline, site.url].join("\n");
 }
 

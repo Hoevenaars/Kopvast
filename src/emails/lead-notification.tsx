@@ -2,11 +2,12 @@ import { EmailButton, EmailField, EmailShell, emailColors } from "@/emails/_comp
 import { notificationFields, notificationIntro, sourceLabel, type LeadEmailFields } from "@/emails/copy";
 import { Section, Text } from "react-email";
 
-export type LeadNotificationEmailProps = LeadEmailFields;
+export type LeadNotificationEmailProps = LeadEmailFields & { intro?: string };
 
 export function LeadNotificationEmail(lead: LeadNotificationEmailProps) {
   const fields = notificationFields(lead);
   const source = sourceLabel(lead.source);
+  const intro = lead.intro ?? notificationIntro(lead);
 
   return (
     <EmailShell
@@ -14,7 +15,7 @@ export function LeadNotificationEmail(lead: LeadNotificationEmailProps) {
       eyebrow="Nieuwe aanvraag"
       title={lead.company ? `${lead.name} · ${lead.company}` : `Aanvraag van ${lead.name}`}
     >
-      <Text className="mt-0 mb-[16px] text-[15px] leading-[24px] text-olive">{notificationIntro(lead)}</Text>
+      <Text className="mt-0 mb-[16px] text-[15px] leading-[24px] text-olive">{intro}</Text>
       <Section
         className="rounded-[16px] border border-solid px-[20px] py-[8px]"
         style={{ backgroundColor: emailColors.card, borderColor: emailColors.stone }}

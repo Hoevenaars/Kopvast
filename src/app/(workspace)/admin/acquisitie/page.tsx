@@ -18,6 +18,7 @@ import { getEmailMode } from "@/lib/email-mode";
 import { workspaceRoutes } from "@/lib/product";
 import { cn } from "@/lib/utils";
 import { EmailModeBanner } from "./email-mode-banner";
+import { PendingLink } from "@/components/workspace/pending-nav";
 
 export const metadata: Metadata = { title: "Acquisitie", robots: { index: false, follow: false } };
 
@@ -104,8 +105,9 @@ export default async function AcquisitionOverviewPage({
             <ul className="grid gap-4">
               {items.map((item) => (
                 <li key={item.id}>
-                  <Link
+                  <PendingLink
                     href={`${workspaceRoutes.adminAcquisition}/${item.id}`}
+                    pendingLabel="Prospect openen…"
                     className="block rounded-2xl border border-ink/10 bg-white p-5 transition hover:bg-[#F8F6F1]"
                   >
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -124,7 +126,7 @@ export default async function AcquisitionOverviewPage({
                       <Meta label="Response" value={labelForResponse(item.response_status)} />
                       <Meta label="Laatste activiteit" value={formatNlDate(item.last_activity_at)} />
                     </dl>
-                  </Link>
+                  </PendingLink>
                 </li>
               ))}
             </ul>
