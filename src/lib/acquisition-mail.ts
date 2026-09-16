@@ -3,6 +3,7 @@ import {
   buildAcquisitionSubject,
   DEFAULT_CHOICE_A_URL,
   DEFAULT_CHOICE_B_URL,
+  validateOfferParagraph,
   type AcquisitionOutreachEmailProps,
   type AcquisitionOutreachFinding,
 } from "@/emails/acquisition-outreach";
@@ -78,6 +79,9 @@ const FORBIDDEN_COPY_PHRASES = [
   /conversie optimaliseren/i,
   /biedt ruimte om/i,
   /vanaf\s*€?\s*995/i,
+  /meer in zich/i,
+  /online presentatie biedt ruimte/i,
+  /optimaliseren/i,
 ];
 
 const CUSTOM_FIT_PARAGRAPH =
@@ -134,7 +138,7 @@ function oneSentence(text: string) {
 
 function looksLikeJargon(text: string) {
   return (
-    /optimalisatie|merkbeleving|conversieoptimalisatie|potentieel maximaliseren|core web vitals|\blcp\b|digitale aanwezigheid/i.test(
+    /optimalisatie|merkbeleving|conversieoptimalisatie|potentieel maximaliseren|core web vitals|\blcp\b|digitale aanwezigheid|meer in zich/i.test(
       text
     ) || text.length > 72
   );
@@ -162,7 +166,7 @@ function toOutreachFinding(item: MailFinding): AcquisitionOutreachFinding {
 
 function fallbackOpening(input: { companyName?: string | null; domain: string }) {
   const who = input.companyName?.trim() || input.domain;
-  return `${who} heeft als organisatie meer karakter dan de website nu laat zien. Online komt dat minder sterk over dan volgens mij mogelijk is.`;
+  return `${who} heeft duidelijk meer karakter dan er nu online uitkomt.`;
 }
 
 function offerParagraphForFit(
@@ -188,7 +192,10 @@ function offerParagraphForFit(
     contentEvidence: input.contentEvidence,
     allowLaunchOffer: input.allowLaunchOffer,
   });
-  if (offer.eligible) return offer.offerParagraph;
+  if (offer.eligible) {
+    validateOfferParagraph(offer.offerParagraph);
+    return offer.offerParagraph;
+  }
   return "Een complete Kopvast Website kost €1.495 excl. btw.";
 }
 
@@ -272,6 +279,18 @@ export function buildOutreachEmailProps(input: {
   const openingObservation = stripForbiddenClaims(
     input.openingObservation || input.opening || fallbackOpening(input)
   );
+  const specialOfferParagraph = offerParagraphForFit(
+    {
+      fit: input.fit,
+      place: input.place,
+      municipality: input.municipality,
+      contentEvidence: input.contentEvidence,
+      allowLaunchOffer: input.allowLaunchOffer,
+    },
+    template,
+    vars
+  );
+  validateOfferParagraph(specialOfferParagraph);
 
   return {
     companyName: input.companyName,
@@ -282,17 +301,7 @@ export function buildOutreachEmailProps(input: {
     openingObservation,
     finding1,
     finding2,
-    specialOfferParagraph: offerParagraphForFit(
-      {
-        fit: input.fit,
-        place: input.place,
-        municipality: input.municipality,
-        contentEvidence: input.contentEvidence,
-        allowLaunchOffer: input.allowLaunchOffer,
-      },
-      template,
-      vars
-    ),
+    specialOfferParagraph,
     choiceAUrl: input.choiceAUrl || DEFAULT_CHOICE_A_URL,
     choiceBUrl: input.choiceBUrl || DEFAULT_CHOICE_B_URL,
     unsubscribeUrl: input.unsubscribeUrl,

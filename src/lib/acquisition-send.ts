@@ -4,8 +4,9 @@ import { fromAddress } from "./email";
 import { refreshClient } from "./refresh";
 import { addSuppression } from "./suppression";
 import { getEmailMode, getTestEmail, recipientForMode, resolveEmailSettings } from "./email-mode";
-import { renderOutreachHtml, renderOutreachText } from "./acquisition-render";
+import { prepareAcquisitionEmail } from "./acquisition-render";
 import { generateAcquisitionMail, fallbackAcquisitionMail, type MailFinding } from "./acquisition-mail";
+import { DUPLICATE_EMAIL_CONTENT_ERROR, findDuplicatedAcquisitionContent } from "@/emails/acquisition-outreach-copy";
 import { logProspectActivity, refreshProspectCosts } from "./acquisition-activity";
 import { loadProspectDetail, type ProspectDetail, type ProspectMail } from "./acquisition";
 import {
@@ -59,6 +60,9 @@ export function evaluatePreSend(input: {
   if (!input.mail) issues.push({ code: "missing_mail", message: "Er is nog geen acquisitiemail." });
   if (input.mail && !input.mail.subject?.trim()) issues.push({ code: "missing_subject", message: "De mail heeft geen onderwerp." });
   if (input.mail && !input.mail.body_text?.trim()) issues.push({ code: "missing_body", message: "De mail heeft geen inhoud." });
+  if (input.mail?.body_text && findDuplicatedAcquisitionContent(input.mail.body_text)) {
+    issues.push({ code: "duplicated_content", message: DUPLICATE_EMAIL_CONTENT_ERROR });
+  }
   if (input.mail && !input.mail.scan_id) issues.push({ code: "missing_scan", message: "De mail is niet aan een scan gekoppeld." });
   const used = input.mail?.findings_used;
   const hasFindings = Array.isArray(used) ? used.length > 0 : Boolean(used);
@@ -69,6 +73,13 @@ export function evaluatePreSend(input: {
     issues.push({ code: "duplicate_send", message: "Deze mail is al verzonden of staat in de wachtrij." });
   }
   return issues;
+}
+
+function renderFailure(error: unknown) {
+  return {
+    ok: false as const,
+    message: error instanceof Error ? error.message : DUPLICATE_EMAIL_CONTENT_ERROR,
+  };
 }
 
 export async function storeGeneratedMail(
@@ -104,13 +115,14 @@ export async function storeGeneratedMail(
     findings: input.findings,
     place,
   });
-  const html = await renderOutreachHtml({
-    ...generated.emailProps,
-    subject: generated.subject,
-    body: generated.body,
-    companyName: input.companyName ?? undefined,
-    domain: input.domain,
-  });
+  let html: string;
+  try {
+    const prepared = await prepareAcquisitionEmail(generated.emailProps);
+    html = prepared.html;
+  } catch (error) {
+    console.error("[kopvast] Acquisitiemail renderen mislukt", error instanceof Error ? error.message : error);
+    return null;
+  }
   const { data: contact } = input.contactId
     ? { data: { id: input.contactId, email: null as string | null } }
     : await supabase
@@ -206,12 +218,17 @@ export async function saveProspectMailDraft(input: {
 
   const detail = await loadProspectDetail(input.prospectId);
   if (!detail) return { ok: false as const, message: "Prospect niet gevonden." };
-  const html = await renderOutreachHtml({
-    subject,
-    body,
-    companyName: detail.company_name ?? undefined,
-    domain: detail.domain,
-  });
+  let html: string;
+  try {
+    html = (await prepareAcquisitionEmail({
+      subject,
+      body,
+      companyName: detail.company_name ?? undefined,
+      domain: detail.domain,
+    })).html;
+  } catch (error) {
+    return renderFailure(error);
+  }
   const { error } = await supabase
     .from("email_messages")
     .update({
@@ -285,18 +302,20 @@ export async function sendProspectTestMail(input: { prospectId: string; mailId: 
     .maybeSingle();
   if (recent) return { ok: true as const, skippedDuplicate: true };
 
-  const html = await renderOutreachHtml({
-    subject: `[TEST] ${subject}`,
-    body,
-    companyName: detail.company_name ?? undefined,
-    domain: detail.domain,
-  });
-  const text = await renderOutreachText({
-    subject,
-    body,
-    companyName: detail.company_name ?? undefined,
-    domain: detail.domain,
-  });
+  let html: string;
+  let text: string;
+  try {
+    const prepared = await prepareAcquisitionEmail({
+      subject,
+      body,
+      companyName: detail.company_name ?? undefined,
+      domain: detail.domain,
+    });
+    html = prepared.html;
+    text = prepared.text;
+  } catch (error) {
+    return renderFailure(error);
+  }
   const key = testMailIdempotencyKey(mail!.id);
   const sent = await sendViaResend({ to, subject: `[TEST] ${subject}`, html, text, idempotencyKey: key });
   if (!sent.ok) return sent;
@@ -386,18 +405,37 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
 
   const subject = mail!.subject!;
   const body = mail!.body_text!;
-  const html = await renderOutreachHtml({
-    subject,
-    body,
-    companyName: detail.company_name ?? undefined,
-    domain: detail.domain,
-  });
-  const text = await renderOutreachText({
-    subject,
-    body,
-    companyName: detail.company_name ?? undefined,
-    domain: detail.domain,
-  });
+  let html: string;
+  let text: string;
+  try {
+    const prepared = await prepareAcquisitionEmail({
+      subject,
+      body,
+      companyName: detail.company_name ?? undefined,
+      domain: detail.domain,
+    });
+    html = prepared.html;
+    text = prepared.text;
+  } catch (error) {
+    const failed = renderFailure(error);
+    await supabase
+      .from("email_messages")
+      .update({
+        status: "failed",
+        failed_at: new Date().toISOString(),
+        last_error: failed.message,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", mail!.id);
+    await supabase.from("prospects").update({ mail_status: "failed" }).eq("id", detail.id);
+    await logProspectActivity(supabase, {
+      prospectId: detail.id,
+      eventType: ACTIVITY.MAIL_FAILED,
+      actorType: "system",
+      metadata: { error: failed.message },
+    });
+    return failed;
+  }
   const sent = await sendViaResend({
     to: recipient.to,
     subject,
