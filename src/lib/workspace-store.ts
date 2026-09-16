@@ -1,6 +1,15 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
+  ActivityRow,
+  BrandProfileRow,
+  CustomerReviewRow,
+  InvoiceRow,
+  NoteRow,
+  ProposalRow,
+  SupportRow,
+} from "@/lib/customers";
+import type {
   TodoBucketRow,
   TodoCommentRow,
   TodoLabelLinkRow,
@@ -67,6 +76,13 @@ type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
+  proposals: ProposalRow[];
+  invoices: InvoiceRow[];
+  notes: NoteRow[];
+  support: SupportRow[];
+  brandProfiles: BrandProfileRow[];
+  activity: ActivityRow[];
+  customerReviews: CustomerReviewRow[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -86,6 +102,13 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
+  proposals: [],
+  invoices: [],
+  notes: [],
+  support: [],
+  brandProfiles: [],
+  activity: [],
+  customerReviews: [],
 });
 
 export async function readStore(): Promise<Store> {
@@ -99,6 +122,13 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
+      proposals: parsed.proposals ?? [],
+      invoices: parsed.invoices ?? [],
+      notes: parsed.notes ?? [],
+      support: parsed.support ?? [],
+      brandProfiles: parsed.brandProfiles ?? [],
+      activity: parsed.activity ?? [],
+      customerReviews: parsed.customerReviews ?? [],
     };
   } catch {
     return empty();
