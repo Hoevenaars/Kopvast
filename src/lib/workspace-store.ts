@@ -1,5 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { InvoiceRow as BillingInvoiceRow, RecurringRow } from "@/lib/invoices";
+import type {
+  AanvraagActivity,
+  AanvraagRecord,
+  ProposalLineRecord,
+  ProposalRecord,
+} from "@/lib/aanvragen-model";
 import type {
   ActivityRow,
   BrandProfileRow,
@@ -9,20 +16,6 @@ import type {
   ProposalRow as CustomerProposalRow,
   SupportRow,
 } from "@/lib/customers";
-import type {
-  TodoBucketRow,
-  TodoCommentRow,
-  TodoLabelLinkRow,
-  TodoLabelRow,
-  TodoRow,
-} from "@/lib/todos";
-import type {
-  ProposalActivityRow,
-  ProposalLineRow,
-  ProposalRow as VoorstelRow,
-  ProposalVersionRow,
-} from "@/lib/proposals";
-import type { ApprovalRow, ChangeRequestRow, ProductionActivityRow, ProductionRow } from "@/lib/production";
 import type { OnboardingFileRow, OnboardingItemRow, OnboardingRow as ChecklistOnboardingRow } from "@/lib/onboarding";
 import type {
   InvoiceRow,
@@ -32,6 +25,20 @@ import type {
   OrderWebsiteRow,
   ProposalRow,
 } from "@/lib/orders";
+import type { ApprovalRow, ChangeRequestRow, ProductionActivityRow, ProductionRow } from "@/lib/production";
+import type {
+  ProposalActivityRow,
+  ProposalLineRow,
+  ProposalRow as VoorstelRow,
+  ProposalVersionRow,
+} from "@/lib/proposals";
+import type {
+  TodoBucketRow,
+  TodoCommentRow,
+  TodoLabelLinkRow,
+  TodoLabelRow,
+  TodoRow,
+} from "@/lib/todos";
 import type { AssetRow, LeadRow, MailRow, OrganizationRow, ProjectRow, RequestRow } from "@/lib/workspace";
 
 export type MemberRow = {
@@ -92,13 +99,19 @@ export type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
+  billingInvoices: BillingInvoiceRow[];
+  recurring: RecurringRow[];
+  aanvragen: AanvraagRecord[];
+  aanvraagProposals: ProposalRecord[];
+  proposalLines: ProposalLineRecord[];
+  aanvraagActivities: AanvraagActivity[];
   productions: ProductionRow[];
   changeRequests: ChangeRequestRow[];
   approvals: ApprovalRow[];
   productionActivity: ProductionActivityRow[];
   proposals: ProposalRow[];
   voorstellen: VoorstelRow[];
-  proposalLines: ProposalLineRow[];
+  voorstelLines: ProposalLineRow[];
   proposalVersions: ProposalVersionRow[];
   proposalActivity: ProposalActivityRow[];
   customerProposals: CustomerProposalRow[];
@@ -135,13 +148,19 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
+  billingInvoices: [],
+  recurring: [],
+  aanvragen: [],
+  aanvraagProposals: [],
+  proposalLines: [],
+  aanvraagActivities: [],
   productions: [],
   changeRequests: [],
   approvals: [],
   productionActivity: [],
   proposals: [],
   voorstellen: [],
-  proposalLines: [],
+  voorstelLines: [],
   proposalVersions: [],
   proposalActivity: [],
   customerProposals: [],
@@ -172,13 +191,19 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
+      billingInvoices: parsed.billingInvoices ?? [],
+      recurring: parsed.recurring ?? [],
+      aanvragen: parsed.aanvragen ?? [],
+      aanvraagProposals: parsed.aanvraagProposals ?? [],
+      proposalLines: parsed.proposalLines ?? [],
+      aanvraagActivities: parsed.aanvraagActivities ?? [],
       productions: parsed.productions ?? [],
       changeRequests: parsed.changeRequests ?? [],
       approvals: parsed.approvals ?? [],
       productionActivity: parsed.productionActivity ?? [],
       proposals: parsed.proposals ?? [],
       voorstellen: parsed.voorstellen ?? [],
-      proposalLines: parsed.proposalLines ?? [],
+      voorstelLines: parsed.voorstelLines ?? [],
       proposalVersions: parsed.proposalVersions ?? [],
       proposalActivity: parsed.proposalActivity ?? [],
       customerProposals: parsed.customerProposals ?? [],

@@ -766,6 +766,7 @@ export async function convertProspectToLead(input: { prospectId: string; actorEm
     .from("inbound_leads")
     .insert({
       type: detail.product_fit === "CUSTOM_FIT" ? "maatwerk" : "website",
+      product_fit: detail.product_fit,
       status: "NIEUW",
       company_name: detail.company_name,
       website: detail.website_url,

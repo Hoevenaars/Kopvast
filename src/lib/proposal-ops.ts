@@ -428,7 +428,7 @@ export async function loadProposal(id: string): Promise<ProposalDetail | null> {
   if (!proposal) return null;
   return {
     proposal: asProposal(proposal),
-    lines: store.proposalLines
+    lines: store.voorstelLines
       .filter((item) => item.proposal_id === id)
       .sort((a, b) => a.sort_order - b.sort_order),
     versions: store.proposalVersions
@@ -662,8 +662,8 @@ async function replaceLines(proposalId: string, lines: ProposalLineInput[]) {
     return;
   }
   await mutateStore((store) => {
-    store.proposalLines = store.proposalLines.filter((item) => item.proposal_id !== proposalId);
-    store.proposalLines.push(...normalized);
+    store.voorstelLines = store.voorstelLines.filter((item) => item.proposal_id !== proposalId);
+    store.voorstelLines.push(...normalized);
   });
 }
 

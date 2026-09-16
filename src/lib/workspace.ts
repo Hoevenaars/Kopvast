@@ -1,3 +1,5 @@
+import { seedBillingForProjects } from "@/lib/billing";
+import { billingDraftsForProjects } from "@/lib/invoices";
 import { refreshClient } from "@/lib/refresh";
 import {
   isAssetKind,
@@ -503,8 +505,13 @@ export async function convertLead(leadId: string) {
       organization_id: created.id,
     }));
     if (projects.length) {
-      const { data: createdProjects } = await supabase.from("kopvast_projects").insert(projects).select("*");
+      const { data: createdProjects } = await supabase
+        .from("kopvast_projects")
+        .insert(projects)
+        .select("*");
       if (createdProjects?.length) {
+        const rows = createdProjects as Array<{ id: string; organization_id: string; type: string; title: string }>;
+        await seedBillingForProjects(rows);
         await ensureOnboardingsForProjects(createdProjects);
         const productions = (createdProjects as ProjectRow[])
           .filter((project) => isDeliveryProject(project.type))
@@ -535,17 +542,17 @@ export async function convertLead(leadId: string) {
       role: "owner",
       access_enabled: true,
     });
-    for (const project of defaultProjectsForLead(lead.type, lead.website)) {
-      const row = {
-        ...project,
-        id: newId(),
-        organization_id: created.id,
-        started_at: null,
-        due_at: null,
-        live_at: null,
-        created_at: nowIso(),
-      };
-      store.projects.push(row);
+    const createdProjects = defaultProjectsForLead(lead.type, lead.website).map((project) => ({
+      ...project,
+      id: newId(),
+      organization_id: created.id,
+      started_at: null,
+      due_at: null,
+      live_at: null,
+      created_at: nowIso(),
+    }));
+    store.projects.push(...createdProjects);
+    for (const row of createdProjects) {
       addOnboardingToStore(store, row);
       if (isDeliveryProject(row.type)) {
         store.productions.unshift({
@@ -555,6 +562,14 @@ export async function convertLead(leadId: string) {
           updated_at: nowIso(),
         });
       }
+    }
+    const drafts = billingDraftsForProjects(createdProjects);
+    const createdAt = nowIso();
+    for (const invoice of drafts.invoices) {
+      store.billingInvoices.unshift({ ...invoice, id: newId(), created_at: createdAt, updated_at: createdAt });
+    }
+    for (const item of drafts.recurring) {
+      store.recurring.unshift({ ...item, id: newId(), created_at: createdAt, updated_at: createdAt });
     }
     return { ok: true as const, organizationId: created.id };
   });
