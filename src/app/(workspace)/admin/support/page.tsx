@@ -75,7 +75,6 @@ function SupportCard({
         <div>
           <p className="text-xs text-olive">
             {labelFor(requestTypes, item.type)}
-            {item.postLaunch ? " · na livegang" : ""}
             {item.domain ? ` · ${item.domain}` : ""}
           </p>
           <h3 className="mt-1 text-base font-semibold">{item.title}</h3>
