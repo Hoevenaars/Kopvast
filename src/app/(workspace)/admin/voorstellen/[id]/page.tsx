@@ -63,9 +63,13 @@ export default async function AdminProposalDetailPage({ params }: { params: Prom
                   {version.version === proposal.version ? " · actueel" : ""}
                 </span>
                 <span className="text-olive">{formatNlDateTime(version.sent_at)}</span>
-                <Link href={proposalPublicPath(version.token)} className="underline underline-offset-4">
-                  Open
-                </Link>
+                {version.token ? (
+                  <Link href={proposalPublicPath(version.token)} className="underline underline-offset-4">
+                    Open
+                  </Link>
+                ) : (
+                  <span className="text-olive">Vastgezet</span>
+                )}
               </li>
             ))}
           </ul>

@@ -4,10 +4,14 @@ import { proposalValidityDefault, termsPlainText, VAT_RATE } from "@/lib/terms";
 
 export const proposalStatuses = [
   { value: "DRAFT", label: "Concept" },
+  { value: "READY", label: "Klaar" },
   { value: "SENT", label: "Verzonden" },
   { value: "VIEWED", label: "Bekeken" },
   { value: "QUESTION", label: "Vraag" },
   { value: "ACCEPTED", label: "Akkoord" },
+  { value: "DECLINED", label: "Afgewezen" },
+  { value: "EXPIRED", label: "Verlopen" },
+  { value: "SUPERSEDED", label: "Vervangen" },
 ] as const;
 
 export const proposalTypes = projectTypes;
@@ -137,6 +141,7 @@ export type ProposalSnapshot = {
   lines: ProposalSnapshotLine[];
   totals: ProposalTotals;
   sentAt: string;
+  publicToken?: string;
 };
 
 export type ProposalDraftInput = {
@@ -193,6 +198,22 @@ export function nextProposalNumber(existing: string[], at = new Date()) {
     if (Number.isFinite(seq)) max = Math.max(max, seq);
   }
   return formatProposalNumber(year, max + 1);
+}
+
+export function centsToEuros(cents: number) {
+  return Math.round(cents) / 100;
+}
+
+export function eurosToCents(value: number | string | null | undefined) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+  return Math.round(amount * 100);
+}
+
+export function versionPublicToken(version: Pick<ProposalVersionRow, "token" | "snapshot">) {
+  if (version.token) return version.token;
+  const token = version.snapshot?.publicToken;
+  return typeof token === "string" ? token : "";
 }
 
 export function parseMoneyToCents(value: string): number | null {

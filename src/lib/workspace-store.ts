@@ -173,6 +173,7 @@ export async function readLocalLeads(): Promise<LeadRow[]> {
       functionality: null,
       scale: null,
       timing: null,
+      prospect_id: null,
     }));
   } catch {
     return [];

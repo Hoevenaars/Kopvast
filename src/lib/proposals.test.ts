@@ -6,7 +6,9 @@ import { ProposalEmail } from "../emails/proposal";
 import { proposalMailCopy } from "../emails/proposal-copy";
 import {
   canAcceptProposal,
+  centsToEuros,
   evaluateProposalSend,
+  eurosToCents,
   formatEuro,
   formatProposalNumber,
   hasUnsentDraftChanges,
@@ -16,6 +18,7 @@ import {
   projectsFromSnapshot,
   snapshotContent,
   totalsFromLines,
+  versionPublicToken,
 } from "./proposals";
 import { termsPlainText, VAT_RATE } from "./terms";
 
@@ -141,4 +144,35 @@ test("voorstelmail noemt de organisatie en de link", async () => {
   );
   assert.match(html, /Bekijk het voorstel/);
   assert.match(html, /https:\/\/kopvast.nl\/voorstel\/abc/);
+});
+
+test("live prijzen staan in euro's, intern in centen", () => {
+  assert.equal(centsToEuros(149500), 1495);
+  assert.equal(centsToEuros(19900), 199);
+  assert.equal(eurosToCents("1495.00"), 149500);
+  assert.equal(eurosToCents(199), 19900);
+  assert.equal(eurosToCents(null), 0);
+});
+
+test("versietoken blijft buiten de inhoudelijke fingerprint", () => {
+  const sent = snapshotContent({
+    number: "KOP-2026-0012",
+    version: 1,
+    type: "maatwerk",
+    title: "Voorstel voor Ardea",
+    intro: "Intro",
+    aanleiding: "Aanleiding",
+    scopeSummary: "Website",
+    planning: "3-5 weken",
+    validity: "Alleen deze versie.",
+    organization: "Ardea",
+    recipientName: "Eva",
+    recipientEmail: "eva@ardea.studio",
+    lines: [{ kind: "scope", title: "Website", description: "", quantity: 1, unitPriceCents: 480000 }],
+    sentAt: "2026-09-16T10:00:00.000Z",
+  });
+  const stored = { ...sent, publicToken: "secret-token" };
+  assert.equal(hasUnsentDraftChanges(sent, stored), false);
+  assert.equal(versionPublicToken({ token: "", snapshot: stored }), "secret-token");
+  assert.equal(versionPublicToken({ token: "plain", snapshot: stored }), "plain");
 });

@@ -9,11 +9,15 @@ import { getEmailMode, getTestEmail, recipientForMode } from "@/lib/email-mode";
 import { isEmail, normalizeEmail } from "@/lib/product";
 import {
   canAcceptProposal,
+  centsToEuros,
   defaultProposalTitle,
   evaluateProposalSend,
+  eurosToCents,
   formatEuro,
   hasUnsentDraftChanges,
+  isProposalStatus,
   isProposalType,
+  lineAmountCents,
   nextProposalNumber,
   normalizeProposalLines,
   parseProposalLinesJson,
@@ -22,6 +26,7 @@ import {
   proposalPublicUrl,
   snapshotContent,
   totalsFromLines,
+  versionPublicToken,
   type ProposalActivityRow,
   type ProposalDraftInput,
   type ProposalLineInput,
@@ -34,8 +39,8 @@ import {
 } from "@/lib/proposals";
 import { refreshClient } from "@/lib/refresh";
 import { createTodo, loadTodoBoard } from "@/lib/todo-board";
-import { proposalValidityDefault } from "@/lib/terms";
-import { createToken } from "@/lib/tokens";
+import { proposalValidityDefault, VAT_RATE } from "@/lib/terms";
+import { createToken, hashToken } from "@/lib/tokens";
 import { loadLead, loadOrganization } from "@/lib/workspace";
 import { mutateStore, newId, nowIso, readStore, type MemberRow } from "@/lib/workspace-store";
 
@@ -63,24 +68,93 @@ export type ProposalTodayAction = {
   status: string;
 };
 
-function omitId<T extends { id: string }>(row: T) {
-  const copy = { ...row };
-  delete (copy as { id?: string }).id;
-  return copy;
-}
+type LiveProposal = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  proposal_number: string;
+  version: number;
+  request_id: string | null;
+  prospect_id: string | null;
+  customer_id: string | null;
+  status: string;
+  title: string;
+  intro: string | null;
+  aanleiding?: string | null;
+  type?: string | null;
+  scope_summary: string | null;
+  planning_text: string | null;
+  validity_text: string | null;
+  recipient_name?: string | null;
+  recipient_email?: string | null;
+  recipient_organization?: string | null;
+  subtotal_ex_vat: number | string | null;
+  recurring_monthly_ex_vat: number | string | null;
+  public_token_hash: string | null;
+  sent_at: string | null;
+  first_viewed_at: string | null;
+  last_viewed_at?: string | null;
+  question_text?: string | null;
+  question_at?: string | null;
+  accepted_at: string | null;
+  accepted_by_name?: string | null;
+  accepted_by_email?: string | null;
+  accepted_snapshot?: ProposalSnapshot | null;
+  handed_off_at?: string | null;
+  created_by_email?: string | null;
+};
+
+type LiveLine = {
+  id: string;
+  proposal_id: string;
+  sort_order: number;
+  title: string;
+  description: string | null;
+  quantity: number | string;
+  unit_price_ex_vat: number | string;
+  line_total_ex_vat?: number | string;
+  recurring: boolean;
+  recurring_interval: string | null;
+};
+
+type LiveVersion = {
+  id: string;
+  proposal_id: string;
+  version: number;
+  snapshot: ProposalSnapshot;
+  created_at: string;
+  sent_at?: string | null;
+  first_viewed_at?: string | null;
+  public_token_hash?: string | null;
+};
+
+type LiveActivity = {
+  id: string;
+  entity_id: string | null;
+  event_type: string;
+  actor_type: string;
+  actor_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
 
 function fail(message: string): { ok: false; message: string } {
   return { ok: false, message };
 }
 
-function asProposal(row: ProposalRow): ProposalRow {
+function asStatus(value: string | null | undefined): ProposalStatus {
+  if (value && isProposalStatus(value)) return value;
+  return "DRAFT";
+}
+
+function asProposal(row: ProposalRow, token?: string | null, versionId?: string | null): ProposalRow {
   return {
     ...row,
     organization_id: row.organization_id || null,
     inbound_lead_id: row.inbound_lead_id || null,
     prospect_id: row.prospect_id || null,
-    current_token: row.current_token || null,
-    current_version_id: row.current_version_id || null,
+    current_token: token || row.current_token || null,
+    current_version_id: versionId || row.current_version_id || null,
     sent_at: row.sent_at || null,
     first_viewed_at: row.first_viewed_at || null,
     last_viewed_at: row.last_viewed_at || null,
@@ -93,6 +167,133 @@ function asProposal(row: ProposalRow): ProposalRow {
     handed_off_at: row.handed_off_at || null,
     created_by_email: row.created_by_email || null,
   };
+}
+
+function fromLiveProposal(row: LiveProposal, token?: string | null, versionId?: string | null): ProposalRow {
+  const subtotalCents = eurosToCents(row.subtotal_ex_vat);
+  const recurringMonthlyCents = eurosToCents(row.recurring_monthly_ex_vat);
+  const vatCents = Math.round(subtotalCents * VAT_RATE);
+  return asProposal({
+    id: row.id,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    number: row.proposal_number,
+    version: row.version,
+    type: isProposalType(row.type ?? "") ? (row.type as ProposalType) : "maatwerk",
+    status: asStatus(row.status),
+    title: row.title ?? "",
+    intro: row.intro ?? "",
+    aanleiding: row.aanleiding ?? "",
+    scope_summary: row.scope_summary ?? "",
+    planning: row.planning_text ?? "",
+    validity_text: row.validity_text ?? "",
+    recipient_name: row.recipient_name ?? "",
+    recipient_email: row.recipient_email ?? "",
+    recipient_organization: row.recipient_organization ?? "",
+    organization_id: row.customer_id,
+    inbound_lead_id: row.request_id,
+    prospect_id: row.prospect_id,
+    current_token: token ?? null,
+    current_version_id: versionId ?? null,
+    subtotal_cents: subtotalCents,
+    recurring_monthly_cents: recurringMonthlyCents,
+    vat_cents: vatCents,
+    total_cents: subtotalCents + vatCents,
+    sent_at: row.sent_at,
+    first_viewed_at: row.first_viewed_at,
+    last_viewed_at: row.last_viewed_at ?? null,
+    question_text: row.question_text ?? null,
+    question_at: row.question_at ?? null,
+    accepted_at: row.accepted_at,
+    accepted_by_name: row.accepted_by_name ?? null,
+    accepted_by_email: row.accepted_by_email ?? null,
+    accepted_snapshot: row.accepted_snapshot ?? null,
+    handed_off_at: row.handed_off_at ?? null,
+    created_by_email: row.created_by_email ?? null,
+  });
+}
+
+function toLiveProposal(row: ProposalRow, token?: string | null) {
+  const totals = amountsFromLines([]);
+  return {
+    proposal_number: row.number,
+    version: row.version,
+    request_id: row.inbound_lead_id,
+    prospect_id: row.prospect_id,
+    customer_id: row.organization_id,
+    status: row.status,
+    title: row.title,
+    intro: row.intro,
+    aanleiding: row.aanleiding,
+    type: row.type,
+    scope_summary: row.scope_summary,
+    planning_text: row.planning,
+    validity_text: row.validity_text,
+    recipient_name: row.recipient_name,
+    recipient_email: row.recipient_email,
+    recipient_organization: row.recipient_organization,
+    subtotal_ex_vat: centsToEuros(row.subtotal_cents || totals.subtotal_cents),
+    recurring_monthly_ex_vat: centsToEuros(row.recurring_monthly_cents || totals.recurring_monthly_cents),
+    public_token_hash: token ? hashToken(token) : null,
+    sent_at: row.sent_at,
+    first_viewed_at: row.first_viewed_at,
+    last_viewed_at: row.last_viewed_at,
+    question_text: row.question_text,
+    question_at: row.question_at,
+    accepted_at: row.accepted_at,
+    accepted_by_name: row.accepted_by_name,
+    accepted_by_email: row.accepted_by_email,
+    accepted_snapshot: row.accepted_snapshot,
+    handed_off_at: row.handed_off_at,
+    created_by_email: row.created_by_email,
+    updated_at: row.updated_at,
+  };
+}
+
+function fromLiveLine(row: LiveLine): ProposalLineRow {
+  return {
+    id: row.id,
+    proposal_id: row.proposal_id,
+    kind: row.recurring ? "recurring" : "scope",
+    title: row.title,
+    description: row.description ?? "",
+    quantity: Number(row.quantity),
+    unit_price_cents: eurosToCents(row.unit_price_ex_vat),
+    sort_order: row.sort_order,
+  };
+}
+
+function fromLiveVersion(row: LiveVersion): ProposalVersionRow {
+  const snapshot = row.snapshot;
+  return {
+    id: row.id,
+    proposal_id: row.proposal_id,
+    version: row.version,
+    token: versionPublicToken({ token: "", snapshot }),
+    snapshot,
+    sent_at: row.sent_at || row.created_at,
+    first_viewed_at: row.first_viewed_at ?? null,
+    created_at: row.created_at,
+  };
+}
+
+function fromLiveActivity(row: LiveActivity): ProposalActivityRow {
+  const metadata = row.metadata ?? {};
+  const actorEmail =
+    (typeof metadata.actor_email === "string" ? metadata.actor_email : null) || row.actor_id;
+  return {
+    id: row.id,
+    proposal_id: row.entity_id ?? "",
+    event_type: row.event_type,
+    actor_type: row.actor_type,
+    actor_email: actorEmail,
+    metadata,
+    created_at: row.created_at,
+  };
+}
+
+function withSnapshotToken(snapshot: ProposalSnapshot, token: string): ProposalSnapshot {
+  return { ...snapshot, publicToken: token };
 }
 
 function draftSnapshot(proposal: ProposalRow, lines: ProposalLineInput[], sentAt = proposal.sent_at || nowIso()) {
@@ -121,21 +322,36 @@ async function logActivity(
   metadata: Record<string, unknown> = {},
   actorType = "human"
 ) {
-  const row = {
-    proposal_id: proposalId,
-    event_type: eventType,
-    actor_type: actorType,
-    actor_email: actorEmail,
-    metadata,
-  };
   const supabase = refreshClient();
   if (supabase) {
-    const { error } = await supabase.from("kopvast_proposal_activity").insert(row);
+    const { data: proposal } = await supabase
+      .from("proposals")
+      .select("prospect_id, customer_id")
+      .eq("id", proposalId)
+      .maybeSingle();
+    const { error } = await supabase.from("activity_logs").insert({
+      entity_type: "proposal",
+      entity_id: proposalId,
+      event_type: eventType,
+      actor_type: actorType,
+      actor_id: actorEmail,
+      prospect_id: proposal?.prospect_id ?? null,
+      customer_id: proposal?.customer_id ?? null,
+      metadata: { ...metadata, actor_email: actorEmail },
+    });
     if (error) console.error("[kopvast] Voorstel-activiteit mislukt", error.message);
     return;
   }
   await mutateStore((store) => {
-    store.proposalActivity.unshift({ ...row, id: newId(), created_at: nowIso() });
+    store.proposalActivity.unshift({
+      id: newId(),
+      proposal_id: proposalId,
+      event_type: eventType,
+      actor_type: actorType,
+      actor_email: actorEmail,
+      metadata,
+      created_at: nowIso(),
+    });
   });
 }
 
@@ -159,46 +375,52 @@ export function draftFromForm(formData: FormData): ProposalDraftInput {
 export async function loadProposals(): Promise<ProposalRow[]> {
   const supabase = refreshClient();
   if (supabase) {
-    const { data, error } = await supabase
-      .from("kopvast_proposals")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("proposals").select("*").order("created_at", { ascending: false });
     if (error) {
       console.error("[kopvast] Voorstellen laden mislukt", error.message);
       return [];
     }
-    return ((data ?? []) as ProposalRow[]).map(asProposal);
+    return ((data ?? []) as LiveProposal[]).map((row) => fromLiveProposal(row));
   }
   return (await readStore()).proposals
     .slice()
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .map(asProposal);
+    .map((row) => asProposal(row));
+}
+
+async function loadLiveRelated(id: string) {
+  const supabase = refreshClient();
+  if (!supabase) return { lines: [], versions: [], activity: [] };
+  const [lines, versions, activity] = await Promise.all([
+    supabase.from("proposal_lines").select("*").eq("proposal_id", id).order("sort_order"),
+    supabase.from("proposal_versions").select("*").eq("proposal_id", id).order("version", { ascending: false }),
+    supabase
+      .from("activity_logs")
+      .select("*")
+      .eq("entity_type", "proposal")
+      .eq("entity_id", id)
+      .order("created_at", { ascending: false })
+      .limit(40),
+  ]);
+  return {
+    lines: ((lines.data ?? []) as LiveLine[]).map(fromLiveLine),
+    versions: ((versions.data ?? []) as LiveVersion[]).map(fromLiveVersion),
+    activity: ((activity.data ?? []) as LiveActivity[]).map(fromLiveActivity),
+  };
 }
 
 export async function loadProposal(id: string): Promise<ProposalDetail | null> {
   const supabase = refreshClient();
   if (supabase) {
-    const { data } = await supabase.from("kopvast_proposals").select("*").eq("id", id).maybeSingle();
+    const { data } = await supabase.from("proposals").select("*").eq("id", id).maybeSingle();
     if (!data) return null;
-    const [lines, versions, activity] = await Promise.all([
-      supabase.from("kopvast_proposal_lines").select("*").eq("proposal_id", id).order("sort_order"),
-      supabase.from("kopvast_proposal_versions").select("*").eq("proposal_id", id).order("version", { ascending: false }),
-      supabase
-        .from("kopvast_proposal_activity")
-        .select("*")
-        .eq("proposal_id", id)
-        .order("created_at", { ascending: false })
-        .limit(40),
-    ]);
+    const related = await loadLiveRelated(id);
+    const current = related.versions.find((item) => item.version === data.version) ?? related.versions[0] ?? null;
     return {
-      proposal: asProposal(data as ProposalRow),
-      lines: ((lines.data ?? []) as ProposalLineRow[]).map((line) => ({
-        ...line,
-        quantity: Number(line.quantity),
-        unit_price_cents: Number(line.unit_price_cents),
-      })),
-      versions: (versions.data ?? []) as ProposalVersionRow[],
-      activity: (activity.data ?? []) as ProposalActivityRow[],
+      proposal: fromLiveProposal(data as LiveProposal, current ? versionPublicToken(current) : null, current?.id ?? null),
+      lines: related.lines,
+      versions: related.versions,
+      activity: related.activity,
     };
   }
   const store = await readStore();
@@ -223,23 +445,37 @@ export async function loadPublicProposal(token: string): Promise<PublicProposal 
   if (!value) return null;
   const supabase = refreshClient();
   if (supabase) {
-    const { data: version } = await supabase
-      .from("kopvast_proposal_versions")
+    const tokenHash = hashToken(value);
+    const { data: hashedVersion } = await supabase
+      .from("proposal_versions")
       .select("*")
-      .eq("token", value)
+      .eq("public_token_hash", tokenHash)
       .maybeSingle();
-    if (!version) return null;
-    const { data: proposal } = await supabase
-      .from("kopvast_proposals")
-      .select("*")
-      .eq("id", version.proposal_id)
-      .maybeSingle();
-    if (!proposal) return null;
+    let version = hashedVersion as LiveVersion | null;
+    let proposal: LiveProposal | null = null;
+    if (version) {
+      const { data } = await supabase.from("proposals").select("*").eq("id", version.proposal_id).maybeSingle();
+      proposal = (data as LiveProposal | null) ?? null;
+    } else {
+      const { data } = await supabase.from("proposals").select("*").eq("public_token_hash", tokenHash).maybeSingle();
+      proposal = (data as LiveProposal | null) ?? null;
+      if (proposal) {
+        const { data: current } = await supabase
+          .from("proposal_versions")
+          .select("*")
+          .eq("proposal_id", proposal.id)
+          .eq("version", proposal.version)
+          .maybeSingle();
+        version = (current as LiveVersion | null) ?? null;
+      }
+    }
+    if (!proposal || !version) return null;
+    const mappedVersion = fromLiveVersion({ ...version, snapshot: { ...version.snapshot, publicToken: value } });
     return {
-      proposal: asProposal(proposal as ProposalRow),
-      version: version as ProposalVersionRow,
-      snapshot: version.snapshot as ProposalSnapshot,
-      current: proposal.version === version.version,
+      proposal: fromLiveProposal(proposal, value, mappedVersion.id),
+      version: mappedVersion,
+      snapshot: mappedVersion.snapshot,
+      current: proposal.version === mappedVersion.version,
     };
   }
   const store = await readStore();
@@ -331,6 +567,7 @@ export async function createProposal(input: {
   let aanleiding = "";
   const organizationId = input.organizationId ?? null;
   const leadId = input.leadId ?? null;
+  let prospectId: string | null = null;
   if (leadId) {
     const lead = await loadLead(leadId);
     if (!lead) return fail("Aanvraag niet gevonden.");
@@ -338,6 +575,7 @@ export async function createProposal(input: {
     aanleiding = [lead.request_detail, lead.notes, lead.functionality, lead.scale, lead.timing]
       .filter(Boolean)
       .join("\n\n");
+    prospectId = lead.prospect_id ?? null;
   }
   if (organizationId) {
     const org = await loadOrganization(organizationId);
@@ -353,16 +591,17 @@ export async function createProposal(input: {
     aanleiding,
     organizationId,
     leadId,
+    prospectId,
     createdBy: input.createdBy,
   });
   const supabase = refreshClient();
   if (supabase) {
-    const { data, error } = await supabase.from("kopvast_proposals").insert(omitId(row)).select("id").single();
+    const { data, error } = await supabase.from("proposals").insert(toLiveProposal(row)).select("id").single();
     if (error || !data) {
       console.error("[kopvast] Voorstel aanmaken mislukt", error?.message);
       return fail("Voorstel opslaan is tijdelijk niet beschikbaar.");
     }
-    await logActivity(data.id, PROPOSAL_ACTIVITY.CREATED, input.createdBy, { number: row.number });
+    await logActivity(data.id as string, PROPOSAL_ACTIVITY.CREATED, input.createdBy, { number: row.number });
     return { ok: true, id: data.id as string };
   }
   await mutateStore((store) => {
@@ -382,6 +621,14 @@ function amountsFromLines(lines: ProposalLineInput[]) {
   };
 }
 
+function liveAmounts(lines: ProposalLineInput[]) {
+  const amounts = amountsFromLines(lines);
+  return {
+    subtotal_ex_vat: centsToEuros(amounts.subtotal_cents),
+    recurring_monthly_ex_vat: centsToEuros(amounts.recurring_monthly_cents),
+  };
+}
+
 async function replaceLines(proposalId: string, lines: ProposalLineInput[]) {
   const normalized = normalizeProposalLines(lines).map((line, index) => ({
     id: line.id || newId(),
@@ -395,10 +642,20 @@ async function replaceLines(proposalId: string, lines: ProposalLineInput[]) {
   }));
   const supabase = refreshClient();
   if (supabase) {
-    await supabase.from("kopvast_proposal_lines").delete().eq("proposal_id", proposalId);
+    await supabase.from("proposal_lines").delete().eq("proposal_id", proposalId);
     if (normalized.length) {
-      const { error } = await supabase.from("kopvast_proposal_lines").insert(
-        normalized.map((line) => omitId(line))
+      const { error } = await supabase.from("proposal_lines").insert(
+        normalized.map((line) => ({
+          proposal_id: line.proposal_id,
+          sort_order: line.sort_order,
+          title: line.title,
+          description: line.description,
+          quantity: line.quantity,
+          unit_price_ex_vat: centsToEuros(line.unit_price_cents),
+          line_total_ex_vat: centsToEuros(lineAmountCents(line.quantity, line.unit_price_cents)),
+          recurring: line.kind === "recurring",
+          recurring_interval: line.kind === "recurring" ? "month" : null,
+        }))
       );
       if (error) console.error("[kopvast] Voorstelregels opslaan mislukt", error.message);
     }
@@ -420,6 +677,7 @@ export async function saveProposalDraft(
   if (detail.proposal.status === "ACCEPTED") return fail("Een geaccepteerd voorstel is vastgezet.");
   const type = isProposalType(input.type) ? input.type : detail.proposal.type;
   const lines = normalizeProposalLines(input.lines);
+  const amounts = amountsFromLines(lines);
   const patch = {
     updated_at: nowIso(),
     type,
@@ -432,11 +690,27 @@ export async function saveProposalDraft(
     recipient_name: input.recipientName.trim(),
     recipient_email: normalizeEmail(input.recipientEmail),
     recipient_organization: input.recipientOrganization.trim() || input.recipientName.trim(),
-    ...amountsFromLines(lines),
+    ...amounts,
   };
   const supabase = refreshClient();
   if (supabase) {
-    const { error } = await supabase.from("kopvast_proposals").update(patch).eq("id", id);
+    const { error } = await supabase
+      .from("proposals")
+      .update({
+        updated_at: patch.updated_at,
+        type: patch.type,
+        title: patch.title,
+        intro: patch.intro,
+        aanleiding: patch.aanleiding,
+        scope_summary: patch.scope_summary,
+        planning_text: patch.planning,
+        validity_text: patch.validity_text,
+        recipient_name: patch.recipient_name,
+        recipient_email: patch.recipient_email,
+        recipient_organization: patch.recipient_organization,
+        ...liveAmounts(lines),
+      })
+      .eq("id", id);
     if (error) return fail(error.message);
   } else {
     await mutateStore((store) => {
@@ -535,27 +809,30 @@ export async function sendProposal(
   const preview = draftSnapshot(proposal, lines);
   const changed = hasUnsentDraftChanges(preview, latest?.snapshot ?? null);
   let version = latest;
-  let token = latest?.token ?? "";
+  let token = latest ? versionPublicToken(latest) : "";
   if (changed || !latest) {
     const nextVersion = latest ? latest.version + 1 : 1;
     token = createToken();
     const sentAt = nowIso();
-    const snapshot = snapshotContent({
-      number: proposal.number,
-      version: nextVersion,
-      type: proposal.type,
-      title: proposal.title,
-      intro: proposal.intro,
-      aanleiding: proposal.aanleiding,
-      scopeSummary: proposal.scope_summary,
-      planning: proposal.planning,
-      validity: proposal.validity_text,
-      organization: proposal.recipient_organization,
-      recipientName: proposal.recipient_name,
-      recipientEmail: proposal.recipient_email,
-      lines,
-      sentAt,
-    });
+    const snapshot = withSnapshotToken(
+      snapshotContent({
+        number: proposal.number,
+        version: nextVersion,
+        type: proposal.type,
+        title: proposal.title,
+        intro: proposal.intro,
+        aanleiding: proposal.aanleiding,
+        scopeSummary: proposal.scope_summary,
+        planning: proposal.planning,
+        validity: proposal.validity_text,
+        organization: proposal.recipient_organization,
+        recipientName: proposal.recipient_name,
+        recipientEmail: proposal.recipient_email,
+        lines,
+        sentAt,
+      }),
+      token
+    );
     const versionRow: ProposalVersionRow = {
       id: newId(),
       proposal_id: id,
@@ -566,21 +843,19 @@ export async function sendProposal(
       first_viewed_at: null,
       created_at: sentAt,
     };
-    const proposalPatch = {
-      updated_at: sentAt,
-      version: nextVersion,
-      status: "SENT" as ProposalStatus,
-      current_token: token,
-      current_version_id: versionRow.id,
-      sent_at: sentAt,
-      first_viewed_at: null,
-      ...amountsFromLines(lines),
-    };
+    const amounts = amountsFromLines(lines);
     const supabase = refreshClient();
     if (supabase) {
       const { data, error } = await supabase
-        .from("kopvast_proposal_versions")
-        .insert(omitId(versionRow))
+        .from("proposal_versions")
+        .insert({
+          proposal_id: id,
+          version: nextVersion,
+          snapshot,
+          sent_at: sentAt,
+          first_viewed_at: null,
+          public_token_hash: hashToken(token),
+        })
         .select("id")
         .single();
       if (error || !data) {
@@ -588,15 +863,34 @@ export async function sendProposal(
         return fail("Versie vastzetten is mislukt.");
       }
       await supabase
-        .from("kopvast_proposals")
-        .update({ ...proposalPatch, current_version_id: data.id })
+        .from("proposals")
+        .update({
+          updated_at: sentAt,
+          version: nextVersion,
+          status: "SENT",
+          public_token_hash: hashToken(token),
+          sent_at: sentAt,
+          first_viewed_at: null,
+          ...liveAmounts(lines),
+        })
         .eq("id", id);
       version = { ...versionRow, id: data.id as string };
     } else {
       await mutateStore((store) => {
         store.proposalVersions.unshift(versionRow);
         const current = store.proposals.find((item) => item.id === id);
-        if (current) Object.assign(current, proposalPatch);
+        if (current) {
+          Object.assign(current, {
+            updated_at: sentAt,
+            version: nextVersion,
+            status: "SENT" as ProposalStatus,
+            current_token: token,
+            current_version_id: versionRow.id,
+            sent_at: sentAt,
+            first_viewed_at: null,
+            ...amounts,
+          });
+        }
       });
       version = versionRow;
     }
@@ -626,11 +920,11 @@ export async function recordProposalView(token: string, options?: { admin?: bool
   const supabase = refreshClient();
   if (supabase) {
     await supabase
-      .from("kopvast_proposal_versions")
+      .from("proposal_versions")
       .update({ first_viewed_at: publicProposal.version.first_viewed_at || now })
       .eq("id", publicProposal.version.id);
     await supabase
-      .from("kopvast_proposals")
+      .from("proposals")
       .update({
         updated_at: now,
         last_viewed_at: now,
@@ -688,7 +982,7 @@ export async function askProposalQuestion(token: string, question: string): Prom
   };
   const supabase = refreshClient();
   if (supabase) {
-    await supabase.from("kopvast_proposals").update(patch).eq("id", publicProposal.proposal.id);
+    await supabase.from("proposals").update(patch).eq("id", publicProposal.proposal.id);
   } else {
     await mutateStore((store) => {
       const proposal = store.proposals.find((item) => item.id === publicProposal.proposal.id);
@@ -776,10 +1070,10 @@ export async function handleAcceptedProposal(proposalId: string): Promise<Propos
       await supabase.from("inbound_leads").update({ status: "OMGEZET" }).eq("id", proposal.inbound_lead_id);
     }
     await supabase
-      .from("kopvast_proposals")
+      .from("proposals")
       .update({
         updated_at: nowIso(),
-        organization_id: organizationId,
+        customer_id: organizationId,
         handed_off_at: nowIso(),
       })
       .eq("id", proposalId);
@@ -871,12 +1165,12 @@ export async function acceptProposal(
   const supabase = refreshClient();
   if (supabase) {
     const { data: current } = await supabase
-      .from("kopvast_proposals")
+      .from("proposals")
       .select("status")
       .eq("id", publicProposal.proposal.id)
       .maybeSingle();
     if (current?.status === "ACCEPTED") return { ok: true, id: publicProposal.proposal.id, already: true };
-    await supabase.from("kopvast_proposals").update(patch).eq("id", publicProposal.proposal.id);
+    await supabase.from("proposals").update(patch).eq("id", publicProposal.proposal.id);
   } else {
     const already = await mutateStore((store) => {
       const proposal = store.proposals.find((item) => item.id === publicProposal.proposal.id);
