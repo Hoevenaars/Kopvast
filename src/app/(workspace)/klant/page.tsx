@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, ClipboardCheck, FilePenLine, Globe2, ImageIcon, Palette } from "lucide-react";
+import { ArrowRight, ClipboardCheck, FilePenLine, Globe2, ImageIcon, LifeBuoy, Palette } from "lucide-react";
 import type { ElementType } from "react";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { requireSession } from "@/lib/auth";
@@ -18,7 +18,12 @@ const actions: Array<{ title: string; description: string; href: string; icon: E
   { title: "Onboarding", description: "Lever gegevens en bestanden aan.", href: workspaceRoutes.consoleOnboarding, icon: ClipboardCheck },
   { title: "Tekst aanpassen", description: "Wijzig teksten op je website.", href: "/klant/paginas", icon: FilePenLine },
   { title: "Afbeelding vervangen", description: "Beheer foto's en afbeeldingen.", href: workspaceRoutes.consoleFiles, icon: ImageIcon },
-  { title: "Wijziging aanvragen", description: "Vraag Kopvast om iets aan te passen.", href: workspaceRoutes.consoleRequests, icon: ArrowRight },
+  {
+    title: "Support / wijziging aanvragen",
+    description: "Stuur een vraag of vraag Kopvast om iets aan te passen.",
+    href: workspaceRoutes.consoleSupport,
+    icon: LifeBuoy,
+  },
   { title: "Mijn merk", description: "Bekijk kleuren, logo's en bestanden.", href: "/klant/merk", icon: Palette },
 ];
 

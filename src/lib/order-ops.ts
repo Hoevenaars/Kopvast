@@ -3,6 +3,7 @@ import { refreshClient } from "@/lib/refresh";
 import {
   convertLead,
   defaultProjectsForLead,
+  emptyProjectFields,
   loadLead,
   loadOrganization,
   loadOrganizations,
@@ -300,6 +301,7 @@ function projectSpec(type: ProjectType, order: OrderRow) {
     status: "voorbereiding" as const,
     price_label: order.product_type === type ? order.agreed_price_label : null,
     summary: defaults.label,
+    ...emptyProjectFields(),
   };
 }
 

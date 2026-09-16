@@ -28,6 +28,7 @@ import {
 import { refreshClient } from "@/lib/refresh";
 import {
   defaultProjectsForLead,
+  emptyProjectFields,
   loadCustomerWorkspace,
   loadLead,
   loadLeads,
@@ -274,7 +275,7 @@ async function createCustomerFromProposal(proposal: ProposalRow, actorEmail?: st
         notes: null,
       };
   const projectType = isProjectType(proposal.product_type) ? proposal.product_type : lead?.type === "maatwerk" ? "maatwerk" : "website";
-  const projects = defaultProjectsForLead(lead?.type === "maatwerk" ? "maatwerk" : projectType);
+  const projects = defaultProjectsForLead(lead?.type === "maatwerk" ? "maatwerk" : projectType, orgInput.website);
   const memberName = proposal.contact_name || lead?.name || orgInput.name;
   const memberEmail = proposal.contact_email || lead?.email || null;
 
@@ -608,6 +609,7 @@ export async function addCustomerProject(input: {
     started_at: null as string | null,
     due_at: null as string | null,
     live_at: null as string | null,
+    ...emptyProjectFields(),
   };
   const supabase = refreshClient();
   if (supabase) {

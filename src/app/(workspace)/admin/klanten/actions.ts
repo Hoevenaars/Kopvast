@@ -26,6 +26,9 @@ async function guard() {
 function refreshCustomer(organizationId?: string) {
   revalidatePath(workspaceRoutes.adminCustomers);
   revalidatePath(workspaceRoutes.admin);
+  revalidatePath(workspaceRoutes.adminWebsites);
+  revalidatePath(workspaceRoutes.adminBeheer);
+  revalidatePath(workspaceRoutes.adminSupport);
   if (organizationId) revalidatePath(`${workspaceRoutes.adminCustomers}/${organizationId}`);
 }
 
