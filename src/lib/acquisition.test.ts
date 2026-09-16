@@ -9,8 +9,17 @@ import { composeAcquisitionBody, fallbackAcquisitionMail, pickMailFindings, sele
 import { buildSpecialOffer } from "./acquisition/special-offer-rules";
 import {
   AcquisitionOutreachEmail,
+  assertUniqueAcquisitionCopy,
   buildAcquisitionPlainText,
+  buildOfferParagraph,
+  DUPLICATE_EMAIL_CONTENT_ERROR,
+  extractOfferParagraph,
+  findDuplicatedAcquisitionContent,
+  MORE_INFO_CTA_LABEL,
   parseOutreachBody,
+  PROPOSAL_CTA_LABEL,
+  validateOfferParagraph,
+  visibleEmailTextFromHtml,
 } from "../emails/acquisition-outreach";
 import { evaluatePreSend } from "./acquisition-send";
 import { sanitizeAcquisitionSearch, splitMailParagraphs } from "./mail-body";
@@ -113,9 +122,13 @@ test("acquisitiemail gebruikt findings en vermijdt verboden claims", () => {
   assert.match(mail.body, /€1.495|1.495/);
   assert.doesNotMatch(mail.body, /vanaf\s*€?\s*995/i);
   assert.doesNotMatch(mail.body, /Voor jullie maak ik daar €995/);
-  assert.match(mail.body, /Wat wil je eerst zien/);
-  assert.match(mail.body, /A — Laat zien hoe jullie dit zouden aanpakken/);
-  assert.match(mail.body, /B — Vertel eerst concreet wat jullie zouden verbeteren/);
+  assert.match(mail.body, /Wat heeft jullie voorkeur/);
+  assert.match(mail.body, /Ja, doe me een voorstel/);
+  assert.match(mail.body, /Stuur me eerst meer info/);
+  assert.doesNotMatch(mail.body, /A — Laat zien hoe jullie dit zouden aanpakken/);
+  assert.doesNotMatch(mail.body, /Wat wil je eerst zien/);
+  assert.match(mail.body, /meer karakter dan er nu online uitkomt/);
+  assert.doesNotMatch(mail.body, /meer in zich/);
   for (const pattern of FORBIDDEN_MAIL_CLAIMS) {
     assert.equal(pattern.test(mail.body), false, String(pattern));
   }
@@ -141,6 +154,39 @@ test("commerciële findings zetten feiten en observaties vóór hypotheses", () 
   );
   assert.equal(picked[0]?.title, "f");
   assert.equal(picked[1]?.title, "o");
+});
+
+test("mailselectie zet commerciële findings vóór accessibility", () => {
+  const picked = pickMailFindings([
+    {
+      finding_type: "FACT",
+      category: "accessibility",
+      title: "Beeld is slecht toegankelijk.",
+      description: "Afbeeldingen missen alt-teksten.",
+      severity: "critical",
+    },
+    {
+      finding_type: "OBSERVATION",
+      category: "visual",
+      title: "De eerste indruk kan sterker.",
+      description: "Wat jullie onderscheidt komt nu nog te weinig naar voren.",
+      severity: "important",
+    },
+    {
+      finding_type: "FACT",
+      category: "conversion",
+      title: "De route naar contact kan directer.",
+      description: "Een bezoeker moet nu te veel zoeken voordat de volgende stap duidelijk is.",
+      severity: "important",
+    },
+  ]);
+  assert.equal(picked.length, 2);
+  assert.equal(picked[0]?.category, "visual");
+  assert.equal(picked[1]?.category, "conversion");
+  assert.equal(
+    picked.some((item) => item.category === "accessibility"),
+    false
+  );
 });
 
 test("pre-send checks blokkeren suppression en ontbrekende mail", () => {
@@ -423,14 +469,106 @@ test("acquisitiemail voor Persingen is persoonlijk en minimaal", async () => {
   );
   assert.match(html, /KOPVAST/);
   assert.match(html, /Even gekeken naar kerkjepersingen.nl/);
-  assert.match(html, /A — Laat zien hoe jullie dit zouden aanpakken/);
-  assert.match(html, /B — Vertel eerst concreet wat jullie zouden verbeteren/);
+  assert.match(html, /Ja, doe me een voorstel/);
+  assert.match(html, /Stuur me eerst meer info/);
+  assert.doesNotMatch(html, /A — Laat zien hoe jullie dit zouden aanpakken/);
+  assert.doesNotMatch(html, /Wat wil je eerst zien/);
   assert.match(html, /werkwijze/);
   assert.match(html, /websites/);
   assert.match(html, /#ffffff|rgb\(255,\s*255,\s*255\)/i);
   assert.doesNotMatch(html, /Bekijk het websitepakket/);
   assert.doesNotMatch(html, /bg-ivory|#f3f0e8/i);
   assert.doesNotMatch(html, /Newsreader/);
+  const visible = visibleEmailTextFromHtml(html);
+  assert.equal(findDuplicatedAcquisitionContent(visible), null);
+  assert.equal((visible.match(/KOPVAST/g) ?? []).length, 1);
+});
+
+test("offerparagraaf bevat alleen prijs en reden", () => {
+  const offer = buildOfferParagraph("Als Groesbekers onder elkaar doe je dat voor elkaar.");
+  assert.match(offer, /€1.495/);
+  assert.match(offer, /€995/);
+  assert.match(offer, /Groesbekers/);
+  validateOfferParagraph(offer);
+  assert.throws(
+    () =>
+      validateOfferParagraph(
+        "KOPVAST Goedendag, Ik kwam fluweelevents.nl tegen en heb de website kort bekeken. Een complete Kopvast Website kost normaal €1.495 excl. btw."
+      ),
+    /full email content/
+  );
+});
+
+test("HTML rendert de mailbody niet een tweede keer via de offerparagraaf", async () => {
+  const trackingA = "https://kopvast.nl/r/proposal-fluweel";
+  const trackingB = "https://kopvast.nl/r/info-fluweel";
+  const mail = fallbackAcquisitionMail({
+    companyName: "Fluweel Events",
+    domain: "fluweelevents.nl",
+    fit: "STANDARD_FIT",
+    findings: [
+      {
+        finding_type: "FACT",
+        category: "visual",
+        title: "De eerste indruk kan sterker.",
+        description: "Wat jullie onderscheidt komt nu nog te weinig naar voren.",
+        severity: "important",
+      },
+      {
+        finding_type: "FACT",
+        category: "conversion",
+        title: "De route naar contact kan directer.",
+        description: "Een bezoeker moet nu te veel zoeken voordat de volgende stap duidelijk is.",
+        severity: "important",
+      },
+      {
+        finding_type: "FACT",
+        category: "accessibility",
+        title: "Beeld is slecht toegankelijk.",
+        description: "Afbeeldingen missen alt-teksten.",
+        severity: "critical",
+      },
+    ],
+    place: "Groesbeek",
+    municipality: "Berg en Dal",
+  });
+  mail.emailProps.choiceAUrl = trackingA;
+  mail.emailProps.choiceBUrl = trackingB;
+  const body = buildAcquisitionPlainText(mail.emailProps);
+  const parsedOffer = extractOfferParagraph(body);
+  assert.equal(parsedOffer?.includes("KOPVAST"), false);
+  assert.equal(parsedOffer?.includes("Goedendag"), false);
+  assert.match(parsedOffer ?? "", /€995/);
+
+  const html = await render(
+    createElement(AcquisitionOutreachEmail, {
+      domain: "fluweelevents.nl",
+      companyName: "Fluweel Events",
+      body,
+    })
+  );
+  const visible = visibleEmailTextFromHtml(html);
+  assert.equal(findDuplicatedAcquisitionContent(visible), null);
+  assert.equal((visible.match(/KOPVAST/g) ?? []).length, 1);
+  assert.equal((visible.match(/Goedendag/g) ?? []).length, 1);
+  assert.equal((visible.match(/Twee dingen vielen direct op/g) ?? []).length, 1);
+  assert.match(visible, /meer karakter dan er nu online uitkomt/);
+  assert.doesNotMatch(html, /A — Laat zien/);
+  assert.match(html, new RegExp(PROPOSAL_CTA_LABEL));
+  assert.match(html, new RegExp(MORE_INFO_CTA_LABEL));
+  assert.equal(html.includes(trackingA), true);
+  assert.equal(html.includes(trackingB), true);
+  assert.doesNotMatch(html, /\/werkwijze/);
+  assert.equal(body.includes(`${PROPOSAL_CTA_LABEL}:\n${trackingA}`), true);
+  assert.equal(body.includes(`${MORE_INFO_CTA_LABEL}:\n${trackingB}`), true);
+  assert.match(body, /voorstel" of "meer info"/);
+});
+
+test("dubbele mailtekst blokkeert verzending", () => {
+  const duplicated =
+    "KOPVAST\n\nGoedendag,\n\nIk kwam fluweelevents.nl tegen en heb de website kort bekeken.\n\nKOPVAST\n\nGoedendag,\n\nIk kwam fluweelevents.nl tegen en heb de website kort bekeken.";
+  assert.equal(findDuplicatedAcquisitionContent(duplicated), DUPLICATE_EMAIL_CONTENT_ERROR);
+  assert.throws(() => assertUniqueAcquisitionCopy(duplicated), /duplicated content/);
 });
 
 test("mailparagrafen splitsen op lege regels", () => {

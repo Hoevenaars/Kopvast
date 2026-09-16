@@ -1,3 +1,4 @@
+import { buildOfferParagraph, validateOfferParagraph } from "@/emails/acquisition-outreach-copy";
 import type { ProductFit } from "@/lib/acquisition-constants";
 
 export type { ProductFit };
@@ -219,11 +220,8 @@ export function buildSpecialOffer(input: SpecialOfferInput): SpecialOfferResult 
     };
   }
 
-  const reasonText = selectedReasons.join(" ");
-  const offerParagraph =
-    `Een complete Kopvast Website kost normaal €1.495 excl. btw. ` +
-    `Voor jullie maak ik daar €995 excl. btw. van. ` +
-    reasonText;
+  const offerParagraph = buildOfferParagraph(selectedReasons.join(" "));
+  validateOfferParagraph(offerParagraph);
 
   return {
     eligible: true,

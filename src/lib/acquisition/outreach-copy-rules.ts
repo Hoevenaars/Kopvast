@@ -35,11 +35,15 @@ Gebruik iets specifieks over:
 
 Voorbeeld goed:
 
+"Fluweel Events heeft duidelijk meer karakter dan er nu online uitkomt."
+
 "Kerkje van Persingen heeft als locatie veel karakter. Online komt dat nu minder sterk over dan volgens mij mogelijk is."
 
 Voorbeeld slecht:
 
 "Uw digitale aanwezigheid biedt ruimte voor optimalisatie."
+
+"Fluweel Events heeft als website meer in zich dan er nu uitkomt."
 
 Noem nooit:
 
@@ -129,6 +133,12 @@ Vermijd formuleringen zoals:
 "biedt ruimte om"
 
 "digitale aanwezigheid"
+
+"website heeft meer in zich"
+
+"online presentatie biedt ruimte"
+
+"optimaliseren"
 
 "online presentatie optimaliseren"
 
