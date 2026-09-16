@@ -186,9 +186,13 @@ export async function createTodo(input: {
   title: string;
   bucket_id?: string | null;
   organization_id?: string | null;
+  due_at?: string | null;
+  note?: string | null;
+  priority?: string;
 }): Promise<ActionResult<{ todo: BoardTodo }>> {
   const title = input.title.trim();
   if (title.length < 1) return fail("Geef een taaknaam.");
+  if (input.priority && !isTodoPriority(input.priority)) return fail("Onbekende prioriteit.");
   const bucketId = input.bucket_id || null;
   const organizationId = input.organization_id || null;
   const sortOrder = nextSortOrder(await peersInBucket(bucketId));
@@ -196,12 +200,12 @@ export async function createTodo(input: {
     title,
     bucket_id: bucketId,
     organization_id: organizationId,
-    due_at: null,
+    due_at: emptyDate(input.due_at),
     start_at: null,
-    priority: "normaal" as TodoPriority,
+    priority: (isTodoPriority(input.priority ?? "") ? input.priority : "normaal") as TodoPriority,
     status: "open" as const,
     progress: "niet_gestart" as TodoProgress,
-    note: null,
+    note: input.note?.trim() || null,
     sort_order: sortOrder,
     checklist: [] as ChecklistItem[],
     completed_at: null,

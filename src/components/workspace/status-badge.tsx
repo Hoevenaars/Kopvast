@@ -36,6 +36,8 @@ export function toneForStatus(status: string): "olive" | "copper" | "ink" {
       "CHANGES",
       "ready_for_production",
       "changes",
+      "DRAFT",
+      "QUESTION",
     ].includes(status)
   ) {
     return "copper";
@@ -57,6 +59,7 @@ export function toneForStatus(status: string): "olive" | "copper" | "ink" {
       "approved",
       "ready_to_launch",
       "COMPLETED",
+      "ACCEPTED",
     ].includes(status)
   ) {
     return "ink";

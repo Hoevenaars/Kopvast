@@ -2,6 +2,7 @@ import { loadDueOrderActions } from "@/lib/order-ops";
 import { loadAcquisitionDashboard, type DashboardAction } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
 import { productionNotifications } from "@/lib/production-board";
+import { loadProposalTodayActions } from "@/lib/proposal-ops";
 import { refreshClient } from "@/lib/refresh";
 import { loadOpenSupportActions } from "@/lib/workspace";
 
@@ -24,8 +25,13 @@ export function notificationsFromActions(actions: DashboardAction[]): Notificati
 }
 
 export async function loadAdminNotifications(): Promise<NotificationItem[]> {
-  const [dash, support] = await Promise.all([loadAcquisitionDashboard(), loadOpenSupportActions()]);
+  const [dash, proposalActions, support] = await Promise.all([
+    loadAcquisitionDashboard(),
+    loadProposalTodayActions(),
+    loadOpenSupportActions(),
+  ]);
   const items = [
+    ...notificationsFromActions(proposalActions),
     ...support.map((action, index) => ({
       id: `support-${action.href}-${action.title}-${index}`,
       title: action.title,

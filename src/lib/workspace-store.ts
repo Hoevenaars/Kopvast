@@ -27,6 +27,12 @@ import type {
 } from "@/lib/orders";
 import type { ApprovalRow, ChangeRequestRow, ProductionActivityRow, ProductionRow } from "@/lib/production";
 import type {
+  ProposalActivityRow,
+  ProposalLineRow,
+  ProposalRow as VoorstelRow,
+  ProposalVersionRow,
+} from "@/lib/proposals";
+import type {
   TodoBucketRow,
   TodoCommentRow,
   TodoLabelLinkRow,
@@ -104,6 +110,10 @@ export type Store = {
   approvals: ApprovalRow[];
   productionActivity: ProductionActivityRow[];
   proposals: ProposalRow[];
+  voorstellen: VoorstelRow[];
+  voorstelLines: ProposalLineRow[];
+  proposalVersions: ProposalVersionRow[];
+  proposalActivity: ProposalActivityRow[];
   customerProposals: CustomerProposalRow[];
   orders: OrderRow[];
   onboardings: OnboardingRow[];
@@ -149,6 +159,10 @@ const empty = (): Store => ({
   approvals: [],
   productionActivity: [],
   proposals: [],
+  voorstellen: [],
+  voorstelLines: [],
+  proposalVersions: [],
+  proposalActivity: [],
   customerProposals: [],
   orders: [],
   onboardings: [],
@@ -188,6 +202,10 @@ export async function readStore(): Promise<Store> {
       approvals: parsed.approvals ?? [],
       productionActivity: parsed.productionActivity ?? [],
       proposals: parsed.proposals ?? [],
+      voorstellen: parsed.voorstellen ?? [],
+      voorstelLines: parsed.voorstelLines ?? [],
+      proposalVersions: parsed.proposalVersions ?? [],
+      proposalActivity: parsed.proposalActivity ?? [],
       customerProposals: parsed.customerProposals ?? [],
       orders: parsed.orders ?? [],
       onboardings: parsed.onboardings ?? [],
@@ -259,6 +277,7 @@ export async function readLocalLeads(): Promise<LeadRow[]> {
       functionality: null,
       scale: null,
       timing: null,
+      prospect_id: null,
     }));
   } catch {
     return [];

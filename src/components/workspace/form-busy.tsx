@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentProps } from "react";
 import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/utils";
 
@@ -8,16 +9,18 @@ export function SubmitButton({
   pendingLabel = "Bezig…",
   className,
   disabled,
+  formAction,
 }: {
   children: string;
   pendingLabel?: string;
   className?: string;
   disabled?: boolean;
+  formAction?: ComponentProps<"button">["formAction"];
 }) {
   const { pending } = useFormStatus();
   const busy = pending || disabled;
   return (
-    <button type="submit" disabled={busy} className={cn(className, busy && "cursor-wait opacity-60")}>
+    <button type="submit" formAction={formAction} disabled={busy} className={cn(className, busy && "cursor-wait opacity-60")}>
       {pending ? pendingLabel : children}
     </button>
   );
