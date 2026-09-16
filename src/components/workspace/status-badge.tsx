@@ -18,6 +18,8 @@ export function StatusBadge({ label, tone = "olive" }: { label: string; tone?: "
 export function toneForStatus(status: string): "olive" | "copper" | "ink" {
   if (
     [
+      "OVERDUE",
+      "NOT_INVOICED",
       "nieuw",
       "NIEUW",
       "NEW",
@@ -40,6 +42,7 @@ export function toneForStatus(status: string): "olive" | "copper" | "ink" {
   }
   if (
     [
+      "PAID",
       "live",
       "LIVE",
       "klaar",

@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { InvoiceRow as BillingInvoiceRow, RecurringRow } from "@/lib/invoices";
 import type {
   AanvraagActivity,
   AanvraagRecord,
@@ -92,6 +93,8 @@ export type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
+  billingInvoices: BillingInvoiceRow[];
+  recurring: RecurringRow[];
   aanvragen: AanvraagRecord[];
   aanvraagProposals: ProposalRecord[];
   proposalLines: ProposalLineRecord[];
@@ -135,6 +138,8 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
+  billingInvoices: [],
+  recurring: [],
   aanvragen: [],
   aanvraagProposals: [],
   proposalLines: [],
@@ -172,6 +177,8 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
+      billingInvoices: parsed.billingInvoices ?? [],
+      recurring: parsed.recurring ?? [],
       aanvragen: parsed.aanvragen ?? [],
       aanvraagProposals: parsed.aanvraagProposals ?? [],
       proposalLines: parsed.proposalLines ?? [],

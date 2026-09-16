@@ -97,6 +97,8 @@ export async function convertAanvraagAction(formData: FormData) {
   const result = await convertLead(id);
   if (result.ok) {
     revalidatePath(workspaceRoutes.admin);
+    revalidatePath(workspaceRoutes.adminInvoices);
+    revalidatePath(workspaceRoutes.consoleInvoices);
     revalidateAanvraag(id);
     redirect(`${workspaceRoutes.adminCustomers}/${result.organizationId}`);
   }
