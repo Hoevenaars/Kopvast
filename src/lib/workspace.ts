@@ -14,6 +14,7 @@ import {
   type RequestClassification,
   type RequestType,
 } from "@/lib/product";
+import { addOnboardingToStore, ensureOnboardingsForProjects } from "@/lib/onboarding-store";
 import { products } from "@/lib/site";
 import {
   OPEN_REQUEST_STATUSES,
@@ -169,7 +170,7 @@ export function normalizeRequest(request: RequestRow): RequestRow {
   };
 }
 
-function emptyProjectFields() {
+export function emptyProjectFields() {
   return {
     primary_domain: null as string | null,
     preview_url: null as string | null,
@@ -499,7 +500,15 @@ export async function convertLead(leadId: string) {
       ...project,
       organization_id: created.id,
     }));
-    if (projects.length) await supabase.from("kopvast_projects").insert(projects);
+    if (projects.length) {
+      const { data: createdProjects } = await supabase
+        .from("kopvast_projects")
+        .insert(projects)
+        .select("id, type, organization_id");
+      if (createdProjects?.length) {
+        await ensureOnboardingsForProjects(createdProjects);
+      }
+    }
     await supabase.from("inbound_leads").update({ status: "OMGEZET" }).eq("id", lead.id);
     return { ok: true as const, organizationId: created.id as string };
   }
@@ -524,7 +533,7 @@ export async function convertLead(leadId: string) {
       access_enabled: true,
     });
     for (const project of defaultProjectsForLead(lead.type, lead.website)) {
-      store.projects.push({
+      const row = {
         ...project,
         id: newId(),
         organization_id: created.id,
@@ -532,7 +541,9 @@ export async function convertLead(leadId: string) {
         due_at: null,
         live_at: null,
         created_at: nowIso(),
-      });
+      };
+      store.projects.push(row);
+      addOnboardingToStore(store, row);
     }
     return { ok: true as const, organizationId: created.id };
   });

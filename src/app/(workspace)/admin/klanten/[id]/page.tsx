@@ -1,21 +1,26 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { saveAsset, saveOrganization, saveProjectStatus, saveRequestStatus } from "@/app/(workspace)/admin/klanten/actions";
-import { AccessToggle } from "@/components/workspace/access-toggle";
 import { PageIntro } from "@/components/workspace/page-frame";
-import { EmptyState } from "@/components/workspace/shell";
-import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
-import { areaClass, fieldClass } from "@/components/form-fields";
+import { customerTabs, isCustomerTab } from "@/lib/customers";
+import { loadCustomerDossier } from "@/lib/customer-dossier";
+import { loadOnboardingsForOrganization } from "@/lib/onboarding-store";
+import { loadOrdersForOrganization } from "@/lib/order-ops";
+import { workspaceRoutes } from "@/lib/product";
+import { cn } from "@/lib/utils";
 import {
-  assetKinds,
-  labelFor,
-  organizationStatuses,
-  projectStatuses,
-  requestClassifications,
-  requestStatuses,
-  requestTypes,
-} from "@/lib/product";
-import { loadCustomerWorkspace } from "@/lib/workspace";
+  ActivityPanel,
+  BrandPanel,
+  ContactPanel,
+  FilesPanel,
+  InvoicesPanel,
+  LeadsPanel,
+  OrdersPanel,
+  OverviewPanel,
+  ProposalsPanel,
+  RequestsPanel,
+  WebsitePanel,
+} from "./panels";
 
 export const metadata: Metadata = {
   title: "Klant",
@@ -24,164 +29,59 @@ export const metadata: Metadata = {
 
 export default async function AdminCustomerDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
-  const workspace = await loadCustomerWorkspace(id);
-  if (!workspace) notFound();
-  const { organization, members, projects, assets, requests } = workspace;
+  const { tab: tabParam } = await searchParams;
+  const tab = tabParam && isCustomerTab(tabParam) ? tabParam : "overzicht";
+  const dossier = await loadCustomerDossier(id);
+  if (!dossier) notFound();
+  const [orders, onboardings] = await Promise.all([
+    loadOrdersForOrganization(dossier.organization.id),
+    loadOnboardingsForOrganization(dossier.organization.id),
+  ]);
 
   return (
     <div className="space-y-8">
-      <PageIntro eyebrow="Klant" title={organization.name} text={organization.website || "Geen website opgegeven"} />
+      <PageIntro
+        eyebrow="Klant"
+        title={dossier.organization.name}
+        text={dossier.facts.nextAction ? `Volgende actie: ${dossier.facts.nextAction}` : dossier.organization.website || "Klantdossier"}
+      />
 
-      <form action={saveOrganization} className="mt-8 grid gap-4 rounded-2xl border border-stone/50 p-5 md:grid-cols-[16rem_1fr]">
-        <input type="hidden" name="id" value={organization.id} />
-        <div className="space-y-2">
-          <label htmlFor="status" className="text-sm font-medium text-ink">
-            Klantstatus
-          </label>
-          <select id="status" name="status" defaultValue={organization.status} className={fieldClass}>
-            {organizationStatuses.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="notes" className="text-sm font-medium text-ink">
-            Interne notitie
-          </label>
-          <textarea id="notes" name="notes" defaultValue={organization.notes ?? ""} className={areaClass} />
-        </div>
-        <button type="submit" className="text-sm underline underline-offset-4">
-          Opslaan
-        </button>
-      </form>
-
-      <section className="space-y-3">
-        <h2 className="text-xl text-ink">Gebruikers</h2>
-        {members.length === 0 ? (
-          <EmptyState title="Nog geen gebruikers" text="Bij het omzetten van een aanvraag komt hier het klantaccount." />
-        ) : (
-          <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
-            {members.map((member) => (
-              <li key={member.id} className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold">{member.name}</p>
-                  <p className="mt-1 text-sm text-ink/45">{member.email}</p>
-                </div>
-                <AccessToggle memberId={member.id} organizationId={organization.id} enabled={member.access_enabled} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <h2 className="mt-12 text-xl text-ink">Projecten</h2>
-      <ul className="mt-4 space-y-3">
-        {projects.map((project) => (
-          <li key={project.id} className="flex flex-col gap-3 rounded-2xl border border-stone/50 p-5 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm font-medium text-ink">{project.title}</p>
-              <p className="text-sm text-olive">{project.price_label}</p>
-            </div>
-            <form action={saveProjectStatus} className="flex items-center gap-3">
-              <input type="hidden" name="id" value={project.id} />
-              <input type="hidden" name="organizationId" value={organization.id} />
-              <select name="status" defaultValue={project.status} className={fieldClass}>
-                {projectStatuses.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-              <button type="submit" className="text-sm underline underline-offset-4">
-                Update
-              </button>
-            </form>
-          </li>
-        ))}
-      </ul>
-
-      <h2 className="mt-12 text-xl text-ink">Bestanden</h2>
-      {assets.length === 0 ? (
-        <div className="mt-4">
-          <EmptyState title="Nog geen bestanden" text="Zet hieronder een logo of huisstijllink klaar." />
-        </div>
-      ) : (
-        <ul className="mt-4 divide-y divide-stone/40 rounded-2xl border border-stone/50">
-          {assets.map((asset) => (
-            <li key={asset.id} className="px-5 py-4 text-sm">
-              <p className="font-medium text-ink">{asset.name}</p>
-              <p className="text-olive">{labelFor(assetKinds, asset.kind)}</p>
-              {asset.url ? (
-                <a href={asset.url} className="underline underline-offset-4" target="_blank" rel="noreferrer">
-                  {asset.url}
-                </a>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-      <form action={saveAsset} className="mt-4 grid gap-3 rounded-2xl border border-stone/50 p-5 md:grid-cols-2">
-        <input type="hidden" name="organizationId" value={organization.id} />
-        <input name="name" required placeholder="Naam" className={fieldClass} />
-        <select name="kind" className={fieldClass}>
-          {assetKinds.map((item) => (
-            <option key={item.value} value={item.value}>
+      <nav className="flex gap-2 overflow-x-auto pb-1">
+        {customerTabs.map((item) => {
+          const href = `${workspaceRoutes.adminCustomers}/${id}?tab=${item.value}`;
+          const active = tab === item.value;
+          return (
+            <Link
+              key={item.value}
+              href={href}
+              className={cn(
+                "inline-flex h-11 shrink-0 items-center rounded-full px-4 text-sm font-medium",
+                active ? "bg-ink text-ivory" : "border border-ink/10 bg-white text-ink/70"
+              )}
+            >
               {item.label}
-            </option>
-          ))}
-        </select>
-        <input name="url" placeholder="https://" className={fieldClass} />
-        <input name="note" placeholder="Toelichting" className={fieldClass} />
-        <button type="submit" className="text-sm underline underline-offset-4">
-          Bestand toevoegen
-        </button>
-      </form>
+            </Link>
+          );
+        })}
+      </nav>
 
-      <h2 className="mt-12 text-xl text-ink">Verzoeken</h2>
-      {requests.length === 0 ? (
-        <div className="mt-4">
-          <EmptyState title="Geen verzoeken" text="Klanten sturen wijzigingen vanuit Mijn Kopvast." />
-        </div>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {requests.map((item) => (
-            <li key={item.id} className="rounded-2xl border border-stone/50 p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs text-olive">{labelFor(requestTypes, item.type)}</p>
-                  <h3 className="mt-1 text-base text-ink">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-olive">{item.body}</p>
-                  {item.file_name ? <p className="mt-2 text-xs text-olive">Bijlage: {item.file_name}</p> : null}
-                  {item.classification ? (
-                    <p className="mt-2 text-xs text-olive">{labelFor(requestClassifications, item.classification)}</p>
-                  ) : null}
-                </div>
-                <StatusBadge label={labelFor(requestStatuses, item.status)} tone={toneForStatus(item.status)} />
-              </div>
-              <form action={saveRequestStatus} className="mt-4 flex items-center gap-3">
-                <input type="hidden" name="id" value={item.id} />
-                <input type="hidden" name="organizationId" value={organization.id} />
-                <select name="status" defaultValue={item.status} className={fieldClass}>
-                  {requestStatuses.map((status) => (
-                    <option key={status.value} value={status.value}>
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
-                <button type="submit" className="text-sm underline underline-offset-4">
-                  Update
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      )}
+      {tab === "overzicht" ? <OverviewPanel dossier={dossier} /> : null}
+      {tab === "contact" ? <ContactPanel dossier={dossier} /> : null}
+      {tab === "aanvragen" ? <LeadsPanel dossier={dossier} /> : null}
+      {tab === "voorstellen" ? <ProposalsPanel dossier={dossier} /> : null}
+      {tab === "opdrachten" ? <OrdersPanel dossier={dossier} orders={orders} onboardings={onboardings} /> : null}
+      {tab === "website" ? <WebsitePanel dossier={dossier} /> : null}
+      {tab === "merk" ? <BrandPanel dossier={dossier} /> : null}
+      {tab === "bestanden" ? <FilesPanel dossier={dossier} /> : null}
+      {tab === "facturen" ? <InvoicesPanel dossier={dossier} /> : null}
+      {tab === "wijzigingen" ? <RequestsPanel dossier={dossier} /> : null}
+      {tab === "activiteit" ? <ActivityPanel dossier={dossier} /> : null}
     </div>
   );
 }

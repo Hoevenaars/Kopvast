@@ -46,11 +46,14 @@ export const workspaceRoutes = {
   adminAcquisitionNew: "/admin/acquisitie/nieuw",
   adminLeads: "/admin/leads",
   adminCustomers: "/admin/klanten",
+  adminOnboarding: "/admin/onboarding",
+  adminOrders: "/admin/opdrachten",
   adminUsers: "/admin/gebruikers",
   adminWebsites: "/admin/websites",
   adminBeheer: "/admin/beheer",
   adminSupport: "/admin/support",
   adminMail: "/admin/mails",
+  consoleOnboarding: "/klant/onboarding",
 } as const;
 
 export const organizationStatuses = [
@@ -158,6 +161,10 @@ export function isRequestClassification(value: string): value is RequestClassifi
 
 export function isBeheerStatus(value: string): value is BeheerStatus {
   return beheerStatuses.some((item) => item.value === value);
+}
+
+export function isProjectType(value: string): value is ProjectType {
+  return projectTypes.some((item) => item.value === value);
 }
 
 export function isProjectStatus(value: string): value is ProjectStatus {
