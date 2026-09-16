@@ -45,6 +45,7 @@ export const workspaceRoutes = {
   adminAcquisitionNew: "/admin/acquisitie/nieuw",
   adminLeads: "/admin/leads",
   adminCustomers: "/admin/klanten",
+  adminOrders: "/admin/opdrachten",
   adminUsers: "/admin/gebruikers",
   adminMail: "/admin/mails",
 } as const;
