@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { convertLeadAction, setLeadStatus } from "@/app/(workspace)/admin/leads/actions";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
 import { fieldClass } from "@/components/form-fields";
-import { labelFor, leadStatuses } from "@/lib/product";
+import { labelFor, leadStatuses, workspaceRoutes } from "@/lib/product";
+import { loadOrderByLead } from "@/lib/order-ops";
 import { loadLead } from "@/lib/workspace";
 
 export const metadata: Metadata = {
@@ -20,6 +22,7 @@ export default async function AdminLeadDetailPage({
   const { id } = await params;
   const lead = await loadLead(id);
   if (!lead) notFound();
+  const order = await loadOrderByLead(lead.id);
 
   const fields = [
     ["Type", lead.type],
@@ -80,6 +83,21 @@ export default async function AdminLeadDetailPage({
             </button>
           </form>
         ) : null}
+        {order ? (
+          <Link
+            href={`${workspaceRoutes.adminOrders}/${order.id}`}
+            className="inline-flex h-11 items-center rounded-md border border-ink/10 px-5 text-sm font-semibold"
+          >
+            Open opdracht {order.order_number}
+          </Link>
+        ) : (
+          <Link
+            href={`${workspaceRoutes.adminOrders}/nieuw?leadId=${lead.id}`}
+            className="inline-flex h-11 items-center rounded-md bg-ink px-5 text-sm font-semibold text-ivory"
+          >
+            Maak opdracht
+          </Link>
+        )}
       </div>
     </div>
   );

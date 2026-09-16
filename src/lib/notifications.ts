@@ -1,3 +1,4 @@
+import { loadDueOrderActions } from "@/lib/order-ops";
 import { loadAcquisitionDashboard, type DashboardAction } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
 import { refreshClient } from "@/lib/refresh";
@@ -44,6 +45,17 @@ export async function loadAdminNotifications(): Promise<NotificationItem[]> {
         status: "Actie nodig",
       });
     }
+  }
+
+  const dueOrders = await loadDueOrderActions();
+  for (const order of dueOrders.slice(0, 6)) {
+    items.unshift({
+      id: `order-${order.id}`,
+      title: order.next_action || `Opdracht ${order.order_number}`,
+      detail: `${order.customer_name} · ${order.order_number}`,
+      href: `${workspaceRoutes.adminOrders}/${order.id}`,
+      status: "Actie nodig",
+    });
   }
 
   return items.slice(0, 12);

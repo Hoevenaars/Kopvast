@@ -105,7 +105,7 @@ async function loadProposal(id: string) {
     const { data } = await supabase.from("kopvast_proposals").select("*").eq("id", id).maybeSingle();
     return data ? asProposal(data as ProposalRow) : null;
   }
-  const row = (await readStore()).proposals.find((item) => item.id === id);
+  const row = (await readStore()).customerProposals.find((item) => item.id === id);
   return row ? asProposal(row) : null;
 }
 
@@ -120,7 +120,7 @@ async function saveProposalPatch(id: string, patch: Partial<ProposalRow>) {
     return { ok: true as const };
   }
   await mutateStore((store) => {
-    const row = store.proposals.find((item) => item.id === id);
+    const row = store.customerProposals.find((item) => item.id === id);
     if (!row) return;
     Object.assign(row, patch, { updated_at: nowIso() });
   });
@@ -136,7 +136,7 @@ async function insertProposal(input: Omit<ProposalRow, "id" | "created_at" | "up
   }
   const proposal: ProposalRow = { ...input, id: newId(), created_at: nowIso(), updated_at: nowIso() };
   await mutateStore((store) => {
-    store.proposals.unshift(proposal);
+    store.customerProposals.unshift(proposal);
   });
   return { ok: true as const, proposal };
 }
@@ -409,7 +409,7 @@ async function proposalForLead(lead: LeadRow, organizationId: string | null) {
     const { data } = await supabase.from("kopvast_proposals").select("*").eq("inbound_lead_id", lead.id).maybeSingle();
     if (data) return asProposal(data as ProposalRow);
   } else {
-    const existing = (await readStore()).proposals.find((item) => item.inbound_lead_id === lead.id);
+    const existing = (await readStore()).customerProposals.find((item) => item.inbound_lead_id === lead.id);
     if (existing) return asProposal(existing);
   }
   const created = await insertProposal({
@@ -654,7 +654,7 @@ export async function addCustomerInvoice(input: {
     if (error) return fail(error.message);
   } else {
     await mutateStore((store) => {
-      store.invoices.unshift({ ...row, id: newId(), created_at: nowIso() });
+      store.customerInvoices.unshift({ ...row, id: newId(), created_at: nowIso() });
     });
   }
   await logActivity({
@@ -694,7 +694,7 @@ export async function updateInvoiceStatus(id: string, status: string) {
     return { ok: true as const };
   }
   await mutateStore((store) => {
-    const row = store.invoices.find((item) => item.id === id);
+    const row = store.customerInvoices.find((item) => item.id === id);
     if (row) row.status = status;
   });
   return { ok: true as const };
@@ -711,9 +711,9 @@ async function loadTable<T>(table: string, organizationId?: string): Promise<T[]
   const store = await readStore();
   const key =
     table === "kopvast_proposals"
-      ? "proposals"
+      ? "customerProposals"
       : table === "kopvast_invoices"
-        ? "invoices"
+        ? "customerInvoices"
         : table === "kopvast_notes"
           ? "notes"
           : table === "kopvast_support"

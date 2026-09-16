@@ -28,6 +28,10 @@ import {
   supportStatuses,
 } from "@/lib/customers";
 import type { CustomerDossier } from "@/lib/customer-dossier";
+import { onboardingProgress } from "@/lib/onboarding";
+import type { OnboardingWorkspace } from "@/lib/onboarding-store";
+import { labelForOrderStatus } from "@/lib/orders";
+import type { OrderRow } from "@/lib/orders";
 import {
   assetKinds,
   labelFor,
@@ -68,6 +72,12 @@ export function OverviewPanel({ dossier }: { dossier: CustomerDossier }) {
             ))}
           </select>
           <SubmitButton className="text-sm font-semibold underline underline-offset-4">Opdracht starten</SubmitButton>
+          <Link
+            href={`${workspaceRoutes.adminOrders}/nieuw?organizationId=${organization.id}`}
+            className="block text-sm underline underline-offset-4"
+          >
+            Of vastleggen via akkoord
+          </Link>
         </QuickForm>
         <QuickForm
           title="Voorstel maken"
@@ -232,13 +242,76 @@ export function ProposalsPanel({ dossier }: { dossier: CustomerDossier }) {
   );
 }
 
-export function OrdersPanel({ dossier }: { dossier: CustomerDossier }) {
+export function OrdersPanel({
+  dossier,
+  orders,
+  onboardings,
+}: {
+  dossier: CustomerDossier;
+  orders: OrderRow[];
+  onboardings: OnboardingWorkspace[];
+}) {
   return (
     <div className="space-y-6">
+      <div className="flex items-end justify-between gap-3">
+        <h2 className="text-lg font-semibold">Opdrachten</h2>
+        <Link
+          href={`${workspaceRoutes.adminOrders}/nieuw?organizationId=${dossier.organization.id}`}
+          className="text-sm underline underline-offset-4"
+        >
+          Nieuwe opdracht
+        </Link>
+      </div>
+      {orders.length === 0 ? (
+        <EmptyState title="Nog geen opdracht" text="Na akkoord op een voorstel verschijnt hier de operationele uitvoering." />
+      ) : (
+        <ul className="divide-y divide-stone/40 rounded-2xl border border-stone/50">
+          {orders.map((order) => (
+            <li key={order.id}>
+              <Link
+                href={`${workspaceRoutes.adminOrders}/${order.id}`}
+                className="flex items-center justify-between px-5 py-4 hover:bg-muted/40"
+              >
+                <div>
+                  <p className="text-sm font-medium text-ink">{order.order_number}</p>
+                  <p className="text-sm text-olive">{order.product_label}</p>
+                </div>
+                <StatusBadge label={labelForOrderStatus(order.status)} tone={toneForStatus(order.status)} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h2 className="text-lg font-semibold">Onboarding</h2>
+      {onboardings.length === 0 ? (
+        <EmptyState title="Geen onboarding" text="Website- en maatwerkopdrachten krijgen een checklist na het omzetten van een aanvraag." />
+      ) : (
+        <ul className="space-y-3">
+          {onboardings.map((item) => {
+            const progress = onboardingProgress(item.onboarding, item.items);
+            return (
+              <li key={item.onboarding.id}>
+                <Link
+                  href={`${workspaceRoutes.adminOrders}/${item.project.id}/onboarding`}
+                  className="flex flex-col gap-1 rounded-2xl border border-stone/50 p-5 hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-ink">{item.project.title}</p>
+                    <p className="text-sm text-olive">{progress.summary}</p>
+                  </div>
+                  <StatusBadge label={progress.ready ? "Klaar" : "Open"} tone={progress.ready ? "ink" : "copper"} />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
       <form action={addProjectAction} className="relative grid gap-3 rounded-2xl border border-ink/10 bg-white p-5 md:grid-cols-2">
         <FormBusyOverlay label="Opdracht vastleggen…" />
         <input type="hidden" name="organizationId" value={dossier.organization.id} />
-        <h2 className="text-lg font-semibold md:col-span-2">Nieuwe opdracht</h2>
+        <h2 className="text-lg font-semibold md:col-span-2">Projectstatus</h2>
         <input name="title" required placeholder="Opdrachtnaam" className={fieldClass} />
         <select name="type" className={fieldClass} defaultValue="website">
           {projectTypes.map((item) => (
@@ -248,10 +321,10 @@ export function OrdersPanel({ dossier }: { dossier: CustomerDossier }) {
           ))}
         </select>
         <input name="priceLabel" placeholder="Prijs" className={fieldClass} />
-        <SubmitButton className="text-sm font-semibold underline underline-offset-4">Opdracht starten</SubmitButton>
+        <SubmitButton className="text-sm font-semibold underline underline-offset-4">Project starten</SubmitButton>
       </form>
       {dossier.projects.length === 0 ? (
-        <EmptyState title="Nog geen opdrachten" text="Start een opdracht vanuit het overzicht." />
+        <EmptyState title="Nog geen projecten" text="Projecten uit het klantdossier blijven hier zichtbaar." />
       ) : (
         <ul className="space-y-3">
           {dossier.projects.map((project) => (

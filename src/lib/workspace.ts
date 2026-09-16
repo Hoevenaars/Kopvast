@@ -12,6 +12,7 @@ import {
   type ProjectType,
   type RequestType,
 } from "@/lib/product";
+import { addOnboardingToStore, ensureOnboardingsForProjects } from "@/lib/onboarding-store";
 import { products } from "@/lib/site";
 import { mutateStore, newId, nowIso, readLocalLeads, readLocalMail, readStore, type MemberRow } from "@/lib/workspace-store";
 
@@ -316,6 +317,84 @@ export async function updateLeadStatus(id: string, status: string) {
   const { error } = await supabase.from("inbound_leads").update({ status }).eq("id", id);
   if (error) return { ok: false as const, message: error.message };
   return { ok: true as const };
+}
+
+export async function convertLead(leadId: string) {
+  const lead = await loadLead(leadId);
+  if (!lead) return { ok: false as const, message: "Aanvraag niet gevonden." };
+  const supabase = refreshClient();
+  if (supabase) {
+    const { data: existing } = await supabase
+      .from("kopvast_organizations")
+      .select("id")
+      .eq("inbound_lead_id", lead.id)
+      .maybeSingle();
+    if (existing) return { ok: true as const, organizationId: existing.id as string, already: true };
+
+    const org = mapLeadToOrganization(lead);
+    const { data: created, error } = await supabase.from("kopvast_organizations").insert(org).select("id").single();
+    if (error || !created) {
+      console.error("[kopvast] Klant aanmaken mislukt", error?.message);
+      return { ok: false as const, message: "Klant aanmaken mislukt." };
+    }
+    await supabase.from("kopvast_members").insert({
+      organization_id: created.id,
+      name: lead.name,
+      email: normalizeEmail(lead.email),
+      role: "owner",
+      access_enabled: true,
+    });
+    const projects = defaultProjectsForLead(lead.type).map((project) => ({
+      ...project,
+      organization_id: created.id,
+    }));
+    if (projects.length) {
+      const { data: createdProjects } = await supabase
+        .from("kopvast_projects")
+        .insert(projects)
+        .select("id, type, organization_id");
+      if (createdProjects?.length) {
+        await ensureOnboardingsForProjects(createdProjects);
+      }
+    }
+    await supabase.from("inbound_leads").update({ status: "OMGEZET" }).eq("id", lead.id);
+    return { ok: true as const, organizationId: created.id as string };
+  }
+
+  return mutateStore((store) => {
+    const existing = store.organizations.find((item) => item.inbound_lead_id === lead.id);
+    if (existing) return { ok: true as const, organizationId: existing.id, already: true };
+    const created = {
+      ...mapLeadToOrganization(lead),
+      id: newId(),
+      created_at: nowIso(),
+      updated_at: nowIso(),
+      prospect_id: null,
+    };
+    store.organizations.unshift(created);
+    store.members.push({
+      id: newId(),
+      organization_id: created.id,
+      name: lead.name,
+      email: normalizeEmail(lead.email),
+      role: "owner",
+      access_enabled: true,
+    });
+    for (const project of defaultProjectsForLead(lead.type)) {
+      const row = {
+        ...project,
+        id: newId(),
+        organization_id: created.id,
+        started_at: null,
+        due_at: null,
+        live_at: null,
+        created_at: nowIso(),
+      };
+      store.projects.push(row);
+      addOnboardingToStore(store, row);
+    }
+    return { ok: true as const, organizationId: created.id };
+  });
 }
 
 export async function updateOrganization(id: string, input: { status?: string; notes?: string }) {

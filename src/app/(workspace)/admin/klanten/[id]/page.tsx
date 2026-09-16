@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { customerTabs, isCustomerTab } from "@/lib/customers";
 import { loadCustomerDossier } from "@/lib/customer-dossier";
+import { loadOnboardingsForOrganization } from "@/lib/onboarding-store";
+import { loadOrdersForOrganization } from "@/lib/order-ops";
 import { workspaceRoutes } from "@/lib/product";
 import { cn } from "@/lib/utils";
 import {
@@ -37,6 +39,10 @@ export default async function AdminCustomerDetailPage({
   const tab = tabParam && isCustomerTab(tabParam) ? tabParam : "overzicht";
   const dossier = await loadCustomerDossier(id);
   if (!dossier) notFound();
+  const [orders, onboardings] = await Promise.all([
+    loadOrdersForOrganization(dossier.organization.id),
+    loadOnboardingsForOrganization(dossier.organization.id),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -69,7 +75,7 @@ export default async function AdminCustomerDetailPage({
       {tab === "contact" ? <ContactPanel dossier={dossier} /> : null}
       {tab === "aanvragen" ? <LeadsPanel dossier={dossier} /> : null}
       {tab === "voorstellen" ? <ProposalsPanel dossier={dossier} /> : null}
-      {tab === "opdrachten" ? <OrdersPanel dossier={dossier} /> : null}
+      {tab === "opdrachten" ? <OrdersPanel dossier={dossier} orders={orders} onboardings={onboardings} /> : null}
       {tab === "website" ? <WebsitePanel dossier={dossier} /> : null}
       {tab === "merk" ? <BrandPanel dossier={dossier} /> : null}
       {tab === "bestanden" ? <FilesPanel dossier={dossier} /> : null}
