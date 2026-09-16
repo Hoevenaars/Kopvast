@@ -23,6 +23,7 @@ export async function convertLeadAction(formData: FormData) {
   const result = await convertLead(id);
   if (result.ok) {
     revalidatePath(workspaceRoutes.admin);
+    revalidatePath(workspaceRoutes.adminProductie);
     redirect(`${workspaceRoutes.adminCustomers}/${result.organizationId}`);
   }
   revalidatePath(`${workspaceRoutes.adminLeads}/${id}`);

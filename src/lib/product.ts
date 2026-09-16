@@ -38,6 +38,7 @@ export const workspaceRoutes = {
   consoleWebsite: "/klant/website",
   consoleFiles: "/klant/media",
   consoleRequests: "/klant/wijzigingen",
+  consoleApprovals: "/klant/goedkeuringen",
   admin: "/admin",
   adminTaken: "/admin/taken",
   adminProspects: "/admin/prospects",
@@ -45,6 +46,7 @@ export const workspaceRoutes = {
   adminAcquisitionNew: "/admin/acquisitie/nieuw",
   adminLeads: "/admin/leads",
   adminCustomers: "/admin/klanten",
+  adminProductie: "/admin/productie",
   adminUsers: "/admin/gebruikers",
   adminMail: "/admin/mails",
 } as const;

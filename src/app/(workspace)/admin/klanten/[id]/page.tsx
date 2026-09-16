@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { saveAsset, saveOrganization, saveProjectStatus, saveRequestStatus } from "@/app/(workspace)/admin/klanten/actions";
 import { AccessToggle } from "@/components/workspace/access-toggle";
@@ -13,7 +14,9 @@ import {
   projectStatuses,
   requestStatuses,
   requestTypes,
+  workspaceRoutes,
 } from "@/lib/product";
+import { loadProductionsForOrganization } from "@/lib/production-board";
 import { loadCustomerWorkspace } from "@/lib/workspace";
 
 export const metadata: Metadata = {
@@ -30,10 +33,22 @@ export default async function AdminCustomerDetailPage({
   const workspace = await loadCustomerWorkspace(id);
   if (!workspace) notFound();
   const { organization, members, projects, assets, requests } = workspace;
+  const productions = await loadProductionsForOrganization(organization.id);
 
   return (
     <div className="space-y-8">
-      <PageIntro eyebrow="Klant" title={organization.name} text={organization.website || "Geen website opgegeven"} />
+      <PageIntro
+        eyebrow="Klant"
+        title={organization.name}
+        text={organization.website || "Geen website opgegeven"}
+        action={
+          productions[0] ? (
+            <Link href={`${workspaceRoutes.adminProductie}/${productions[0].id}`} className="text-sm underline underline-offset-4">
+              Naar productie
+            </Link>
+          ) : null
+        }
+      />
 
       <form action={saveOrganization} className="mt-8 grid gap-4 rounded-2xl border border-stone/50 p-5 md:grid-cols-[16rem_1fr]">
         <input type="hidden" name="id" value={organization.id} />

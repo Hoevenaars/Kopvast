@@ -14,6 +14,7 @@ test("klant en admin hebben een eigen navigatie op /klant en /admin", () => {
   assert.ok(adminNavigation.some((item) => item.href === "/admin/automations"));
   assert.ok(adminNavigation.some((item) => item.href === "/admin/taken"));
   assert.ok(adminNavigation.some((item) => item.href === "/admin/acquisitie"));
+  assert.ok(adminNavigation.some((item) => item.href === "/admin/productie"));
   assert.ok(!adminNavigation.some((item) => item.href === "/admin/prospects"));
 });
 

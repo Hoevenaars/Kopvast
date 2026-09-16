@@ -7,6 +7,7 @@ import type {
   TodoLabelRow,
   TodoRow,
 } from "@/lib/todos";
+import type { ApprovalRow, ChangeRequestRow, ProductionActivityRow, ProductionRow } from "@/lib/production";
 import type { AssetRow, LeadRow, MailRow, OrganizationRow, ProjectRow, RequestRow } from "@/lib/workspace";
 
 export type MemberRow = {
@@ -67,6 +68,10 @@ type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
+  productions: ProductionRow[];
+  changeRequests: ChangeRequestRow[];
+  approvals: ApprovalRow[];
+  productionActivity: ProductionActivityRow[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -86,6 +91,10 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
+  productions: [],
+  changeRequests: [],
+  approvals: [],
+  productionActivity: [],
 });
 
 export async function readStore(): Promise<Store> {
@@ -99,6 +108,10 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
+      productions: parsed.productions ?? [],
+      changeRequests: parsed.changeRequests ?? [],
+      approvals: parsed.approvals ?? [],
+      productionActivity: parsed.productionActivity ?? [],
     };
   } catch {
     return empty();

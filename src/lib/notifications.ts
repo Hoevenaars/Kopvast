@@ -1,5 +1,6 @@
 import { loadAcquisitionDashboard, type DashboardAction } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
+import { productionNotifications } from "@/lib/production-board";
 import { refreshClient } from "@/lib/refresh";
 
 export type NotificationItem = {
@@ -44,6 +45,13 @@ export async function loadAdminNotifications(): Promise<NotificationItem[]> {
         status: "Actie nodig",
       });
     }
+  }
+
+  try {
+    const productionItems = await productionNotifications();
+    items.unshift(...productionItems);
+  } catch (error) {
+    console.error("[kopvast] Productiemeldingen laden mislukt", error);
   }
 
   return items.slice(0, 12);
