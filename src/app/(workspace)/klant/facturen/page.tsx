@@ -53,10 +53,14 @@ export default async function CustomerInvoicesPage() {
               <div>
                 <p className="text-sm font-semibold">{invoice.description}</p>
                 <p className="mt-1 text-xs text-ink/45">
-                  {invoice.order_title ? `${invoice.order_title} · ` : ""}
-                  {invoice.invoice_number ? `${invoice.invoice_number} · ` : ""}
-                  {formatDateNl(invoice.invoice_date)}
-                  {invoice.due_date ? ` · te betalen vóór ${formatDateNl(invoice.due_date)}` : ""}
+                  {[
+                    invoice.order_title,
+                    invoice.invoice_number,
+                    invoice.invoice_date ? formatDateNl(invoice.invoice_date) : null,
+                    invoice.due_date ? `te betalen vóór ${formatDateNl(invoice.due_date)}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Nog geen factuurdatum"}
                 </p>
               </div>
               <div className="flex items-center gap-3">
