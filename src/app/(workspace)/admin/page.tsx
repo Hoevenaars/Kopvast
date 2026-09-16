@@ -5,6 +5,8 @@ import { PageIntro } from "@/components/workspace/page-frame";
 import { loadAcquisitionDashboard } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
 import { loadProposalTodayActions } from "@/lib/proposal-ops";
+import { formatEuro } from "@/lib/sites";
+import { loadBeheerOverview, loadOpenSupportActions } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -13,13 +15,18 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminDashboard() {
-  const [data, proposalActions] = await Promise.all([loadAcquisitionDashboard(), loadProposalTodayActions()]);
-  const actions = [...proposalActions, ...data.actions];
+  const [data, proposalActions, supportActions, beheer] = await Promise.all([
+    loadAcquisitionDashboard(),
+    loadProposalTodayActions(),
+    loadOpenSupportActions(),
+    loadBeheerOverview(),
+  ]);
+  const actions = [...proposalActions, ...supportActions, ...data.actions];
   const metrics = [
     { key: "prospects" as const, label: "Nieuwe prospects", value: String(data.metrics.prospects), icon: ScanSearch },
     { key: "scans" as const, label: "Scans", value: String(data.metrics.scans), icon: CheckCircle2 },
     { key: "sales" as const, label: "Sales ready", value: String(data.metrics.salesReady), icon: Users },
-    { key: "drafts" as const, label: "Concepten klaar", value: String(data.metrics.drafts), icon: Mail },
+    { key: "support" as const, label: "Open support", value: String(supportActions.length), icon: Mail },
     { key: "mails" as const, label: "Mails verzonden", value: String(data.metrics.sent), icon: Workflow },
   ];
   const pipeline = [
@@ -29,7 +36,7 @@ export default async function AdminDashboard() {
     { label: "Verzonden", value: data.pipeline.verzonden },
     { label: "Response", value: data.pipeline.response },
   ];
-  const healthy = data.metrics.errors === 0;
+  const healthy = data.metrics.errors === 0 && supportActions.length === 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -73,12 +80,12 @@ export default async function AdminDashboard() {
             <span className="rounded-full bg-ivory px-3 py-1 text-xs font-semibold">{actions.length}</span>
           </div>
           {actions.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-ink/45">Niets dat nu wacht. Nieuwe scans, mails en voorstelvragen verschijnen hier.</p>
+            <p className="px-5 py-6 text-sm text-ink/45">Niets dat nu wacht. Nieuwe scans, mails, voorstelvragen en support verschijnen hier.</p>
           ) : (
             <div className="divide-y divide-ink/6">
               {actions.map((action) => (
                 <Link
-                  key={`${action.href}-${action.title}`}
+                  key={`${action.href}-${action.company}-${action.title}-${action.age}`}
                   href={action.href}
                   className="grid w-full grid-cols-1 items-center gap-3 px-5 py-4 text-left transition hover:bg-[#F8F6F1] sm:grid-cols-[1fr_auto]"
                 >
@@ -107,8 +114,8 @@ export default async function AdminDashboard() {
             <CheckCircle2 className="size-6 text-[#B9C6AB]" />
           </div>
           <div className="mt-8 space-y-5">
-            <AutomationMetric label="Responses" value={String(data.metrics.responses)} />
-            <AutomationMetric label="Concepten klaar" value={String(data.metrics.drafts)} />
+            <AutomationMetric label="Open support" value={String(supportActions.length)} warning={supportActions.length > 0} />
+            <AutomationMetric label="Beheer-MRR" value={formatEuro(beheer.summary.mrr)} />
             <AutomationMetric label="Errors" value={String(data.metrics.errors)} warning={data.metrics.errors > 0} />
           </div>
         </section>
@@ -134,7 +141,7 @@ export default async function AdminDashboard() {
 }
 
 function StatusBadge({ value }: { value: string }) {
-  const warning = value === "Actie nodig" || value === "Beoordelen" || value === "Geblokkeerd";
+  const warning = value === "Actie nodig" || value === "Beoordelen" || value === "Geblokkeerd" || value === "Open support";
   return (
     <span
       className={cn(

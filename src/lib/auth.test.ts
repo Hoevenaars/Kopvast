@@ -70,11 +70,13 @@ test("zet een website-aanvraag om naar klant + standaardprojecten", () => {
   assert.equal(org.name, "Atelier Lint");
   assert.equal(org.status, "onboarding");
   assert.equal(org.inbound_lead_id, "lead-1");
-  const projects = defaultProjectsForLead("website");
+  const projects = defaultProjectsForLead("website", "https://atelierlint.nl");
   assert.deepEqual(
     projects.map((item) => item.type),
     ["website", "beheer"]
   );
+  assert.equal(projects[0]?.primary_domain, "atelierlint.nl");
+  assert.equal(projects[1]?.monthly_amount, 199);
   assert.equal(defaultProjectsForLead("maatwerk")[0]?.type, "maatwerk");
 });
 
@@ -90,6 +92,14 @@ test("valideert wijzigingsverzoeken", () => {
     assert.equal(ok.type, "wijziging");
     assert.equal(ok.title, "Telefoonnummer");
   }
+  const live = parseRequestInput({
+    type: "wijziging",
+    title: "Telefoonnummer",
+    body: "Zet het nieuwe nummer op de contactpagina.",
+    websiteIsLive: true,
+  });
+  assert.equal(live.ok, true);
+  if (live.ok) assert.equal(live.type, "post_launch");
 });
 
 test("toont leesbare statuslabels", () => {

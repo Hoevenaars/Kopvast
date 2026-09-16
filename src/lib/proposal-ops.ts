@@ -41,7 +41,7 @@ import { refreshClient } from "@/lib/refresh";
 import { createTodo, loadTodoBoard } from "@/lib/todo-board";
 import { proposalValidityDefault, VAT_RATE } from "@/lib/terms";
 import { createToken, hashToken } from "@/lib/tokens";
-import { loadLead, loadOrganization } from "@/lib/workspace";
+import { loadLead, loadOrganization, emptyProjectFields } from "@/lib/workspace";
 import { mutateStore, newId, nowIso, readStore, type MemberRow } from "@/lib/workspace-store";
 
 export type ProposalResult<T extends object = object> = { ok: true } & T | { ok: false; message: string };
@@ -382,7 +382,7 @@ export async function loadProposals(): Promise<ProposalRow[]> {
     }
     return ((data ?? []) as LiveProposal[]).map((row) => fromLiveProposal(row));
   }
-  return (await readStore()).proposals
+  return (await readStore()).voorstellen
     .slice()
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .map((row) => asProposal(row));
@@ -424,7 +424,7 @@ export async function loadProposal(id: string): Promise<ProposalDetail | null> {
     };
   }
   const store = await readStore();
-  const proposal = store.proposals.find((item) => item.id === id);
+  const proposal = store.voorstellen.find((item) => item.id === id);
   if (!proposal) return null;
   return {
     proposal: asProposal(proposal),
@@ -481,7 +481,7 @@ export async function loadPublicProposal(token: string): Promise<PublicProposal 
   const store = await readStore();
   const version = store.proposalVersions.find((item) => item.token === value);
   if (!version) return null;
-  const proposal = store.proposals.find((item) => item.id === version.proposal_id);
+  const proposal = store.voorstellen.find((item) => item.id === version.proposal_id);
   if (!proposal) return null;
   return {
     proposal: asProposal(proposal),
@@ -605,7 +605,7 @@ export async function createProposal(input: {
     return { ok: true, id: data.id as string };
   }
   await mutateStore((store) => {
-    store.proposals.unshift(row);
+    store.voorstellen.unshift(row);
   });
   await logActivity(row.id, PROPOSAL_ACTIVITY.CREATED, input.createdBy, { number: row.number });
   return { ok: true, id: row.id };
@@ -714,7 +714,7 @@ export async function saveProposalDraft(
     if (error) return fail(error.message);
   } else {
     await mutateStore((store) => {
-      const proposal = store.proposals.find((item) => item.id === id);
+      const proposal = store.voorstellen.find((item) => item.id === id);
       if (proposal) Object.assign(proposal, patch);
     });
   }
@@ -878,7 +878,7 @@ export async function sendProposal(
     } else {
       await mutateStore((store) => {
         store.proposalVersions.unshift(versionRow);
-        const current = store.proposals.find((item) => item.id === id);
+        const current = store.voorstellen.find((item) => item.id === id);
         if (current) {
           Object.assign(current, {
             updated_at: sentAt,
@@ -934,7 +934,7 @@ export async function recordProposalView(token: string, options?: { admin?: bool
       .eq("id", publicProposal.proposal.id);
   } else {
     await mutateStore((store) => {
-      const proposal = store.proposals.find((item) => item.id === publicProposal.proposal.id);
+      const proposal = store.voorstellen.find((item) => item.id === publicProposal.proposal.id);
       const version = store.proposalVersions.find((item) => item.id === publicProposal.version.id);
       if (version && !version.first_viewed_at) version.first_viewed_at = now;
       if (proposal) {
@@ -985,7 +985,7 @@ export async function askProposalQuestion(token: string, question: string): Prom
     await supabase.from("proposals").update(patch).eq("id", publicProposal.proposal.id);
   } else {
     await mutateStore((store) => {
-      const proposal = store.proposals.find((item) => item.id === publicProposal.proposal.id);
+      const proposal = store.voorstellen.find((item) => item.id === publicProposal.proposal.id);
       if (proposal) Object.assign(proposal, patch);
     });
   }
@@ -1061,6 +1061,7 @@ export async function handleAcceptedProposal(proposalId: string): Promise<Propos
       await supabase.from("kopvast_projects").insert(
         projects.map((project) => ({
           ...project,
+          ...emptyProjectFields(),
           organization_id: organizationId,
           summary: `${project.summary} (${proposal.number} v${proposal.version})`,
         }))
@@ -1115,6 +1116,7 @@ export async function handleAcceptedProposal(proposalId: string): Promise<Propos
         for (const project of projects) {
           store.projects.push({
             ...project,
+            ...emptyProjectFields(),
             id: newId(),
             organization_id: organizationId,
             started_at: null,
@@ -1125,7 +1127,7 @@ export async function handleAcceptedProposal(proposalId: string): Promise<Propos
           });
         }
       }
-      const current = store.proposals.find((item) => item.id === proposalId);
+      const current = store.voorstellen.find((item) => item.id === proposalId);
       if (current) {
         current.organization_id = organizationId;
         current.handed_off_at = nowIso();
@@ -1173,7 +1175,7 @@ export async function acceptProposal(
     await supabase.from("proposals").update(patch).eq("id", publicProposal.proposal.id);
   } else {
     const already = await mutateStore((store) => {
-      const proposal = store.proposals.find((item) => item.id === publicProposal.proposal.id);
+      const proposal = store.voorstellen.find((item) => item.id === publicProposal.proposal.id);
       if (!proposal) return false;
       if (proposal.status === "ACCEPTED") return true;
       Object.assign(proposal, patch);
