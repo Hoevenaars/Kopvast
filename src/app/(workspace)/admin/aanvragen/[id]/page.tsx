@@ -203,7 +203,7 @@ export default async function AanvraagDetailPage({ params }: { params: Promise<{
             <FormBusyOverlay label="Omzetten naar klant…" />
             <h2 className="font-semibold">Klant maken</h2>
             <p className="text-sm leading-6 text-ink/55">
-              Zet een gewonnen aanvraag om naar een klanomgeving. Dit raakt de scanner niet.
+              Zet een gewonnen aanvraag om naar een klantomgeving. Dit raakt de scanner niet.
             </p>
             <input type="hidden" name="id" value={row.id} />
             <SubmitButton

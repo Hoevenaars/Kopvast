@@ -256,6 +256,25 @@ export function existingDraftProposal<T extends { inbound_lead_id: string; statu
   return proposals.find((item) => item.inbound_lead_id === leadId && item.status === "DRAFT") ?? null;
 }
 
+export function recentManualDuplicate<T extends { email: string; company_name: string | null; created_at: string; source?: string | null }>(
+  rows: T[],
+  input: { email: string; company: string },
+  now = Date.now(),
+  windowMs = 15_000
+) {
+  const email = input.email.trim().toLowerCase();
+  const company = input.company.trim().toLowerCase();
+  return (
+    rows.find((item) => {
+      if ((item.source ?? "MANUAL") !== "MANUAL") return false;
+      if (item.email.trim().toLowerCase() !== email) return false;
+      if ((item.company_name ?? "").trim().toLowerCase() !== company) return false;
+      const created = Date.parse(item.created_at);
+      return Number.isFinite(created) && now - created < windowMs;
+    }) ?? null
+  );
+}
+
 export function payloadRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;

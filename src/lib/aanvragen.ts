@@ -11,6 +11,7 @@ import {
   matchesAanvraagSearch,
   payloadRecord,
   proposalLinesForFit,
+  recentManualDuplicate,
   type AanvraagActivity,
   type AanvraagFilter,
   type AanvraagRecord,
@@ -322,6 +323,19 @@ export async function createManualAanvraag(input: {
 
   const supabase = refreshClient();
   if (supabase) {
+    const { data: existingRows } = await supabase
+      .from("inbound_leads")
+      .select("id, email, company_name, created_at, source")
+      .ilike("email", email)
+      .eq("source", "MANUAL")
+      .order("created_at", { ascending: false })
+      .limit(5);
+    const existing = recentManualDuplicate(
+      (existingRows ?? []) as Array<{ id: string; email: string; company_name: string | null; created_at: string; source?: string | null }>,
+      { email, company }
+    );
+    if (existing) return { ok: true, id: String((existing as { id: string }).id) };
+
     const { data, error } = await supabase.from("inbound_leads").insert(row).select("id").single();
     if (error || !data) {
       console.error("[kopvast] Handmatige aanvraag opslaan mislukt", error?.message);
@@ -336,19 +350,22 @@ export async function createManualAanvraag(input: {
     return { ok: true, id: data.id as string };
   }
 
-  const id = newId();
-  const created = mapLeadRow({
-    ...row,
-    id,
-    created_at: nowIso(),
-    prospect_id: null,
-    next_action: null,
-    next_action_at: null,
-    call_notes: null,
-    qualification_notes: null,
-  });
-  await mutateStore((store) => {
-    store.aanvragen.unshift(created);
+  return mutateStore((store) => {
+    const existing = recentManualDuplicate(store.aanvragen, { email, company });
+    if (existing) return { ok: true as const, id: existing.id };
+    const id = newId();
+    store.aanvragen.unshift(
+      mapLeadRow({
+        ...row,
+        id,
+        created_at: nowIso(),
+        prospect_id: null,
+        next_action: null,
+        next_action_at: null,
+        call_notes: null,
+        qualification_notes: null,
+      })
+    );
     store.aanvraagActivities.unshift({
       id: newId(),
       inbound_lead_id: id,
@@ -358,8 +375,8 @@ export async function createManualAanvraag(input: {
       metadata: { source: "MANUAL" },
       created_at: nowIso(),
     });
+    return { ok: true as const, id };
   });
-  return { ok: true, id };
 }
 
 export async function updateAanvraagQualification(input: {
@@ -510,12 +527,11 @@ export async function createDraftProposal(input: { leadId: string; actorEmail: s
     return { ok: true as const, id: created.id as string };
   }
 
-  const localExisting = existingDraftProposal((await readStore()).proposals, detail.id);
-  if (localExisting) return { ok: true as const, id: localExisting.id, already: true as const };
-
-  const id = newId();
-  const createdAt = nowIso();
-  await mutateStore((store) => {
+  const created = await mutateStore((store) => {
+    const existing = existingDraftProposal(store.proposals, detail.id);
+    if (existing) return { id: existing.id, already: true as const };
+    const id = newId();
+    const createdAt = nowIso();
     store.proposals.unshift({
       id,
       inbound_lead_id: detail.id,
@@ -537,24 +553,18 @@ export async function createDraftProposal(input: { leadId: string; actorEmail: s
       if (row.status === "QUALIFIED" || row.status === "NIEUW" || row.status === "MAATWERK_REVIEW") {
         row.status = "PROPOSAL_NEEDED";
       }
-    } else {
-      store.aanvragen.unshift({
-        ...detail,
-        proposal_id: id,
-        proposal_status: "DRAFT",
-        activities: undefined,
-        proposal: undefined,
-        scan: undefined,
-      } as unknown as AanvraagRecord);
     }
+    return { id, already: false as const };
   });
-  await logActivity({
-    leadId: detail.id,
-    eventType: AANVRAAG_ACTIVITY.PROPOSAL_CREATED,
-    actorEmail: input.actorEmail,
-    metadata: { proposal_id: id, product_fit: fit },
-  });
-  return { ok: true as const, id };
+  if (!created.already) {
+    await logActivity({
+      leadId: detail.id,
+      eventType: AANVRAAG_ACTIVITY.PROPOSAL_CREATED,
+      actorEmail: input.actorEmail,
+      metadata: { proposal_id: created.id, product_fit: fit },
+    });
+  }
+  return { ok: true as const, id: created.id, already: created.already };
 }
 
 export async function loadProposal(id: string): Promise<(ProposalRecord & { aanvraag: AanvraagRecord | null }) | null> {

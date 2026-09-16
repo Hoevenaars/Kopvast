@@ -8,9 +8,10 @@ import {
   matchesAanvraagFilter,
   matchesAanvraagSearch,
   proposalLinesForFit,
+  recentManualDuplicate,
   requestBron,
+  defaultProductFitForSource,
 } from "./aanvragen-model";
-import { defaultProductFitForSource } from "./aanvragen-model";
 import { products } from "./site";
 
 const fluweel = {
@@ -74,6 +75,21 @@ test("STANDARD_FIT vult standaardregels, CUSTOM_FIT forceert geen €995", () =>
   assert.ok(custom.length >= 1);
   assert.ok(custom.every((line) => !line.amount_label));
   assert.ok(!custom.some((line) => /\b995\b/.test(`${line.amount_label} ${line.title} ${line.description}`)));
+});
+
+test("hergebruikt een zojuist gemaakte handmatige aanvraag", () => {
+  const now = Date.parse("2026-09-16T20:00:00.000Z");
+  const rows = [
+    {
+      email: "eva@fluweel.nl",
+      company_name: "Fluweel Events",
+      created_at: "2026-09-16T19:59:50.000Z",
+      source: "MANUAL",
+    },
+  ];
+  const hit = recentManualDuplicate(rows, { email: "eva@fluweel.nl", company: "Fluweel Events" }, now);
+  assert.equal(hit?.email, "eva@fluweel.nl");
+  assert.equal(recentManualDuplicate(rows, { email: "eva@fluweel.nl", company: "Fluweel Events" }, now + 20_000), null);
 });
 
 test("een tweede draft voor dezelfde aanvraag wordt hergebruikt", () => {
