@@ -1,6 +1,7 @@
 import { loadAcquisitionDashboard, type DashboardAction } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
 import { refreshClient } from "@/lib/refresh";
+import { loadOpenSupportActions } from "@/lib/workspace";
 
 export type NotificationItem = {
   id: string;
@@ -21,8 +22,17 @@ export function notificationsFromActions(actions: DashboardAction[]): Notificati
 }
 
 export async function loadAdminNotifications(): Promise<NotificationItem[]> {
-  const dash = await loadAcquisitionDashboard();
-  const items = notificationsFromActions(dash.actions);
+  const [dash, support] = await Promise.all([loadAcquisitionDashboard(), loadOpenSupportActions()]);
+  const items = [
+    ...support.map((action, index) => ({
+      id: `support-${action.href}-${action.title}-${index}`,
+      title: action.title,
+      detail: `${action.company} · ${action.age}`,
+      href: action.href,
+      status: action.status,
+    })),
+    ...notificationsFromActions(dash.actions),
+  ];
 
   const supabase = refreshClient();
   if (supabase) {

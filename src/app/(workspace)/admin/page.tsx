@@ -4,6 +4,8 @@ import { ArrowUpRight, CheckCircle2, Mail, ScanSearch, Users, Workflow } from "l
 import { PageIntro } from "@/components/workspace/page-frame";
 import { loadAcquisitionDashboard } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
+import { formatEuro } from "@/lib/sites";
+import { loadBeheerOverview, loadOpenSupportActions } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -12,12 +14,17 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminDashboard() {
-  const data = await loadAcquisitionDashboard();
+  const [data, supportActions, beheer] = await Promise.all([
+    loadAcquisitionDashboard(),
+    loadOpenSupportActions(),
+    loadBeheerOverview(),
+  ]);
+  const actions = [...supportActions, ...data.actions];
   const metrics = [
     { key: "prospects" as const, label: "Nieuwe prospects", value: String(data.metrics.prospects), icon: ScanSearch },
     { key: "scans" as const, label: "Scans", value: String(data.metrics.scans), icon: CheckCircle2 },
     { key: "sales" as const, label: "Sales ready", value: String(data.metrics.salesReady), icon: Users },
-    { key: "drafts" as const, label: "Concepten klaar", value: String(data.metrics.drafts), icon: Mail },
+    { key: "support" as const, label: "Open support", value: String(supportActions.length), icon: Mail },
     { key: "mails" as const, label: "Mails verzonden", value: String(data.metrics.sent), icon: Workflow },
   ];
   const pipeline = [
@@ -27,7 +34,7 @@ export default async function AdminDashboard() {
     { label: "Verzonden", value: data.pipeline.verzonden },
     { label: "Response", value: data.pipeline.response },
   ];
-  const healthy = data.metrics.errors === 0;
+  const healthy = data.metrics.errors === 0 && supportActions.length === 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -68,15 +75,15 @@ export default async function AdminDashboard() {
               <h2 className="font-semibold">Actie nodig</h2>
               <p className="mt-0.5 text-xs text-ink/40">Uitzonderingen die menselijke aandacht vragen.</p>
             </div>
-            <span className="rounded-full bg-ivory px-3 py-1 text-xs font-semibold">{data.actions.length}</span>
+            <span className="rounded-full bg-ivory px-3 py-1 text-xs font-semibold">{actions.length}</span>
           </div>
-          {data.actions.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-ink/45">Niets dat nu wacht. Nieuwe scans en mails verschijnen hier.</p>
+          {actions.length === 0 ? (
+            <p className="px-5 py-6 text-sm text-ink/45">Niets dat nu wacht. Nieuwe scans, mails en support verschijnen hier.</p>
           ) : (
             <div className="divide-y divide-ink/6">
-              {data.actions.map((action) => (
+              {actions.map((action) => (
                 <Link
-                  key={`${action.href}-${action.title}`}
+                  key={`${action.href}-${action.company}-${action.title}-${action.age}`}
                   href={action.href}
                   className="grid w-full grid-cols-1 items-center gap-3 px-5 py-4 text-left transition hover:bg-[#F8F6F1] sm:grid-cols-[1fr_auto]"
                 >
@@ -105,8 +112,8 @@ export default async function AdminDashboard() {
             <CheckCircle2 className="size-6 text-[#B9C6AB]" />
           </div>
           <div className="mt-8 space-y-5">
-            <AutomationMetric label="Responses" value={String(data.metrics.responses)} />
-            <AutomationMetric label="Concepten klaar" value={String(data.metrics.drafts)} />
+            <AutomationMetric label="Open support" value={String(supportActions.length)} warning={supportActions.length > 0} />
+            <AutomationMetric label="Beheer-MRR" value={formatEuro(beheer.summary.mrr)} />
             <AutomationMetric label="Errors" value={String(data.metrics.errors)} warning={data.metrics.errors > 0} />
           </div>
         </section>
@@ -132,7 +139,7 @@ export default async function AdminDashboard() {
 }
 
 function StatusBadge({ value }: { value: string }) {
-  const warning = value === "Actie nodig" || value === "Beoordelen" || value === "Geblokkeerd";
+  const warning = value === "Actie nodig" || value === "Beoordelen" || value === "Geblokkeerd" || value === "Open support";
   return (
     <span
       className={cn(

@@ -1,14 +1,57 @@
 import type { Metadata } from "next";
-import { ComingSoon } from "@/components/workspace/page-frame";
+import { redirect } from "next/navigation";
+import { RequestForm } from "@/components/workspace/request-form";
+import { PageIntro } from "@/components/workspace/page-frame";
+import { EmptyState } from "@/components/workspace/shell";
+import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
+import { requireSession } from "@/lib/auth";
+import { labelFor, requestStatuses, requestTypes, workspaceRoutes } from "@/lib/product";
+import { customerWebsiteOptions } from "@/lib/sites";
+import { loadCustomerWorkspace } from "@/lib/workspace";
 
-export const metadata: Metadata = { title: "Support", robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: "Support",
+  robots: { index: false, follow: false },
+};
 
-export default function CustomerSupportPage() {
+export default async function CustomerSupportPage() {
+  const session = await requireSession("customer");
+  if (!session?.organizationId) redirect(workspaceRoutes.login);
+  const workspace = await loadCustomerWorkspace(session.organizationId);
+  if (!workspace) redirect(workspaceRoutes.login);
+  const websites = customerWebsiteOptions(workspace.projects, workspace.organization);
+
   return (
-    <ComingSoon
-      eyebrow="Support"
-      title="Support"
-      text="Vragen en hulp komen hier terecht. Kleine wijzigingen stuur je via Wijzigingen; grotere wensen beoordeelt Kopvast."
-    />
+    <div className="space-y-8">
+      <PageIntro
+        eyebrow="Support"
+        title="Support / wijziging aanvragen"
+        text="Stel een vraag of vraag een wijziging aan. Twee kleine wijzigingen per maand zitten in Kopvast Beheer."
+      />
+      <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+        <div>
+          {workspace.requests.length === 0 ? (
+            <EmptyState title="Nog geen verzoeken" text="Stuur hiernaast je eerste vraag of wijziging." />
+          ) : (
+            <ul className="space-y-3">
+              {workspace.requests.map((item) => (
+                <li key={item.id} className="rounded-2xl border border-ink/10 bg-white p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-olive">{labelFor(requestTypes, item.type)}</p>
+                      <h2 className="mt-1 text-base font-semibold">{item.title}</h2>
+                    </div>
+                    <StatusBadge label={labelFor(requestStatuses, item.status)} tone={toneForStatus(item.status)} />
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-ink/50">{item.body}</p>
+                  {item.file_name ? <p className="mt-2 text-xs text-ink/45">Bijlage: {item.file_name}</p> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <RequestForm websites={websites} source="support" showFile />
+      </div>
+    </div>
   );
 }

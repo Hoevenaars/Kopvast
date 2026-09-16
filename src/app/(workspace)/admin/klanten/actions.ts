@@ -12,6 +12,15 @@ async function guard() {
   return session;
 }
 
+function revalidateCustomer(organizationId: string) {
+  revalidatePath(`${workspaceRoutes.adminCustomers}/${organizationId}`);
+  revalidatePath(workspaceRoutes.adminCustomers);
+  revalidatePath(workspaceRoutes.adminWebsites);
+  revalidatePath(workspaceRoutes.adminBeheer);
+  revalidatePath(workspaceRoutes.adminSupport);
+  revalidatePath(workspaceRoutes.admin);
+}
+
 export async function saveOrganization(formData: FormData) {
   await guard();
   const id = String(formData.get("id") ?? "");
@@ -19,21 +28,21 @@ export async function saveOrganization(formData: FormData) {
     status: String(formData.get("status") ?? ""),
     notes: String(formData.get("notes") ?? ""),
   });
-  revalidatePath(`${workspaceRoutes.adminCustomers}/${id}`);
+  revalidateCustomer(id);
 }
 
 export async function saveProjectStatus(formData: FormData) {
   await guard();
   const organizationId = String(formData.get("organizationId") ?? "");
   await updateProjectStatus(String(formData.get("id") ?? ""), String(formData.get("status") ?? ""));
-  revalidatePath(`${workspaceRoutes.adminCustomers}/${organizationId}`);
+  revalidateCustomer(organizationId);
 }
 
 export async function saveRequestStatus(formData: FormData) {
   await guard();
   const organizationId = String(formData.get("organizationId") ?? "");
   await updateRequestStatus(String(formData.get("id") ?? ""), String(formData.get("status") ?? ""));
-  revalidatePath(`${workspaceRoutes.adminCustomers}/${organizationId}`);
+  revalidateCustomer(organizationId);
 }
 
 export async function saveAsset(formData: FormData) {

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/workspace/shell";
 import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
 import { requireSession } from "@/lib/auth";
 import { labelFor, requestStatuses, requestTypes, workspaceRoutes } from "@/lib/product";
+import { customerWebsiteOptions } from "@/lib/sites";
 import { loadCustomerWorkspace } from "@/lib/workspace";
 
 export const metadata: Metadata = {
@@ -42,12 +43,13 @@ export default async function CustomerChangesPage() {
                     <StatusBadge label={labelFor(requestStatuses, item.status)} tone={toneForStatus(item.status)} />
                   </div>
                   <p className="mt-3 text-sm leading-6 text-ink/50">{item.body}</p>
+                  {item.file_name ? <p className="mt-2 text-xs text-ink/45">Bijlage: {item.file_name}</p> : null}
                 </li>
               ))}
             </ul>
           )}
         </div>
-        <RequestForm />
+        <RequestForm websites={customerWebsiteOptions(workspace.projects, workspace.organization)} />
       </div>
     </div>
   );

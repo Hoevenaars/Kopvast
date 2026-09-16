@@ -4,15 +4,32 @@ import {
   isLeadStatus,
   isOrganizationStatus,
   isProjectStatus,
-  isRequestType,
+  isRequestClassification,
+  isRequestStatus,
   normalizeEmail,
   type AssetKind,
   type OrganizationStatus,
   type ProjectStatus,
   type ProjectType,
+  type RequestClassification,
   type RequestType,
 } from "@/lib/product";
 import { products } from "@/lib/site";
+import {
+  OPEN_REQUEST_STATUSES,
+  beheerSummary,
+  buildBeheerCatalog,
+  buildSupportInbox,
+  buildWebsiteCatalog,
+  defaultBeheerAmount,
+  domainFromWebsite,
+  isOpenRequest,
+  isWebsiteProject,
+  openSupportActions,
+  productionUrlFromWebsite,
+  resolveRequestType,
+  todayDate,
+} from "@/lib/sites";
 import { mutateStore, newId, nowIso, readLocalLeads, readLocalMail, readStore, type MemberRow } from "@/lib/workspace-store";
 
 export type OrganizationRow = {
@@ -38,6 +55,13 @@ export type ProjectRow = {
   live_at: string | null;
   summary: string | null;
   created_at: string;
+  primary_domain: string | null;
+  preview_url: string | null;
+  production_url: string | null;
+  monthly_amount: number | null;
+  included_note: string | null;
+  last_checked_at: string | null;
+  technical_note: string | null;
 };
 
 export type AssetRow = {
@@ -60,6 +84,10 @@ export type RequestRow = {
   status: string;
   created_at: string;
   updated_at: string;
+  project_id: string | null;
+  file_url: string | null;
+  file_name: string | null;
+  classification: RequestClassification | null;
 };
 
 export type LeadRow = {
@@ -103,14 +131,54 @@ export type ProspectRow = {
   created_at: string;
 };
 
-export function parseRequestInput(input: { type?: string; title?: string; body?: string }) {
-  const rawType = input.type ?? "wijziging";
-  const type = isRequestType(rawType) ? rawType : "wijziging";
+export function parseRequestInput(input: {
+  type?: string;
+  title?: string;
+  body?: string;
+  websiteIsLive?: boolean;
+  source?: "support" | "wijziging";
+}) {
+  const type = resolveRequestType(input);
   const title = (input.title ?? "").trim();
   const body = (input.body ?? "").trim();
   if (title.length < 3) return { ok: false as const, message: "Geef een korte titel." };
   if (body.length < 8) return { ok: false as const, message: "Beschrijf wat je nodig hebt." };
   return { ok: true as const, type, title, body };
+}
+
+export function normalizeProject(project: ProjectRow): ProjectRow {
+  return {
+    ...project,
+    primary_domain: project.primary_domain ?? null,
+    preview_url: project.preview_url ?? null,
+    production_url: project.production_url ?? null,
+    monthly_amount: project.monthly_amount == null ? null : Number(project.monthly_amount),
+    included_note: project.included_note ?? null,
+    last_checked_at: project.last_checked_at ?? null,
+    technical_note: project.technical_note ?? null,
+  };
+}
+
+export function normalizeRequest(request: RequestRow): RequestRow {
+  return {
+    ...request,
+    project_id: request.project_id ?? null,
+    file_url: request.file_url ?? null,
+    file_name: request.file_name ?? null,
+    classification: request.classification ?? null,
+  };
+}
+
+function emptyProjectFields() {
+  return {
+    primary_domain: null as string | null,
+    preview_url: null as string | null,
+    production_url: null as string | null,
+    monthly_amount: null as number | null,
+    included_note: null as string | null,
+    last_checked_at: null as string | null,
+    technical_note: null as string | null,
+  };
 }
 
 export function mapLeadToOrganization(lead: Pick<LeadRow, "company_name" | "name" | "website" | "id">) {
@@ -123,13 +191,18 @@ export function mapLeadToOrganization(lead: Pick<LeadRow, "company_name" | "name
   };
 }
 
-export function defaultProjectsForLead(type: string) {
-  const website = {
+export function defaultProjectsForLead(type: string, website?: string | null) {
+  const domain = domainFromWebsite(website);
+  const productionUrl = productionUrlFromWebsite(website);
+  const websiteProject = {
     type: "website" as const,
     title: products.website.name,
     status: "voorbereiding" as const,
     price_label: `${products.website.price} ${products.website.cadence}`,
     summary: products.website.summary,
+    ...emptyProjectFields(),
+    primary_domain: domain,
+    production_url: productionUrl,
   };
   const beheer = {
     type: "beheer" as const,
@@ -137,6 +210,9 @@ export function defaultProjectsForLead(type: string) {
     status: "voorbereiding" as const,
     price_label: `${products.beheer.price} ${products.beheer.cadence}`,
     summary: products.beheer.summary,
+    ...emptyProjectFields(),
+    monthly_amount: defaultBeheerAmount(),
+    included_note: products.beheer.summary,
   };
   if (type === "maatwerk") {
     return [
@@ -146,10 +222,13 @@ export function defaultProjectsForLead(type: string) {
         status: "voorbereiding" as const,
         price_label: "Offerte",
         summary: "Scope en prijs volgen na het gesprek.",
+        ...emptyProjectFields(),
+        primary_domain: domain,
+        production_url: productionUrl,
       },
     ];
   }
-  return [website, beheer];
+  return [websiteProject, beheer];
 }
 
 export async function loadOrganization(id: string) {
@@ -179,9 +258,9 @@ export async function loadCustomerWorkspace(organizationId: string) {
     return {
       organization,
       members: ((members.data ?? []) as MemberRow[]).map(normalizeMember),
-      projects: (projects.data ?? []) as ProjectRow[],
+      projects: ((projects.data ?? []) as ProjectRow[]).map(normalizeProject),
       assets: (assets.data ?? []) as AssetRow[],
-      requests: (requests.data ?? []) as RequestRow[],
+      requests: ((requests.data ?? []) as RequestRow[]).map(normalizeRequest),
     };
   }
   const store = await readStore();
@@ -192,10 +271,13 @@ export async function loadCustomerWorkspace(organizationId: string) {
     members: store.members
       .filter((item) => item.organization_id === organizationId)
       .map(normalizeMember),
-    projects: store.projects.filter((item) => item.organization_id === organizationId),
+    projects: store.projects
+      .filter((item) => item.organization_id === organizationId)
+      .map(normalizeProject),
     assets: store.assets.filter((item) => item.organization_id === organizationId),
     requests: store.requests
       .filter((item) => item.organization_id === organizationId)
+      .map(normalizeRequest)
       .sort((a, b) => b.created_at.localeCompare(a.created_at)),
   };
 }
@@ -206,6 +288,11 @@ export async function createCustomerRequest(input: {
   type?: string;
   title?: string;
   body?: string;
+  projectId?: string | null;
+  fileName?: string | null;
+  fileUrl?: string | null;
+  websiteIsLive?: boolean;
+  source?: "support" | "wijziging";
 }) {
   const parsed = parseRequestInput(input);
   if (!parsed.ok) return parsed;
@@ -216,6 +303,10 @@ export async function createCustomerRequest(input: {
     title: parsed.title,
     body: parsed.body,
     status: "nieuw",
+    project_id: input.projectId?.trim() || null,
+    file_name: input.fileName?.trim() || null,
+    file_url: input.fileUrl?.trim() || null,
+    classification: null as RequestClassification | null,
   };
   const supabase = refreshClient();
   if (supabase) {
@@ -230,7 +321,6 @@ export async function createCustomerRequest(input: {
     store.requests.unshift({
       ...row,
       id: newId(),
-      type: parsed.type,
       created_at: nowIso(),
       updated_at: nowIso(),
     });
@@ -259,12 +349,10 @@ export async function loadAdminOverview() {
     const { count } = await supabase
       .from("kopvast_requests")
       .select("id", { count: "exact", head: true })
-      .in("status", ["nieuw", "in_behandeling", "wacht_op_klant"]);
+      .in("status", [...OPEN_REQUEST_STATUSES]);
     openRequests = count ?? 0;
   } else {
-    openRequests = (await readStore()).requests.filter((item) =>
-      ["nieuw", "in_behandeling", "wacht_op_klant"].includes(item.status)
-    ).length;
+    openRequests = (await readStore()).requests.filter((item) => isOpenRequest(item.status)).length;
   }
   return {
     leadCount: leads.length,
@@ -298,6 +386,70 @@ export async function loadOrganizations() {
     return (data ?? []) as OrganizationRow[];
   }
   return (await readStore()).organizations;
+}
+
+export async function loadProjects() {
+  const supabase = refreshClient();
+  if (supabase) {
+    const { data } = await supabase.from("kopvast_projects").select("*").order("created_at", { ascending: false });
+    return ((data ?? []) as ProjectRow[]).map(normalizeProject);
+  }
+  return (await readStore()).projects.map(normalizeProject);
+}
+
+export async function loadRequests() {
+  const supabase = refreshClient();
+  if (supabase) {
+    const { data } = await supabase.from("kopvast_requests").select("*").order("created_at", { ascending: false });
+    return ((data ?? []) as RequestRow[]).map(normalizeRequest);
+  }
+  return (await readStore()).requests.map(normalizeRequest);
+}
+
+export async function loadWorkspaceCatalog() {
+  const [organizations, projects, requests] = await Promise.all([
+    loadOrganizations(),
+    loadProjects(),
+    loadRequests(),
+  ]);
+  return { organizations, projects, requests };
+}
+
+export async function loadWebsiteCatalog() {
+  const { organizations, projects, requests } = await loadWorkspaceCatalog();
+  return buildWebsiteCatalog(organizations, projects, requests);
+}
+
+export async function loadBeheerOverview() {
+  const { organizations, projects, requests } = await loadWorkspaceCatalog();
+  const records = buildBeheerCatalog(organizations, projects, requests);
+  return { records, summary: beheerSummary(records) };
+}
+
+export async function loadSupportInbox() {
+  const { organizations, projects, requests } = await loadWorkspaceCatalog();
+  return buildSupportInbox(organizations, projects, requests);
+}
+
+export async function loadOpenSupportActions() {
+  return openSupportActions(await loadSupportInbox());
+}
+
+export async function loadWebsiteDetail(id: string) {
+  const { organizations, projects, requests } = await loadWorkspaceCatalog();
+  const project = projects.find((item) => item.id === id);
+  if (!project || !isWebsiteProject(project)) return null;
+  const websites = buildWebsiteCatalog(organizations, projects, requests);
+  const website = websites.find((item) => item.id === id);
+  if (!website) return null;
+  return {
+    website,
+    project,
+    organization: organizations.find((item) => item.id === project.organization_id) ?? null,
+    beheer:
+      projects.find((item) => item.organization_id === project.organization_id && item.type === "beheer") ?? null,
+    requests: requests.filter((item) => item.organization_id === project.organization_id),
+  };
 }
 
 export async function loadMail() {
@@ -343,7 +495,7 @@ export async function convertLead(leadId: string) {
       role: "owner",
       access_enabled: true,
     });
-    const projects = defaultProjectsForLead(lead.type).map((project) => ({
+    const projects = defaultProjectsForLead(lead.type, lead.website).map((project) => ({
       ...project,
       organization_id: created.id,
     }));
@@ -371,7 +523,7 @@ export async function convertLead(leadId: string) {
       role: "owner",
       access_enabled: true,
     });
-    for (const project of defaultProjectsForLead(lead.type)) {
+    for (const project of defaultProjectsForLead(lead.type, lead.website)) {
       store.projects.push({
         ...project,
         id: newId(),
@@ -406,39 +558,98 @@ export async function updateOrganization(id: string, input: { status?: string; n
   return { ok: true as const };
 }
 
-export async function updateProjectStatus(id: string, status: string) {
-  if (!isProjectStatus(status)) return { ok: false as const, message: "Onbekende status." };
+export type ProjectPatch = {
+  status?: string;
+  primary_domain?: string | null;
+  preview_url?: string | null;
+  production_url?: string | null;
+  technical_note?: string | null;
+  monthly_amount?: number | null;
+  included_note?: string | null;
+  last_checked_at?: string | null;
+  started_at?: string | null;
+  live_at?: string | null;
+};
+
+export async function updateProject(id: string, input: ProjectPatch) {
+  if (input.status && !isProjectStatus(input.status)) return { ok: false as const, message: "Onbekende status." };
+  const current = (await loadProjects()).find((item) => item.id === id);
+  if (!current) return { ok: false as const, message: "Project niet gevonden." };
+  const patch: Record<string, string | number | null> = {};
+  if (input.status) patch.status = input.status;
+  if (input.primary_domain !== undefined) patch.primary_domain = emptyToNull(input.primary_domain);
+  if (input.preview_url !== undefined) patch.preview_url = emptyToNull(input.preview_url);
+  if (input.production_url !== undefined) patch.production_url = emptyToNull(input.production_url);
+  if (input.technical_note !== undefined) patch.technical_note = emptyToNull(input.technical_note);
+  if (input.monthly_amount !== undefined) patch.monthly_amount = input.monthly_amount;
+  if (input.included_note !== undefined) patch.included_note = emptyToNull(input.included_note);
+  if (input.last_checked_at !== undefined) patch.last_checked_at = input.last_checked_at;
+  if (input.started_at !== undefined) patch.started_at = emptyToNull(input.started_at);
+  if (input.live_at !== undefined) patch.live_at = emptyToNull(input.live_at);
+  const nextStatus = String(patch.status ?? current.status);
+  const nextLiveAt = "live_at" in patch ? patch.live_at : current.live_at;
+  const nextStartedAt = "started_at" in patch ? patch.started_at : current.started_at;
+  if (nextStatus === "live" && !nextLiveAt) patch.live_at = todayDate();
+  if (current.type === "beheer" && nextStatus === "live" && !nextStartedAt) patch.started_at = todayDate();
+  if (Object.keys(patch).length === 0) return { ok: true as const };
   const supabase = refreshClient();
   if (supabase) {
-    const { error } = await supabase.from("kopvast_projects").update({ status }).eq("id", id);
+    const { error } = await supabase.from("kopvast_projects").update(patch).eq("id", id);
     if (error) return { ok: false as const, message: error.message };
     return { ok: true as const };
   }
   await mutateStore((store) => {
     const project = store.projects.find((item) => item.id === id);
-    if (project) project.status = status;
+    if (!project) return;
+    if (isProjectStatus(String(patch.status ?? ""))) project.status = patch.status as ProjectStatus;
+    if ("primary_domain" in patch) project.primary_domain = patch.primary_domain as string | null;
+    if ("preview_url" in patch) project.preview_url = patch.preview_url as string | null;
+    if ("production_url" in patch) project.production_url = patch.production_url as string | null;
+    if ("technical_note" in patch) project.technical_note = patch.technical_note as string | null;
+    if ("monthly_amount" in patch) project.monthly_amount = patch.monthly_amount as number | null;
+    if ("included_note" in patch) project.included_note = patch.included_note as string | null;
+    if ("last_checked_at" in patch) project.last_checked_at = patch.last_checked_at as string | null;
+    if ("started_at" in patch) project.started_at = patch.started_at as string | null;
+    if ("live_at" in patch) project.live_at = patch.live_at as string | null;
   });
   return { ok: true as const };
 }
 
-export async function updateRequestStatus(id: string, status: string) {
+export async function updateProjectStatus(id: string, status: string) {
+  return updateProject(id, { status });
+}
+
+export async function updateRequest(id: string, input: { status?: string; classification?: string | null }) {
+  if (input.status && !isRequestStatus(input.status)) return { ok: false as const, message: "Onbekende status." };
+  if (input.classification && !isRequestClassification(input.classification)) {
+    return { ok: false as const, message: "Onbekende indeling." };
+  }
+  const patch: Record<string, string | null> = { updated_at: nowIso() };
+  if (input.status) patch.status = input.status;
+  if (input.classification !== undefined) patch.classification = input.classification || null;
   const supabase = refreshClient();
   if (supabase) {
-    const { error } = await supabase
-      .from("kopvast_requests")
-      .update({ status, updated_at: nowIso() })
-      .eq("id", id);
+    const { error } = await supabase.from("kopvast_requests").update(patch).eq("id", id);
     if (error) return { ok: false as const, message: error.message };
     return { ok: true as const };
   }
   await mutateStore((store) => {
     const request = store.requests.find((item) => item.id === id);
-    if (request) {
-      request.status = status;
-      request.updated_at = nowIso();
-    }
+    if (!request) return;
+    if (input.status) request.status = input.status;
+    if (input.classification !== undefined) request.classification = (input.classification || null) as RequestClassification | null;
+    request.updated_at = nowIso();
   });
   return { ok: true as const };
+}
+
+export async function updateRequestStatus(id: string, status: string) {
+  return updateRequest(id, { status });
+}
+
+function emptyToNull(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }
 
 export async function addAsset(input: {

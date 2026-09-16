@@ -11,6 +11,7 @@ import {
   labelFor,
   organizationStatuses,
   projectStatuses,
+  requestClassifications,
   requestStatuses,
   requestTypes,
 } from "@/lib/product";
@@ -156,6 +157,10 @@ export default async function AdminCustomerDetailPage({
                   <p className="text-xs text-olive">{labelFor(requestTypes, item.type)}</p>
                   <h3 className="mt-1 text-base text-ink">{item.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-olive">{item.body}</p>
+                  {item.file_name ? <p className="mt-2 text-xs text-olive">Bijlage: {item.file_name}</p> : null}
+                  {item.classification ? (
+                    <p className="mt-2 text-xs text-olive">{labelFor(requestClassifications, item.classification)}</p>
+                  ) : null}
                 </div>
                 <StatusBadge label={labelFor(requestStatuses, item.status)} tone={toneForStatus(item.status)} />
               </div>
