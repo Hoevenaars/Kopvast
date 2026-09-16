@@ -19,6 +19,8 @@ import {
   workspaceRoutes,
 } from "@/lib/product";
 import { loadCustomerWorkspace } from "@/lib/workspace";
+import { loadOrdersForOrganization } from "@/lib/order-ops";
+import { labelForOrderStatus } from "@/lib/orders";
 
 export const metadata: Metadata = {
   title: "Klant",
@@ -34,11 +36,40 @@ export default async function AdminCustomerDetailPage({
   const workspace = await loadCustomerWorkspace(id);
   if (!workspace) notFound();
   const { organization, members, projects, assets, requests } = workspace;
-  const onboardings = await loadOnboardingsForOrganization(organization.id);
+  const [orders, onboardings] = await Promise.all([
+    loadOrdersForOrganization(organization.id),
+    loadOnboardingsForOrganization(organization.id),
+  ]);
 
   return (
     <div className="space-y-8">
       <PageIntro eyebrow="Klant" title={organization.name} text={organization.website || "Geen website opgegeven"} />
+
+      <section className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <h2 className="text-xl text-ink">Opdrachten</h2>
+          <Link href={`${workspaceRoutes.adminOrders}/nieuw?organizationId=${organization.id}`} className="text-sm underline underline-offset-4">
+            Nieuwe opdracht
+          </Link>
+        </div>
+        {orders.length === 0 ? (
+          <EmptyState title="Nog geen opdracht" text="Na akkoord op een voorstel verschijnt hier de operationele uitvoering." />
+        ) : (
+          <ul className="divide-y divide-stone/40 rounded-2xl border border-stone/50">
+            {orders.map((order) => (
+              <li key={order.id}>
+                <Link href={`${workspaceRoutes.adminOrders}/${order.id}`} className="flex items-center justify-between px-5 py-4 hover:bg-muted/40">
+                  <div>
+                    <p className="text-sm font-medium text-ink">{order.order_number}</p>
+                    <p className="text-sm text-olive">{order.product_label}</p>
+                  </div>
+                  <StatusBadge label={labelForOrderStatus(order.status)} tone={toneForStatus(order.status)} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <form action={saveOrganization} className="mt-8 grid gap-4 rounded-2xl border border-stone/50 p-5 md:grid-cols-[16rem_1fr]">
         <input type="hidden" name="id" value={organization.id} />

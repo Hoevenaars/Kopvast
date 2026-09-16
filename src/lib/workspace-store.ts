@@ -7,7 +7,15 @@ import type {
   TodoLabelRow,
   TodoRow,
 } from "@/lib/todos";
-import type { OnboardingFileRow, OnboardingItemRow, OnboardingRow } from "@/lib/onboarding";
+import type { OnboardingFileRow, OnboardingItemRow, OnboardingRow as ChecklistOnboardingRow } from "@/lib/onboarding";
+import type {
+  InvoiceRow,
+  OnboardingRow,
+  OrderActivityRow,
+  OrderRow,
+  OrderWebsiteRow,
+  ProposalRow,
+} from "@/lib/orders";
 import type { AssetRow, LeadRow, MailRow, OrganizationRow, ProjectRow, RequestRow } from "@/lib/workspace";
 
 export type MemberRow = {
@@ -68,9 +76,15 @@ export type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
+  proposals: ProposalRow[];
+  orders: OrderRow[];
   onboardings: OnboardingRow[];
+  onboardingChecklists: ChecklistOnboardingRow[];
   onboardingItems: OnboardingItemRow[];
   onboardingFiles: OnboardingFileRow[];
+  orderWebsites: OrderWebsiteRow[];
+  invoices: InvoiceRow[];
+  orderActivities: OrderActivityRow[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -90,9 +104,15 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
+  proposals: [],
+  orders: [],
   onboardings: [],
+  onboardingChecklists: [],
   onboardingItems: [],
   onboardingFiles: [],
+  orderWebsites: [],
+  invoices: [],
+  orderActivities: [],
 });
 
 export async function readStore(): Promise<Store> {
@@ -106,9 +126,15 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
+      proposals: parsed.proposals ?? [],
+      orders: parsed.orders ?? [],
       onboardings: parsed.onboardings ?? [],
+      onboardingChecklists: parsed.onboardingChecklists ?? [],
       onboardingItems: parsed.onboardingItems ?? [],
       onboardingFiles: parsed.onboardingFiles ?? [],
+      orderWebsites: parsed.orderWebsites ?? [],
+      invoices: parsed.invoices ?? [],
+      orderActivities: parsed.orderActivities ?? [],
     };
   } catch {
     return empty();

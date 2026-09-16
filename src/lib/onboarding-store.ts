@@ -53,8 +53,8 @@ function seedIntoStore(
   project: { id: string; type: string; organization_id: string }
 ) {
   if (!projectNeedsOnboarding(project.type)) return null;
-  if (store.onboardings.some((item) => item.project_id === project.id)) {
-    return store.onboardings.find((item) => item.project_id === project.id) ?? null;
+  if (store.onboardingChecklists.some((item) => item.project_id === project.id)) {
+    return store.onboardingChecklists.find((item) => item.project_id === project.id) ?? null;
   }
   const built = buildOnboardingRecords({
     projectId: project.id,
@@ -63,7 +63,7 @@ function seedIntoStore(
     now: nowIso(),
     newId,
   });
-  store.onboardings.unshift(built.onboarding);
+  store.onboardingChecklists.unshift(built.onboarding);
   store.onboardingItems.push(...built.items);
   return built.onboarding;
 }
@@ -180,7 +180,7 @@ async function refreshDerivedStatus(onboardingId: string) {
     return;
   }
   await mutateStore((store) => {
-    const row = store.onboardings.find((item) => item.id === onboardingId);
+    const row = store.onboardingChecklists.find((item) => item.id === onboardingId);
     if (!row) return;
     row.status = derived.status;
     row.ready_at = derived.ready_at;
@@ -204,7 +204,7 @@ async function loadOnboardingRecord(id: string) {
     };
   }
   const store = await readStore();
-  const onboarding = store.onboardings.find((item) => item.id === id);
+  const onboarding = store.onboardingChecklists.find((item) => item.id === id);
   if (!onboarding) return null;
   return {
     onboarding,
@@ -225,7 +225,7 @@ export async function loadOnboardingWorkspaceByProject(projectId: string): Promi
     const { data } = await supabase.from("kopvast_onboardings").select("*").eq("project_id", projectId).maybeSingle();
     onboarding = (data as OnboardingRow | null) ?? null;
   } else {
-    onboarding = (await readStore()).onboardings.find((item) => item.project_id === projectId) ?? null;
+    onboarding = (await readStore()).onboardingChecklists.find((item) => item.project_id === projectId) ?? null;
   }
   if (!onboarding) return null;
   const record = await loadOnboardingRecord(onboarding.id);
@@ -487,7 +487,7 @@ export async function overrideOnboardingReady(input: {
     return { ok: true as const };
   }
   const updated = await mutateStore((store) => {
-    const row = store.onboardings.find((item) => item.id === input.onboardingId);
+    const row = store.onboardingChecklists.find((item) => item.id === input.onboardingId);
     if (!row) return false;
     Object.assign(row, patch);
     return true;
@@ -511,7 +511,7 @@ export async function clearOnboardingOverride(onboardingId: string) {
     if (error) return fail(error.message);
   } else {
     await mutateStore((store) => {
-      const row = store.onboardings.find((item) => item.id === onboardingId);
+      const row = store.onboardingChecklists.find((item) => item.id === onboardingId);
       if (!row) return;
       row.override_reason = null;
       row.overridden_by = null;
@@ -544,7 +544,7 @@ async function findItem(itemId: string) {
   const store = await readStore();
   const item = store.onboardingItems.find((row) => row.id === itemId);
   if (!item) return null;
-  const onboarding = store.onboardings.find((row) => row.id === item.onboarding_id);
+  const onboarding = store.onboardingChecklists.find((row) => row.id === item.onboarding_id);
   if (!onboarding) return null;
   return {
     item,

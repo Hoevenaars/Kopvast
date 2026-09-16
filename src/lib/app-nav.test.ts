@@ -14,6 +14,7 @@ test("klant en admin hebben een eigen navigatie op /klant en /admin", () => {
   assert.ok(customerNavigation.some((item) => item.href === "/klant/goedkeuringen"));
   assert.ok(customerNavigation.some((item) => item.href === "/klant/onboarding"));
   assert.ok(adminNavigation.some((item) => item.href === "/admin/onboarding"));
+  assert.ok(adminNavigation.some((item) => item.href === "/admin/opdrachten"));
   assert.ok(adminNavigation.some((item) => item.href === "/admin/gebruikers"));
   assert.ok(adminNavigation.some((item) => item.href === "/admin/automations"));
   assert.ok(adminNavigation.some((item) => item.href === "/admin/taken"));
@@ -30,5 +31,7 @@ test("actief menu-item volgt het pad zonder de root altijd te markeren", () => {
   assert.equal(isNavActive("/klant/wijzigingen", "/klant"), false);
   assert.equal(isNavActive("/klant/wijzigingen", "/klant/wijzigingen"), true);
   assert.equal(isNavActive("/admin/opdrachten/abc/onboarding", "/admin/onboarding"), true);
+  assert.equal(isNavActive("/admin/opdrachten/abc/onboarding", "/admin/opdrachten"), false);
+  assert.equal(isNavActive("/admin/opdrachten/abc", "/admin/opdrachten"), true);
   assert.equal(isNavActive("/klant/onboarding", "/klant/onboarding"), true);
 });
