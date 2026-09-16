@@ -71,24 +71,30 @@ REVOKE ALL ON TABLE public.kopvast_onboardings FROM anon, authenticated;
 REVOKE ALL ON TABLE public.kopvast_onboarding_items FROM anon, authenticated;
 REVOKE ALL ON TABLE public.kopvast_onboarding_files FROM anon, authenticated;
 
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'kopvast-onboarding',
-  'kopvast-onboarding',
-  false,
-  10485760,
-  ARRAY[
-    'image/png',
-    'image/jpeg',
-    'image/webp',
-    'image/gif',
-    'image/svg+xml',
-    'application/pdf',
-    'application/zip',
-    'application/x-zip-compressed',
-    'text/plain',
-    'text/csv',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  ]
-)
-ON CONFLICT (id) DO NOTHING;
+DO $$
+BEGIN
+  IF to_regclass('storage.buckets') IS NULL THEN
+    RETURN;
+  END IF;
+  INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  VALUES (
+    'kopvast-onboarding',
+    'kopvast-onboarding',
+    false,
+    10485760,
+    ARRAY[
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'image/gif',
+      'image/svg+xml',
+      'application/pdf',
+      'application/zip',
+      'application/x-zip-compressed',
+      'text/plain',
+      'text/csv',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ]
+  )
+  ON CONFLICT (id) DO NOTHING;
+END $$;
