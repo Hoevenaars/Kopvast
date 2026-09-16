@@ -1,6 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
+  AanvraagActivity,
+  AanvraagRecord,
+  ProposalLineRecord,
+  ProposalRecord,
+} from "@/lib/aanvragen-model";
+import type {
   ActivityRow,
   BrandProfileRow,
   CustomerReviewRow,
@@ -9,14 +15,6 @@ import type {
   ProposalRow as CustomerProposalRow,
   SupportRow,
 } from "@/lib/customers";
-import type {
-  TodoBucketRow,
-  TodoCommentRow,
-  TodoLabelLinkRow,
-  TodoLabelRow,
-  TodoRow,
-} from "@/lib/todos";
-import type { ApprovalRow, ChangeRequestRow, ProductionActivityRow, ProductionRow } from "@/lib/production";
 import type { OnboardingFileRow, OnboardingItemRow, OnboardingRow as ChecklistOnboardingRow } from "@/lib/onboarding";
 import type {
   InvoiceRow,
@@ -26,6 +24,14 @@ import type {
   OrderWebsiteRow,
   ProposalRow,
 } from "@/lib/orders";
+import type { ApprovalRow, ChangeRequestRow, ProductionActivityRow, ProductionRow } from "@/lib/production";
+import type {
+  TodoBucketRow,
+  TodoCommentRow,
+  TodoLabelLinkRow,
+  TodoLabelRow,
+  TodoRow,
+} from "@/lib/todos";
 import type { AssetRow, LeadRow, MailRow, OrganizationRow, ProjectRow, RequestRow } from "@/lib/workspace";
 
 export type MemberRow = {
@@ -86,6 +92,10 @@ export type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
+  aanvragen: AanvraagRecord[];
+  aanvraagProposals: ProposalRecord[];
+  proposalLines: ProposalLineRecord[];
+  aanvraagActivities: AanvraagActivity[];
   productions: ProductionRow[];
   changeRequests: ChangeRequestRow[];
   approvals: ApprovalRow[];
@@ -125,6 +135,10 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
+  aanvragen: [],
+  aanvraagProposals: [],
+  proposalLines: [],
+  aanvraagActivities: [],
   productions: [],
   changeRequests: [],
   approvals: [],
@@ -158,6 +172,10 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
+      aanvragen: parsed.aanvragen ?? [],
+      aanvraagProposals: parsed.aanvraagProposals ?? [],
+      proposalLines: parsed.proposalLines ?? [],
+      aanvraagActivities: parsed.aanvraagActivities ?? [],
       productions: parsed.productions ?? [],
       changeRequests: parsed.changeRequests ?? [],
       approvals: parsed.approvals ?? [],
