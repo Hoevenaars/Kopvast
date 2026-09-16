@@ -111,7 +111,19 @@ export default async function CustomerApprovalsPage() {
                   </p>
                 ) : null}
                 {needsFinal ? <FinalApprovalForm productionId={production.id} defaultName={defaultName} /> : null}
-                {conceptApproval && !needsFinal && production.status !== "live" && !inReview ? (
+                {finalApproval ? (
+                  <div className="rounded-2xl border border-ink/10 bg-white p-5">
+                    <h3 className="text-lg font-semibold">Definitief akkoord vastgelegd</h3>
+                    <p className="mt-2 text-sm leading-6 text-ink/50">
+                      {finalApproval.name} · {finalApproval.email} · {new Date(finalApproval.created_at).toLocaleString("nl-NL")}
+                    </p>
+                    {conceptApproval ? (
+                      <p className="mt-2 text-sm text-ink/45">
+                        Conceptakkoord van {conceptApproval.name} op {new Date(conceptApproval.created_at).toLocaleString("nl-NL")}.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : conceptApproval && !inReview ? (
                   <p className="text-sm text-ink/50">
                     Conceptakkoord van {conceptApproval.name} op {new Date(conceptApproval.created_at).toLocaleString("nl-NL")}.
                   </p>
