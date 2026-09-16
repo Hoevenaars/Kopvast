@@ -45,9 +45,11 @@ export const workspaceRoutes = {
   adminAcquisitionNew: "/admin/acquisitie/nieuw",
   adminLeads: "/admin/leads",
   adminCustomers: "/admin/klanten",
+  adminOnboarding: "/admin/onboarding",
   adminOrders: "/admin/opdrachten",
   adminUsers: "/admin/gebruikers",
   adminMail: "/admin/mails",
+  consoleOnboarding: "/klant/onboarding",
 } as const;
 
 export const organizationStatuses = [

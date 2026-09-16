@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FilePenLine, Globe2, ImageIcon, Palette } from "lucide-react";
+import { ArrowRight, ClipboardCheck, FilePenLine, Globe2, ImageIcon, Palette } from "lucide-react";
 import type { ElementType } from "react";
 import { PageIntro } from "@/components/workspace/page-frame";
+import { requireSession } from "@/lib/auth";
 import { customerHomeMock } from "@/lib/console-ui";
+import { onboardingProgress } from "@/lib/onboarding";
+import { loadOnboardingsForOrganization } from "@/lib/onboarding-store";
 import { workspaceRoutes } from "@/lib/product";
 
 export const metadata: Metadata = {
@@ -12,13 +15,24 @@ export const metadata: Metadata = {
 };
 
 const actions: Array<{ title: string; description: string; href: string; icon: ElementType }> = [
+  { title: "Onboarding", description: "Lever gegevens en bestanden aan.", href: workspaceRoutes.consoleOnboarding, icon: ClipboardCheck },
   { title: "Tekst aanpassen", description: "Wijzig teksten op je website.", href: "/klant/paginas", icon: FilePenLine },
   { title: "Afbeelding vervangen", description: "Beheer foto's en afbeeldingen.", href: workspaceRoutes.consoleFiles, icon: ImageIcon },
   { title: "Wijziging aanvragen", description: "Vraag Kopvast om iets aan te passen.", href: workspaceRoutes.consoleRequests, icon: ArrowRight },
   { title: "Mijn merk", description: "Bekijk kleuren, logo's en bestanden.", href: "/klant/merk", icon: Palette },
 ];
 
-export default function CustomerDashboard() {
+export default async function CustomerDashboard() {
+  const session = await requireSession("customer");
+  const workspaces = session?.organizationId ? await loadOnboardingsForOrganization(session.organizationId) : [];
+  const onboardingAttention = workspaces
+    .map((workspace) => ({ workspace, progress: onboardingProgress(workspace.onboarding, workspace.items) }))
+    .filter((item) => !item.progress.ready)
+    .map((item) => ({
+      title: item.progress.summary,
+      href: workspaceRoutes.consoleOnboarding,
+    }));
+  const attention = [...onboardingAttention, ...customerHomeMock.attention];
   return (
     <div className="space-y-8">
       <PageIntro
@@ -55,14 +69,14 @@ export default function CustomerDashboard() {
 
       <section className="rounded-2xl border border-ink/10 bg-white p-5">
         <div className="text-xs font-semibold tracking-[0.14em] text-ink/35 uppercase">Actie nodig</div>
-        {customerHomeMock.attention.length === 0 ? (
+        {attention.length === 0 ? (
           <>
             <h2 className="mt-3 text-lg font-semibold">Niets te doen</h2>
             <p className="mt-2 text-sm leading-6 text-ink/50">Er staan geen goedkeuringen of openstaande verzoeken klaar.</p>
           </>
         ) : (
           <ul className="mt-4 space-y-3">
-            {customerHomeMock.attention.map((item) => (
+            {attention.map((item) => (
               <li key={item.title}>
                 <Link href={item.href} className="flex items-center justify-between gap-3 text-sm font-semibold">
                   {item.title}
@@ -79,7 +93,7 @@ export default function CustomerDashboard() {
           <h2 className="text-lg font-semibold">Snelle acties</h2>
           <p className="text-sm text-ink/45">De meest gebruikte onderdelen van je omgeving.</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {actions.map((item) => (
             <QuickAction key={item.title} {...item} />
           ))}

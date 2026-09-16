@@ -7,6 +7,8 @@ import { PageIntro } from "@/components/workspace/page-frame";
 import { EmptyState } from "@/components/workspace/shell";
 import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
 import { areaClass, fieldClass } from "@/components/form-fields";
+import { onboardingProgress } from "@/lib/onboarding";
+import { loadOnboardingsForOrganization } from "@/lib/onboarding-store";
 import {
   assetKinds,
   labelFor,
@@ -34,7 +36,10 @@ export default async function AdminCustomerDetailPage({
   const workspace = await loadCustomerWorkspace(id);
   if (!workspace) notFound();
   const { organization, members, projects, assets, requests } = workspace;
-  const orders = await loadOrdersForOrganization(organization.id);
+  const [orders, onboardings] = await Promise.all([
+    loadOrdersForOrganization(organization.id),
+    loadOnboardingsForOrganization(organization.id),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -135,6 +140,33 @@ export default async function AdminCustomerDetailPage({
           </li>
         ))}
       </ul>
+
+      <h2 className="mt-12 text-xl text-ink">Onboarding</h2>
+      {onboardings.length === 0 ? (
+        <div className="mt-4">
+          <EmptyState title="Geen onboarding" text="Website- en maatwerkopdrachten krijgen een checklist na het omzetten van een aanvraag." />
+        </div>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {onboardings.map((item) => {
+            const progress = onboardingProgress(item.onboarding, item.items);
+            return (
+              <li key={item.onboarding.id}>
+                <Link
+                  href={`${workspaceRoutes.adminOrders}/${item.project.id}/onboarding`}
+                  className="flex flex-col gap-1 rounded-2xl border border-stone/50 p-5 hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-ink">{item.project.title}</p>
+                    <p className="text-sm text-olive">{progress.summary}</p>
+                  </div>
+                  <StatusBadge label={progress.ready ? "Klaar" : "Open"} tone={progress.ready ? "ink" : "copper"} />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <h2 className="mt-12 text-xl text-ink">Bestanden</h2>
       {assets.length === 0 ? (

@@ -7,6 +7,7 @@ import type {
   TodoLabelRow,
   TodoRow,
 } from "@/lib/todos";
+import type { OnboardingFileRow, OnboardingItemRow, OnboardingRow as ChecklistOnboardingRow } from "@/lib/onboarding";
 import type {
   InvoiceRow,
   OnboardingRow,
@@ -60,7 +61,7 @@ export type LocalMailTemplate = {
   updated_by: string | null;
 };
 
-type Store = {
+export type Store = {
   organizations: OrganizationRow[];
   members: MemberRow[];
   projects: ProjectRow[];
@@ -78,6 +79,9 @@ type Store = {
   proposals: ProposalRow[];
   orders: OrderRow[];
   onboardings: OnboardingRow[];
+  onboardingChecklists: ChecklistOnboardingRow[];
+  onboardingItems: OnboardingItemRow[];
+  onboardingFiles: OnboardingFileRow[];
   orderWebsites: OrderWebsiteRow[];
   invoices: InvoiceRow[];
   orderActivities: OrderActivityRow[];
@@ -103,6 +107,9 @@ const empty = (): Store => ({
   proposals: [],
   orders: [],
   onboardings: [],
+  onboardingChecklists: [],
+  onboardingItems: [],
+  onboardingFiles: [],
   orderWebsites: [],
   invoices: [],
   orderActivities: [],
@@ -122,6 +129,9 @@ export async function readStore(): Promise<Store> {
       proposals: parsed.proposals ?? [],
       orders: parsed.orders ?? [],
       onboardings: parsed.onboardings ?? [],
+      onboardingChecklists: parsed.onboardingChecklists ?? [],
+      onboardingItems: parsed.onboardingItems ?? [],
+      onboardingFiles: parsed.onboardingFiles ?? [],
       orderWebsites: parsed.orderWebsites ?? [],
       invoices: parsed.invoices ?? [],
       orderActivities: parsed.orderActivities ?? [],
