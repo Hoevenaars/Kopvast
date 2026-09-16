@@ -27,16 +27,30 @@ export function toneForStatus(status: string): "olive" | "copper" | "ink" {
       "missing",
       "rejected",
       "open",
+      "OPEN",
       "ON_HOLD",
       "CHANGES",
+      "ready_for_production",
+      "changes",
     ].includes(status)
   ) {
     return "copper";
   }
   if (
-    ["live", "LIVE", "klaar", "gesloten", "OMGEZET", "active", "opgeleverd", "ready", "approved", "COMPLETED"].includes(
-      status
-    )
+    [
+      "live",
+      "LIVE",
+      "klaar",
+      "DONE",
+      "gesloten",
+      "OMGEZET",
+      "active",
+      "opgeleverd",
+      "ready",
+      "approved",
+      "ready_to_launch",
+      "COMPLETED",
+    ].includes(status)
   ) {
     return "ink";
   }

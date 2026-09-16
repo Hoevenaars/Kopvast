@@ -7,6 +7,7 @@ import { loadCustomerDossier } from "@/lib/customer-dossier";
 import { loadOnboardingsForOrganization } from "@/lib/onboarding-store";
 import { loadOrdersForOrganization } from "@/lib/order-ops";
 import { workspaceRoutes } from "@/lib/product";
+import { loadProductionsForOrganization } from "@/lib/production-board";
 import { cn } from "@/lib/utils";
 import {
   ActivityPanel,
@@ -39,9 +40,10 @@ export default async function AdminCustomerDetailPage({
   const tab = tabParam && isCustomerTab(tabParam) ? tabParam : "overzicht";
   const dossier = await loadCustomerDossier(id);
   if (!dossier) notFound();
-  const [orders, onboardings] = await Promise.all([
+  const [orders, onboardings, productions] = await Promise.all([
     loadOrdersForOrganization(dossier.organization.id),
     loadOnboardingsForOrganization(dossier.organization.id),
+    loadProductionsForOrganization(dossier.organization.id),
   ]);
 
   return (
@@ -50,6 +52,13 @@ export default async function AdminCustomerDetailPage({
         eyebrow="Klant"
         title={dossier.organization.name}
         text={dossier.facts.nextAction ? `Volgende actie: ${dossier.facts.nextAction}` : dossier.organization.website || "Klantdossier"}
+        action={
+          productions[0] ? (
+            <Link href={`${workspaceRoutes.adminProductie}/${productions[0].id}`} className="text-sm underline underline-offset-4">
+              Naar productie
+            </Link>
+          ) : null
+        }
       />
 
       <nav className="flex gap-2 overflow-x-auto pb-1">

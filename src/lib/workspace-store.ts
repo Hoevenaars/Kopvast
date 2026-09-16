@@ -16,6 +16,7 @@ import type {
   TodoLabelRow,
   TodoRow,
 } from "@/lib/todos";
+import type { ApprovalRow, ChangeRequestRow, ProductionActivityRow, ProductionRow } from "@/lib/production";
 import type { OnboardingFileRow, OnboardingItemRow, OnboardingRow as ChecklistOnboardingRow } from "@/lib/onboarding";
 import type {
   InvoiceRow,
@@ -85,6 +86,10 @@ export type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
+  productions: ProductionRow[];
+  changeRequests: ChangeRequestRow[];
+  approvals: ApprovalRow[];
+  productionActivity: ProductionActivityRow[];
   proposals: ProposalRow[];
   customerProposals: CustomerProposalRow[];
   orders: OrderRow[];
@@ -120,6 +125,10 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
+  productions: [],
+  changeRequests: [],
+  approvals: [],
+  productionActivity: [],
   proposals: [],
   customerProposals: [],
   orders: [],
@@ -149,6 +158,10 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
+      productions: parsed.productions ?? [],
+      changeRequests: parsed.changeRequests ?? [],
+      approvals: parsed.approvals ?? [],
+      productionActivity: parsed.productionActivity ?? [],
       proposals: parsed.proposals ?? [],
       customerProposals: parsed.customerProposals ?? [],
       orders: parsed.orders ?? [],

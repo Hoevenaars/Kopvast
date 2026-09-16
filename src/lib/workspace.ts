@@ -14,6 +14,7 @@ import {
   type RequestClassification,
   type RequestType,
 } from "@/lib/product";
+import { isDeliveryProject, seedProductionFields } from "@/lib/production";
 import { addOnboardingToStore, ensureOnboardingsForProjects } from "@/lib/onboarding-store";
 import { products } from "@/lib/site";
 import {
@@ -501,12 +502,13 @@ export async function convertLead(leadId: string) {
       organization_id: created.id,
     }));
     if (projects.length) {
-      const { data: createdProjects } = await supabase
-        .from("kopvast_projects")
-        .insert(projects)
-        .select("id, type, organization_id");
+      const { data: createdProjects } = await supabase.from("kopvast_projects").insert(projects).select("*");
       if (createdProjects?.length) {
         await ensureOnboardingsForProjects(createdProjects);
+        const productions = (createdProjects as ProjectRow[])
+          .filter((project) => isDeliveryProject(project.type))
+          .map((project) => seedProductionFields(project));
+        if (productions.length) await supabase.from("kopvast_productions").insert(productions);
       }
     }
     await supabase.from("inbound_leads").update({ status: "OMGEZET" }).eq("id", lead.id);
@@ -544,6 +546,14 @@ export async function convertLead(leadId: string) {
       };
       store.projects.push(row);
       addOnboardingToStore(store, row);
+      if (isDeliveryProject(row.type)) {
+        store.productions.unshift({
+          ...seedProductionFields(row),
+          id: newId(),
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        });
+      }
     }
     return { ok: true as const, organizationId: created.id };
   });

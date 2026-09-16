@@ -26,6 +26,7 @@ export async function convertLeadAction(formData: FormData) {
   revalidatePath(workspaceRoutes.adminCustomers);
   revalidatePath(workspaceRoutes.adminLeads);
   if (result.ok) {
+    revalidatePath(workspaceRoutes.adminProductie);
     redirect(`${workspaceRoutes.adminCustomers}/${result.organizationId}`);
   }
   if ("needsReview" in result && result.needsReview) {

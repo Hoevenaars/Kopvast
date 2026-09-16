@@ -1,6 +1,7 @@
 import { loadDueOrderActions } from "@/lib/order-ops";
 import { loadAcquisitionDashboard, type DashboardAction } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
+import { productionNotifications } from "@/lib/production-board";
 import { refreshClient } from "@/lib/refresh";
 import { loadOpenSupportActions } from "@/lib/workspace";
 
@@ -55,6 +56,13 @@ export async function loadAdminNotifications(): Promise<NotificationItem[]> {
         status: "Actie nodig",
       });
     }
+  }
+
+  try {
+    const productionItems = await productionNotifications();
+    items.unshift(...productionItems);
+  } catch (error) {
+    console.error("[kopvast] Productiemeldingen laden mislukt", error);
   }
 
   const dueOrders = await loadDueOrderActions();
