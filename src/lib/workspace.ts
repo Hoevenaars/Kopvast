@@ -1,3 +1,5 @@
+import { seedBillingForProjects } from "@/lib/billing";
+import { billingDraftsForProjects } from "@/lib/invoices";
 import { refreshClient } from "@/lib/refresh";
 import {
   isAssetKind,
@@ -347,7 +349,15 @@ export async function convertLead(leadId: string) {
       ...project,
       organization_id: created.id,
     }));
-    if (projects.length) await supabase.from("kopvast_projects").insert(projects);
+    if (projects.length) {
+      const { data: createdProjects } = await supabase
+        .from("kopvast_projects")
+        .insert(projects)
+        .select("id, organization_id, type, title");
+      await seedBillingForProjects(
+        (createdProjects ?? []) as Array<{ id: string; organization_id: string; type: string; title: string }>
+      );
+    }
     await supabase.from("inbound_leads").update({ status: "OMGEZET" }).eq("id", lead.id);
     return { ok: true as const, organizationId: created.id as string };
   }
@@ -371,16 +381,23 @@ export async function convertLead(leadId: string) {
       role: "owner",
       access_enabled: true,
     });
-    for (const project of defaultProjectsForLead(lead.type)) {
-      store.projects.push({
-        ...project,
-        id: newId(),
-        organization_id: created.id,
-        started_at: null,
-        due_at: null,
-        live_at: null,
-        created_at: nowIso(),
-      });
+    const createdProjects = defaultProjectsForLead(lead.type).map((project) => ({
+      ...project,
+      id: newId(),
+      organization_id: created.id,
+      started_at: null,
+      due_at: null,
+      live_at: null,
+      created_at: nowIso(),
+    }));
+    store.projects.push(...createdProjects);
+    const drafts = billingDraftsForProjects(createdProjects);
+    const createdAt = nowIso();
+    for (const invoice of drafts.invoices) {
+      store.invoices.unshift({ ...invoice, id: newId(), created_at: createdAt, updated_at: createdAt });
+    }
+    for (const item of drafts.recurring) {
+      store.recurring.unshift({ ...item, id: newId(), created_at: createdAt, updated_at: createdAt });
     }
     return { ok: true as const, organizationId: created.id };
   });

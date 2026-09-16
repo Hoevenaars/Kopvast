@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { InvoiceRow, RecurringRow } from "@/lib/invoices";
 import type {
   TodoBucketRow,
   TodoCommentRow,
@@ -67,6 +68,8 @@ type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
+  invoices: InvoiceRow[];
+  recurring: RecurringRow[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -86,6 +89,8 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
+  invoices: [],
+  recurring: [],
 });
 
 export async function readStore(): Promise<Store> {
@@ -99,6 +104,8 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
+      invoices: parsed.invoices ?? [],
+      recurring: parsed.recurring ?? [],
     };
   } catch {
     return empty();

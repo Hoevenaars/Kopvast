@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { EmptyState } from "@/components/workspace/shell";
+import { ProjectPayment } from "@/components/workspace/project-payment";
 import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
 import { requireSession } from "@/lib/auth";
+import { loadOrganizationBilling } from "@/lib/billing";
 import { labelFor, projectStatuses, projectTypes, workspaceRoutes } from "@/lib/product";
 import { loadCustomerWorkspace } from "@/lib/workspace";
 
@@ -17,6 +19,7 @@ export default async function CustomerWebsitePage() {
   if (!session?.organizationId) redirect(workspaceRoutes.login);
   const workspace = await loadCustomerWorkspace(session.organizationId);
   if (!workspace) redirect(workspaceRoutes.login);
+  const billing = await loadOrganizationBilling(workspace.organization.id);
 
   return (
     <div className="space-y-8">
@@ -40,6 +43,7 @@ export default async function CustomerWebsitePage() {
               </div>
               {project.summary ? <p className="mt-3 text-sm leading-6 text-ink/50">{project.summary}</p> : null}
               {project.price_label ? <p className="mt-3 text-sm text-ink">{project.price_label}</p> : null}
+              <ProjectPayment invoices={billing.invoices} recurring={billing.recurring} projectId={project.id} />
             </li>
           ))}
         </ul>
