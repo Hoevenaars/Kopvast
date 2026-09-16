@@ -1,6 +1,31 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { InvoiceRow, RecurringRow } from "@/lib/invoices";
+import type { InvoiceRow as BillingInvoiceRow, RecurringRow } from "@/lib/invoices";
+import type {
+  AanvraagActivity,
+  AanvraagRecord,
+  ProposalLineRecord,
+  ProposalRecord,
+} from "@/lib/aanvragen-model";
+import type {
+  ActivityRow,
+  BrandProfileRow,
+  CustomerReviewRow,
+  InvoiceRow as CustomerInvoiceRow,
+  NoteRow,
+  ProposalRow as CustomerProposalRow,
+  SupportRow,
+} from "@/lib/customers";
+import type { OnboardingFileRow, OnboardingItemRow, OnboardingRow as ChecklistOnboardingRow } from "@/lib/onboarding";
+import type {
+  InvoiceRow,
+  OnboardingRow,
+  OrderActivityRow,
+  OrderRow,
+  OrderWebsiteRow,
+  ProposalRow,
+} from "@/lib/orders";
+import type { ApprovalRow, ChangeRequestRow, ProductionActivityRow, ProductionRow } from "@/lib/production";
 import type {
   TodoBucketRow,
   TodoCommentRow,
@@ -53,7 +78,7 @@ export type LocalMailTemplate = {
   updated_by: string | null;
 };
 
-type Store = {
+export type Store = {
   organizations: OrganizationRow[];
   members: MemberRow[];
   projects: ProjectRow[];
@@ -68,8 +93,32 @@ type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
-  invoices: InvoiceRow[];
+  billingInvoices: BillingInvoiceRow[];
   recurring: RecurringRow[];
+  aanvragen: AanvraagRecord[];
+  aanvraagProposals: ProposalRecord[];
+  proposalLines: ProposalLineRecord[];
+  aanvraagActivities: AanvraagActivity[];
+  productions: ProductionRow[];
+  changeRequests: ChangeRequestRow[];
+  approvals: ApprovalRow[];
+  productionActivity: ProductionActivityRow[];
+  proposals: ProposalRow[];
+  customerProposals: CustomerProposalRow[];
+  orders: OrderRow[];
+  onboardings: OnboardingRow[];
+  onboardingChecklists: ChecklistOnboardingRow[];
+  onboardingItems: OnboardingItemRow[];
+  onboardingFiles: OnboardingFileRow[];
+  orderWebsites: OrderWebsiteRow[];
+  invoices: InvoiceRow[];
+  customerInvoices: CustomerInvoiceRow[];
+  orderActivities: OrderActivityRow[];
+  notes: NoteRow[];
+  support: SupportRow[];
+  brandProfiles: BrandProfileRow[];
+  activity: ActivityRow[];
+  customerReviews: CustomerReviewRow[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -89,8 +138,32 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
-  invoices: [],
+  billingInvoices: [],
   recurring: [],
+  aanvragen: [],
+  aanvraagProposals: [],
+  proposalLines: [],
+  aanvraagActivities: [],
+  productions: [],
+  changeRequests: [],
+  approvals: [],
+  productionActivity: [],
+  proposals: [],
+  customerProposals: [],
+  orders: [],
+  onboardings: [],
+  onboardingChecklists: [],
+  onboardingItems: [],
+  onboardingFiles: [],
+  orderWebsites: [],
+  invoices: [],
+  customerInvoices: [],
+  orderActivities: [],
+  notes: [],
+  support: [],
+  brandProfiles: [],
+  activity: [],
+  customerReviews: [],
 });
 
 export async function readStore(): Promise<Store> {
@@ -104,8 +177,32 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
-      invoices: parsed.invoices ?? [],
+      billingInvoices: parsed.billingInvoices ?? [],
       recurring: parsed.recurring ?? [],
+      aanvragen: parsed.aanvragen ?? [],
+      aanvraagProposals: parsed.aanvraagProposals ?? [],
+      proposalLines: parsed.proposalLines ?? [],
+      aanvraagActivities: parsed.aanvraagActivities ?? [],
+      productions: parsed.productions ?? [],
+      changeRequests: parsed.changeRequests ?? [],
+      approvals: parsed.approvals ?? [],
+      productionActivity: parsed.productionActivity ?? [],
+      proposals: parsed.proposals ?? [],
+      customerProposals: parsed.customerProposals ?? [],
+      orders: parsed.orders ?? [],
+      onboardings: parsed.onboardings ?? [],
+      onboardingChecklists: parsed.onboardingChecklists ?? [],
+      onboardingItems: parsed.onboardingItems ?? [],
+      onboardingFiles: parsed.onboardingFiles ?? [],
+      orderWebsites: parsed.orderWebsites ?? [],
+      invoices: parsed.invoices ?? [],
+      customerInvoices: parsed.customerInvoices ?? [],
+      orderActivities: parsed.orderActivities ?? [],
+      notes: parsed.notes ?? [],
+      support: parsed.support ?? [],
+      brandProfiles: parsed.brandProfiles ?? [],
+      activity: parsed.activity ?? [],
+      customerReviews: parsed.customerReviews ?? [],
     };
   } catch {
     return empty();

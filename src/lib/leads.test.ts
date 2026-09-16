@@ -46,7 +46,8 @@ test("zet website-aanvraag om naar Website Refresh inbound lead", () => {
   assert.equal(inboundType("website-aanvraag"), "website");
   assert.equal(row.type, "website");
   assert.equal(row.status, "NIEUW");
-  assert.equal(row.source, "kopvast");
+  assert.equal(row.source, "website-aanvraag");
+  assert.equal(row.product_fit, "STANDARD_FIT");
   assert.equal(row.has_brand, "verouderd");
   assert.equal(row.pages, "Home, Contact");
 });
@@ -70,6 +71,8 @@ test("zet maatwerkvraag om naar Website Refresh inbound lead", () => {
   });
   assert.equal(row.type, "maatwerk");
   assert.equal(row.status, "MAATWERK_REVIEW");
+  assert.equal(row.product_fit, "CUSTOM_FIT");
+  assert.equal(row.source, "maatwerk");
   assert.equal(row.request_detail, "Webshop");
   assert.equal(row.functionality, "webshop");
 });

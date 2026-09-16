@@ -39,16 +39,28 @@ export const workspaceRoutes = {
   consoleFiles: "/klant/media",
   consoleRequests: "/klant/wijzigingen",
   consoleInvoices: "/klant/facturen",
+  consoleApprovals: "/klant/goedkeuringen",
+  consoleSupport: "/klant/support",
   admin: "/admin",
   adminTaken: "/admin/taken",
   adminProspects: "/admin/prospects",
   adminAcquisition: "/admin/acquisitie",
   adminAcquisitionNew: "/admin/acquisitie/nieuw",
-  adminLeads: "/admin/leads",
+  adminAanvragen: "/admin/aanvragen",
+  adminAanvragenNew: "/admin/aanvragen/nieuw",
+  adminVoorstellen: "/admin/voorstellen",
+  adminLeads: "/admin/aanvragen",
   adminCustomers: "/admin/klanten",
   adminInvoices: "/admin/facturatie",
+  adminProductie: "/admin/productie",
+  adminOnboarding: "/admin/onboarding",
+  adminOrders: "/admin/opdrachten",
   adminUsers: "/admin/gebruikers",
+  adminWebsites: "/admin/websites",
+  adminBeheer: "/admin/beheer",
+  adminSupport: "/admin/support",
   adminMail: "/admin/mails",
+  consoleOnboarding: "/klant/onboarding",
 } as const;
 
 export const organizationStatuses = [
@@ -73,6 +85,13 @@ export const projectStatuses = [
   { value: "wacht_op_klant", label: "Wacht op jou" },
   { value: "opgeleverd", label: "Opgeleverd" },
   { value: "live", label: "Live" },
+  { value: "gepauzeerd", label: "Gepauzeerd" },
+  { value: "opgezegd", label: "Opgezegd" },
+] as const;
+
+export const beheerStatuses = [
+  { value: "live", label: "Actief" },
+  { value: "gepauzeerd", label: "Gepauzeerd" },
   { value: "opgezegd", label: "Opgezegd" },
 ] as const;
 
@@ -80,14 +99,24 @@ export const requestTypes = [
   { value: "wijziging", label: "Kleine wijziging" },
   { value: "vraag", label: "Vraag" },
   { value: "content", label: "Content of tekst" },
+  { value: "post_launch", label: "Wijziging na livegang" },
 ] as const;
 
+export const customerRequestTypes = requestTypes.filter((item) => item.value !== "post_launch");
+
 export const requestStatuses = [
-  { value: "nieuw", label: "Nieuw" },
+  { value: "nieuw", label: "Open" },
   { value: "in_behandeling", label: "In behandeling" },
   { value: "wacht_op_klant", label: "Wacht op klant" },
-  { value: "klaar", label: "Klaar" },
+  { value: "klaar", label: "Opgelost" },
+  { value: "gesloten", label: "Gesloten" },
   { value: "afgewezen", label: "Afgewezen" },
+] as const;
+
+export const requestClassifications = [
+  { value: "inbegrepen", label: "Inbegrepen wijziging" },
+  { value: "extra_werk", label: "Extra werk / maatwerk" },
+  { value: "offerte_nodig", label: "Extra offerte nodig" },
 ] as const;
 
 export const assetKinds = [
@@ -101,18 +130,23 @@ export const assetKinds = [
 
 export const leadStatuses = [
   { value: "NIEUW", label: "Nieuw" },
-  { value: "MAATWERK_REVIEW", label: "Maatwerk" },
+  { value: "MAATWERK_REVIEW", label: "Review nodig" },
+  { value: "QUALIFIED", label: "Qualified" },
+  { value: "PROPOSAL_NEEDED", label: "Voorstel nodig" },
   { value: "IN_GESPREK", label: "In gesprek" },
   { value: "GEWONNEN", label: "Gewonnen" },
+  { value: "VERLOREN", label: "Verloren" },
   { value: "OMGEZET", label: "Klant" },
-  { value: "AFGEWEZEN", label: "Afgewezen" },
+  { value: "AFGEWEZEN", label: "Verloren" },
 ] as const;
 
 export type OrganizationStatus = (typeof organizationStatuses)[number]["value"];
 export type ProjectType = (typeof projectTypes)[number]["value"];
 export type ProjectStatus = (typeof projectStatuses)[number]["value"];
+export type BeheerStatus = (typeof beheerStatuses)[number]["value"];
 export type RequestType = (typeof requestTypes)[number]["value"];
 export type RequestStatus = (typeof requestStatuses)[number]["value"];
+export type RequestClassification = (typeof requestClassifications)[number]["value"];
 export type AssetKind = (typeof assetKinds)[number]["value"];
 export type LeadStatus = (typeof leadStatuses)[number]["value"];
 
@@ -125,6 +159,22 @@ export function labelFor<T extends { value: string; label: string }>(
 
 export function isRequestType(value: string): value is RequestType {
   return requestTypes.some((item) => item.value === value);
+}
+
+export function isRequestStatus(value: string): value is RequestStatus {
+  return requestStatuses.some((item) => item.value === value);
+}
+
+export function isRequestClassification(value: string): value is RequestClassification {
+  return requestClassifications.some((item) => item.value === value);
+}
+
+export function isBeheerStatus(value: string): value is BeheerStatus {
+  return beheerStatuses.some((item) => item.value === value);
+}
+
+export function isProjectType(value: string): value is ProjectType {
+  return projectTypes.some((item) => item.value === value);
 }
 
 export function isProjectStatus(value: string): value is ProjectStatus {

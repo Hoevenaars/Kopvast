@@ -115,7 +115,7 @@ export async function loadInvoices() {
     const { data } = await supabase.from("kopvast_invoices").select("*").order("created_at", { ascending: false });
     return ((data ?? []) as InvoiceRow[]).map(asInvoice);
   }
-  return (await readStore()).invoices.map(asInvoice);
+  return (await readStore()).billingInvoices.map(asInvoice);
 }
 
 export async function loadRecurring() {
@@ -192,7 +192,7 @@ export async function seedBillingForProjects(
   await mutateStore((store) => {
     const created = nowIso();
     for (const invoice of drafts.invoices) {
-      store.invoices.unshift({ ...invoice, id: newId(), created_at: created, updated_at: created });
+      store.billingInvoices.unshift({ ...invoice, id: newId(), created_at: created, updated_at: created });
     }
     for (const item of drafts.recurring) {
       store.recurring.unshift({ ...item, id: newId(), created_at: created, updated_at: created });
@@ -228,7 +228,7 @@ export async function createInvoice(input: {
   }
   return mutateStore((store) => {
     const created = { ...row, id: newId(), created_at: nowIso(), updated_at: nowIso() };
-    store.invoices.unshift(created);
+    store.billingInvoices.unshift(created);
     return { ok: true as const, id: created.id };
   });
 }
@@ -347,7 +347,7 @@ async function patchInvoice(id: string, patch: Record<string, unknown>) {
     return { ok: true as const };
   }
   return mutateStore((store) => {
-    const invoice = store.invoices.find((item) => item.id === id);
+    const invoice = store.billingInvoices.find((item) => item.id === id);
     if (!invoice) return { ok: false as const, message: "Factuur niet gevonden." };
     Object.assign(invoice, patch);
     return { ok: true as const };
