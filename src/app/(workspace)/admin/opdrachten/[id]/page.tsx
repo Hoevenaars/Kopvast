@@ -75,7 +75,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           <h2 className="font-semibold">Statusflow</h2>
           <p className="mt-1 text-sm text-ink/45">Handmatig wijzigen mag. Kritieke stappen overslaan alleen met override.</p>
           <div className="mt-4">
-            <OrderStatusForm orderId={order.id} status={order.status} visited={order.visited_statuses} />
+            <OrderStatusForm key={order.status} orderId={order.id} status={order.status} visited={order.visited_statuses} />
           </div>
         </section>
       </div>
