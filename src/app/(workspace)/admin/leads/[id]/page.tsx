@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { convertLeadAction, setLeadStatus } from "@/app/(workspace)/admin/leads/actions";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
 import { fieldClass } from "@/components/form-fields";
-import { labelFor, leadStatuses } from "@/lib/product";
+import { labelFor, leadStatuses, workspaceRoutes } from "@/lib/product";
 import { loadLead } from "@/lib/workspace";
 
 export const metadata: Metadata = {
@@ -80,6 +81,12 @@ export default async function AdminLeadDetailPage({
             </button>
           </form>
         ) : null}
+        <Link
+          href={`${workspaceRoutes.adminProposalsNew}?lead=${lead.id}`}
+          className="inline-flex h-11 items-center rounded-md border border-stone px-5 text-sm text-ink"
+        >
+          Maak voorstel
+        </Link>
       </div>
     </div>
   );

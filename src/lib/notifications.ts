@@ -1,5 +1,6 @@
 import { loadAcquisitionDashboard, type DashboardAction } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
+import { loadProposalTodayActions } from "@/lib/proposal-ops";
 import { refreshClient } from "@/lib/refresh";
 
 export type NotificationItem = {
@@ -21,8 +22,8 @@ export function notificationsFromActions(actions: DashboardAction[]): Notificati
 }
 
 export async function loadAdminNotifications(): Promise<NotificationItem[]> {
-  const dash = await loadAcquisitionDashboard();
-  const items = notificationsFromActions(dash.actions);
+  const [dash, proposalActions] = await Promise.all([loadAcquisitionDashboard(), loadProposalTodayActions()]);
+  const items = notificationsFromActions([...proposalActions, ...dash.actions]);
 
   const supabase = refreshClient();
   if (supabase) {

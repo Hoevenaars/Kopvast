@@ -47,6 +47,7 @@ export const adminNavigation: NavItem[] = [
   { label: "Taken", href: "/admin/taken", icon: Kanban },
   { label: "Acquisitie", href: "/admin/acquisitie", icon: Search },
   { label: "Leads", href: "/admin/leads", icon: Users },
+  { label: "Voorstellen", href: "/admin/voorstellen", icon: FileText },
   { label: "Klanten", href: "/admin/klanten", icon: Building2 },
   { label: "Gebruikers", href: "/admin/gebruikers", icon: UserRound },
   { label: "Productie", href: "/admin/productie", icon: BriefcaseBusiness },

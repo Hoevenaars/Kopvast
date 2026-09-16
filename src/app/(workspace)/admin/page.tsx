@@ -4,6 +4,7 @@ import { ArrowUpRight, CheckCircle2, Mail, ScanSearch, Users, Workflow } from "l
 import { PageIntro } from "@/components/workspace/page-frame";
 import { loadAcquisitionDashboard } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
+import { loadProposalTodayActions } from "@/lib/proposal-ops";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -12,7 +13,8 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminDashboard() {
-  const data = await loadAcquisitionDashboard();
+  const [data, proposalActions] = await Promise.all([loadAcquisitionDashboard(), loadProposalTodayActions()]);
+  const actions = [...proposalActions, ...data.actions];
   const metrics = [
     { key: "prospects" as const, label: "Nieuwe prospects", value: String(data.metrics.prospects), icon: ScanSearch },
     { key: "scans" as const, label: "Scans", value: String(data.metrics.scans), icon: CheckCircle2 },
@@ -68,13 +70,13 @@ export default async function AdminDashboard() {
               <h2 className="font-semibold">Actie nodig</h2>
               <p className="mt-0.5 text-xs text-ink/40">Uitzonderingen die menselijke aandacht vragen.</p>
             </div>
-            <span className="rounded-full bg-ivory px-3 py-1 text-xs font-semibold">{data.actions.length}</span>
+            <span className="rounded-full bg-ivory px-3 py-1 text-xs font-semibold">{actions.length}</span>
           </div>
-          {data.actions.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-ink/45">Niets dat nu wacht. Nieuwe scans en mails verschijnen hier.</p>
+          {actions.length === 0 ? (
+            <p className="px-5 py-6 text-sm text-ink/45">Niets dat nu wacht. Nieuwe scans, mails en voorstelvragen verschijnen hier.</p>
           ) : (
             <div className="divide-y divide-ink/6">
-              {data.actions.map((action) => (
+              {actions.map((action) => (
                 <Link
                   key={`${action.href}-${action.title}`}
                   href={action.href}
