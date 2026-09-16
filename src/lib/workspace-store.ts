@@ -7,6 +7,7 @@ import type {
   TodoLabelRow,
   TodoRow,
 } from "@/lib/todos";
+import type { OnboardingFileRow, OnboardingItemRow, OnboardingRow } from "@/lib/onboarding";
 import type { AssetRow, LeadRow, MailRow, OrganizationRow, ProjectRow, RequestRow } from "@/lib/workspace";
 
 export type MemberRow = {
@@ -52,7 +53,7 @@ export type LocalMailTemplate = {
   updated_by: string | null;
 };
 
-type Store = {
+export type Store = {
   organizations: OrganizationRow[];
   members: MemberRow[];
   projects: ProjectRow[];
@@ -67,6 +68,9 @@ type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
+  onboardings: OnboardingRow[];
+  onboardingItems: OnboardingItemRow[];
+  onboardingFiles: OnboardingFileRow[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -86,6 +90,9 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
+  onboardings: [],
+  onboardingItems: [],
+  onboardingFiles: [],
 });
 
 export async function readStore(): Promise<Store> {
@@ -99,6 +106,9 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
+      onboardings: parsed.onboardings ?? [],
+      onboardingItems: parsed.onboardingItems ?? [],
+      onboardingFiles: parsed.onboardingFiles ?? [],
     };
   } catch {
     return empty();

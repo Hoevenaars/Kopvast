@@ -4,6 +4,7 @@ import {
   BarChart3,
   BriefcaseBusiness,
   Building2,
+  ClipboardCheck,
   CreditCard,
   FileText,
   Globe2,
@@ -31,6 +32,7 @@ export type NavItem = {
 
 export const customerNavigation: NavItem[] = [
   { label: "Dashboard", href: "/klant", icon: LayoutDashboard },
+  { label: "Onboarding", href: "/klant/onboarding", icon: ClipboardCheck },
   { label: "Mijn website", href: "/klant/website", icon: Globe2 },
   { label: "Pagina's", href: "/klant/paginas", icon: FileText },
   { label: "Media", href: "/klant/media", icon: ImageIcon },
@@ -48,6 +50,7 @@ export const adminNavigation: NavItem[] = [
   { label: "Acquisitie", href: "/admin/acquisitie", icon: Search },
   { label: "Leads", href: "/admin/leads", icon: Users },
   { label: "Klanten", href: "/admin/klanten", icon: Building2 },
+  { label: "Onboarding", href: "/admin/onboarding", icon: ClipboardCheck },
   { label: "Gebruikers", href: "/admin/gebruikers", icon: UserRound },
   { label: "Productie", href: "/admin/productie", icon: BriefcaseBusiness },
   { label: "Websites", href: "/admin/websites", icon: Globe2 },
@@ -65,5 +68,8 @@ export function navigationFor(variant: ShellVariant) {
 export function isNavActive(pathname: string, href: string) {
   if (pathname === href) return true;
   if (href === "/admin" || href === "/klant") return false;
+  if (href === "/admin/onboarding" && pathname.startsWith("/admin/opdrachten/") && pathname.includes("/onboarding")) {
+    return true;
+  }
   return pathname.startsWith(`${href}/`) || pathname.startsWith(href);
 }
