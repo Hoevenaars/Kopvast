@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, FilePenLine, Globe2, ImageIcon, Palette } from "lucide-react";
+import { ArrowRight, ClipboardCheck, FilePenLine, Globe2, ImageIcon, LifeBuoy, Palette } from "lucide-react";
 import type { ElementType } from "react";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { requireSession } from "@/lib/auth";
+import { onboardingProgress } from "@/lib/onboarding";
+import { loadOnboardingsForOrganization } from "@/lib/onboarding-store";
 import { customerAttention, productionStatuses } from "@/lib/production";
 import { labelFor, workspaceRoutes } from "@/lib/product";
 import { loadProductionsForOrganization } from "@/lib/production-board";
@@ -16,24 +18,39 @@ export const metadata: Metadata = {
 };
 
 const actions: Array<{ title: string; description: string; href: string; icon: ElementType }> = [
+  { title: "Onboarding", description: "Lever gegevens en bestanden aan.", href: workspaceRoutes.consoleOnboarding, icon: ClipboardCheck },
   { title: "Tekst aanpassen", description: "Wijzig teksten op je website.", href: "/klant/paginas", icon: FilePenLine },
   { title: "Afbeelding vervangen", description: "Beheer foto's en afbeeldingen.", href: workspaceRoutes.consoleFiles, icon: ImageIcon },
-  { title: "Wijziging aanvragen", description: "Vraag Kopvast om iets aan te passen.", href: workspaceRoutes.consoleRequests, icon: ArrowRight },
+  {
+    title: "Support / wijziging aanvragen",
+    description: "Stuur een vraag of vraag Kopvast om iets aan te passen.",
+    href: workspaceRoutes.consoleSupport,
+    icon: LifeBuoy,
+  },
   { title: "Mijn merk", description: "Bekijk kleuren, logo's en bestanden.", href: "/klant/merk", icon: Palette },
 ];
 
 export default async function CustomerDashboard() {
   const session = await requireSession("customer");
   if (!session?.organizationId) redirect(workspaceRoutes.login);
-  const [workspace, productions] = await Promise.all([
+  const [workspace, productions, onboardings] = await Promise.all([
     loadCustomerWorkspace(session.organizationId),
     loadProductionsForOrganization(session.organizationId),
+    loadOnboardingsForOrganization(session.organizationId),
   ]);
   if (!workspace) redirect(workspaceRoutes.login);
 
   const primary = productions.find((item) => item.project_type === "website") ?? productions[0] ?? null;
   const beheer = workspace.projects.find((item) => item.type === "beheer");
+  const onboardingAttention = onboardings
+    .map((item) => ({ workspace: item, progress: onboardingProgress(item.onboarding, item.items) }))
+    .filter((item) => !item.progress.ready)
+    .map((item) => ({
+      title: item.progress.summary,
+      href: workspaceRoutes.consoleOnboarding,
+    }));
   const attention = [
+    ...onboardingAttention,
     ...customerAttention(productions),
     ...workspace.requests
       .filter((item) => ["nieuw", "wacht_op_klant"].includes(item.status))
@@ -121,7 +138,7 @@ export default async function CustomerDashboard() {
           <h2 className="text-lg font-semibold">Snelle acties</h2>
           <p className="text-sm text-ink/45">De meest gebruikte onderdelen van je omgeving.</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {actions.map((item) => (
             <QuickAction key={item.title} {...item} />
           ))}
