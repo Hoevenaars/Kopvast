@@ -515,9 +515,6 @@ export async function createDraftProposal(input: { leadId: string; actorEmail: s
         }))
       );
     }
-    if (detail.status === "QUALIFIED" || detail.status === "NIEUW" || detail.status === "MAATWERK_REVIEW") {
-      await supabase.from("inbound_leads").update({ status: "PROPOSAL_NEEDED" }).eq("id", detail.id);
-    }
     await logActivity({
       leadId: detail.id,
       eventType: AANVRAAG_ACTIVITY.PROPOSAL_CREATED,
@@ -550,9 +547,6 @@ export async function createDraftProposal(input: { leadId: string; actorEmail: s
     if (row) {
       row.proposal_id = id;
       row.proposal_status = "DRAFT";
-      if (row.status === "QUALIFIED" || row.status === "NIEUW" || row.status === "MAATWERK_REVIEW") {
-        row.status = "PROPOSAL_NEEDED";
-      }
     }
     return { id, already: false as const };
   });
