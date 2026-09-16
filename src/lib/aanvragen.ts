@@ -141,7 +141,7 @@ async function localFromFormLeads(): Promise<AanvraagRecord[]> {
       })
     );
   }
-  const proposals = store.proposals;
+  const proposals = store.aanvraagProposals;
   return [...byId.values()]
     .map((row) => {
       const draft = existingDraftProposal(proposals, row.id);
@@ -192,7 +192,7 @@ export async function loadAanvraag(id: string): Promise<AanvraagDetail | null> {
     const row = rows.find((item) => item.id === id);
     if (!row) return null;
     const store = await readStore();
-    const proposal = store.proposals.find((item) => item.id === row.proposal_id) ?? existingDraftProposal(store.proposals, id);
+    const proposal = store.aanvraagProposals.find((item) => item.id === row.proposal_id) ?? existingDraftProposal(store.aanvraagProposals, id);
     const lines = store.proposalLines.filter((item) => item.proposal_id === proposal?.id).sort((a, b) => a.sort_order - b.sort_order);
     return {
       ...row,
@@ -525,11 +525,11 @@ export async function createDraftProposal(input: { leadId: string; actorEmail: s
   }
 
   const created = await mutateStore((store) => {
-    const existing = existingDraftProposal(store.proposals, detail.id);
+    const existing = existingDraftProposal(store.aanvraagProposals, detail.id);
     if (existing) return { id: existing.id, already: true as const };
     const id = newId();
     const createdAt = nowIso();
-    store.proposals.unshift({
+    store.aanvraagProposals.unshift({
       id,
       inbound_lead_id: detail.id,
       status: "DRAFT",
@@ -565,7 +565,7 @@ export async function loadProposal(id: string): Promise<(ProposalRecord & { aanv
   const supabase = refreshClient();
   if (!supabase) {
     const store = await readStore();
-    const proposal = store.proposals.find((item) => item.id === id);
+    const proposal = store.aanvraagProposals.find((item) => item.id === id);
     if (!proposal) return null;
     const lines = store.proposalLines.filter((item) => item.proposal_id === id).sort((a, b) => a.sort_order - b.sort_order);
     const aanvraag = (await localFromFormLeads()).find((item) => item.id === proposal.inbound_lead_id) ?? null;
@@ -639,7 +639,7 @@ export async function saveProposalDraft(input: {
     }
   } else {
     await mutateStore((store) => {
-      const row = store.proposals.find((item) => item.id === proposal.id);
+      const row = store.aanvraagProposals.find((item) => item.id === proposal.id);
       if (row) {
         row.title = input.title.trim() || row.title;
         row.notes = input.notes.trim() || null;

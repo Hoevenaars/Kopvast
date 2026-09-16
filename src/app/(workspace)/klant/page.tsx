@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FilePenLine, Globe2, ImageIcon, Palette } from "lucide-react";
+import { redirect } from "next/navigation";
+import { ArrowRight, ClipboardCheck, FilePenLine, Globe2, ImageIcon, LifeBuoy, Palette } from "lucide-react";
 import type { ElementType } from "react";
 import { PageIntro } from "@/components/workspace/page-frame";
-import { customerHomeMock } from "@/lib/console-ui";
-import { workspaceRoutes } from "@/lib/product";
+import { requireSession } from "@/lib/auth";
+import { onboardingProgress } from "@/lib/onboarding";
+import { loadOnboardingsForOrganization } from "@/lib/onboarding-store";
+import { customerAttention, productionStatuses } from "@/lib/production";
+import { labelFor, workspaceRoutes } from "@/lib/product";
+import { loadProductionsForOrganization } from "@/lib/production-board";
+import { loadCustomerWorkspace } from "@/lib/workspace";
 
 export const metadata: Metadata = {
   title: "Mijn Kopvast",
@@ -12,13 +18,60 @@ export const metadata: Metadata = {
 };
 
 const actions: Array<{ title: string; description: string; href: string; icon: ElementType }> = [
+  { title: "Onboarding", description: "Lever gegevens en bestanden aan.", href: workspaceRoutes.consoleOnboarding, icon: ClipboardCheck },
   { title: "Tekst aanpassen", description: "Wijzig teksten op je website.", href: "/klant/paginas", icon: FilePenLine },
   { title: "Afbeelding vervangen", description: "Beheer foto's en afbeeldingen.", href: workspaceRoutes.consoleFiles, icon: ImageIcon },
-  { title: "Wijziging aanvragen", description: "Vraag Kopvast om iets aan te passen.", href: workspaceRoutes.consoleRequests, icon: ArrowRight },
+  {
+    title: "Support / wijziging aanvragen",
+    description: "Stuur een vraag of vraag Kopvast om iets aan te passen.",
+    href: workspaceRoutes.consoleSupport,
+    icon: LifeBuoy,
+  },
   { title: "Mijn merk", description: "Bekijk kleuren, logo's en bestanden.", href: "/klant/merk", icon: Palette },
 ];
 
-export default function CustomerDashboard() {
+export default async function CustomerDashboard() {
+  const session = await requireSession("customer");
+  if (!session?.organizationId) redirect(workspaceRoutes.login);
+  const [workspace, productions, onboardings] = await Promise.all([
+    loadCustomerWorkspace(session.organizationId),
+    loadProductionsForOrganization(session.organizationId),
+    loadOnboardingsForOrganization(session.organizationId),
+  ]);
+  if (!workspace) redirect(workspaceRoutes.login);
+
+  const primary = productions.find((item) => item.project_type === "website") ?? productions[0] ?? null;
+  const beheer = workspace.projects.find((item) => item.type === "beheer");
+  const onboardingAttention = onboardings
+    .map((item) => ({ workspace: item, progress: onboardingProgress(item.onboarding, item.items) }))
+    .filter((item) => !item.progress.ready)
+    .map((item) => ({
+      title: item.progress.summary,
+      href: workspaceRoutes.consoleOnboarding,
+    }));
+  const attention = [
+    ...onboardingAttention,
+    ...customerAttention(productions),
+    ...workspace.requests
+      .filter((item) => ["nieuw", "wacht_op_klant"].includes(item.status))
+      .map((item) => ({ title: item.title, href: workspaceRoutes.consoleRequests })),
+  ];
+  const recentChanges = [
+    ...productions.flatMap((item) =>
+      item.status === "changes" || item.open_changes
+        ? [{ title: `Wijzigingen voor ${item.order}`, date: new Date(item.updated_at).toLocaleDateString("nl-NL"), status: labelFor(productionStatuses, item.status) }]
+        : []
+    ),
+    ...workspace.requests.slice(0, 4).map((item) => ({
+      title: item.title,
+      date: new Date(item.created_at).toLocaleDateString("nl-NL"),
+      status: item.status === "klaar" ? "Afgerond" : "Open",
+    })),
+  ].slice(0, 5);
+  const websiteLabel = workspace.organization.website || workspace.organization.name;
+  const live = primary?.status === "live";
+  const statusLabel = primary ? labelFor(productionStatuses, primary.status) : "Nog niet gestart";
+
   return (
     <div className="space-y-8">
       <PageIntro
@@ -35,12 +88,18 @@ export default function CustomerDashboard() {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-semibold">{customerHomeMock.website}</h2>
+                <h2 className="font-semibold">{websiteLabel}</h2>
                 <span className="rounded-full bg-[#E8EFE5] px-2.5 py-1 text-[11px] font-semibold text-[#4D6748]">
-                  {customerHomeMock.status}
+                  {statusLabel}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-ink/45">Laatste update {customerHomeMock.updated}</p>
+              <p className="mt-1 text-sm text-ink/45">
+                {primary?.live_at
+                  ? `Live sinds ${new Date(primary.live_at).toLocaleDateString("nl-NL")}`
+                  : primary?.updated_at
+                    ? `Laatste update ${new Date(primary.updated_at).toLocaleDateString("nl-NL")}`
+                    : "Nog geen productie gestart"}
+              </p>
             </div>
           </div>
           <Link
@@ -55,15 +114,15 @@ export default function CustomerDashboard() {
 
       <section className="rounded-2xl border border-ink/10 bg-white p-5">
         <div className="text-xs font-semibold tracking-[0.14em] text-ink/35 uppercase">Actie nodig</div>
-        {customerHomeMock.attention.length === 0 ? (
+        {attention.length === 0 ? (
           <>
             <h2 className="mt-3 text-lg font-semibold">Niets te doen</h2>
             <p className="mt-2 text-sm leading-6 text-ink/50">Er staan geen goedkeuringen of openstaande verzoeken klaar.</p>
           </>
         ) : (
           <ul className="mt-4 space-y-3">
-            {customerHomeMock.attention.map((item) => (
-              <li key={item.title}>
+            {attention.map((item) => (
+              <li key={`${item.href}-${item.title}`}>
                 <Link href={item.href} className="flex items-center justify-between gap-3 text-sm font-semibold">
                   {item.title}
                   <ArrowRight className="size-4 text-ink/30" />
@@ -79,7 +138,7 @@ export default function CustomerDashboard() {
           <h2 className="text-lg font-semibold">Snelle acties</h2>
           <p className="text-sm text-ink/45">De meest gebruikte onderdelen van je omgeving.</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {actions.map((item) => (
             <QuickAction key={item.title} {...item} />
           ))}
@@ -89,11 +148,17 @@ export default function CustomerDashboard() {
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-ink/10 bg-white p-5">
           <div className="text-xs font-semibold tracking-[0.14em] text-ink/35 uppercase">Website</div>
-          <h3 className="mt-3 text-lg font-semibold">Je website is live</h3>
-          <p className="mt-2 text-sm leading-6 text-ink/50">Je website is gepubliceerd en wordt beheerd door Kopvast.</p>
+          <h3 className="mt-3 text-lg font-semibold">{live ? "Je website is live" : "Je website is in productie"}</h3>
+          <p className="mt-2 text-sm leading-6 text-ink/50">
+            {live
+              ? "Je website is gepubliceerd en wordt beheerd door Kopvast."
+              : primary?.preview_url
+                ? "Er staat een concept klaar. Bekijk de preview en geef akkoord of wijzigingen door."
+                : "Kopvast zet het concept klaar. Daarna review je hier."}
+          </p>
           <div className="mt-5 flex items-center justify-between border-t border-ink/7 pt-4">
             <span className="text-sm text-ink/45">Status</span>
-            <span className="text-sm font-semibold text-olive">Alles in orde</span>
+            <span className="text-sm font-semibold text-olive">{statusLabel}</span>
           </div>
         </div>
         <div className="rounded-2xl border border-ink/10 bg-white p-5">
@@ -104,24 +169,28 @@ export default function CustomerDashboard() {
           </p>
           <div className="mt-5 flex items-center justify-between border-t border-ink/7 pt-4">
             <span className="text-sm text-ink/45">Abonnement</span>
-            <span className="text-sm font-semibold">{customerHomeMock.beheerActive ? "Actief" : "Niet actief"}</span>
+            <span className="text-sm font-semibold">{beheer?.status === "live" ? "Actief" : beheer ? "Nog niet actief" : "Niet verkocht"}</span>
           </div>
         </div>
       </section>
 
       <section className="rounded-2xl border border-ink/10 bg-white p-5">
         <div className="text-xs font-semibold tracking-[0.14em] text-ink/35 uppercase">Recente wijzigingen</div>
-        <ul className="mt-4 divide-y divide-ink/8">
-          {customerHomeMock.recentChanges.map((item) => (
-            <li key={item.title} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold">{item.title}</p>
-                <p className="text-xs text-ink/45">{item.date}</p>
-              </div>
-              <span className="text-sm font-semibold text-olive">{item.status}</span>
-            </li>
-          ))}
-        </ul>
+        {recentChanges.length === 0 ? (
+          <p className="mt-4 text-sm leading-6 text-ink/50">Nog geen wijzigingen.</p>
+        ) : (
+          <ul className="mt-4 divide-y divide-ink/8">
+            {recentChanges.map((item) => (
+              <li key={`${item.title}-${item.date}`} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold">{item.title}</p>
+                  <p className="text-xs text-ink/45">{item.date}</p>
+                </div>
+                <span className="text-sm font-semibold text-olive">{item.status}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

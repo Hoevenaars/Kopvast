@@ -16,7 +16,47 @@ export function StatusBadge({ label, tone = "olive" }: { label: string; tone?: "
 }
 
 export function toneForStatus(status: string): "olive" | "copper" | "ink" {
-  if (["nieuw", "NIEUW", "lead", "voorbereiding", "PROPOSAL_NEEDED", "MAATWERK_REVIEW"].includes(status)) return "copper";
-  if (["live", "klaar", "OMGEZET", "GEWONNEN", "QUALIFIED", "active", "opgeleverd"].includes(status)) return "ink";
+  if (
+    [
+      "nieuw",
+      "NIEUW",
+      "NEW",
+      "lead",
+      "voorbereiding",
+      "PROPOSAL_NEEDED",
+      "MAATWERK_REVIEW",
+      "gepauzeerd",
+      "missing",
+      "rejected",
+      "open",
+      "OPEN",
+      "ON_HOLD",
+      "CHANGES",
+      "ready_for_production",
+      "changes",
+    ].includes(status)
+  ) {
+    return "copper";
+  }
+  if (
+    [
+      "live",
+      "LIVE",
+      "klaar",
+      "DONE",
+      "gesloten",
+      "OMGEZET",
+      "GEWONNEN",
+      "QUALIFIED",
+      "active",
+      "opgeleverd",
+      "ready",
+      "approved",
+      "ready_to_launch",
+      "COMPLETED",
+    ].includes(status)
+  ) {
+    return "ink";
+  }
   return "olive";
 }

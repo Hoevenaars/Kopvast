@@ -15,7 +15,8 @@ import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge"
 import { loadAanvraag, organizationLabel } from "@/lib/aanvragen";
 import { aanvraagStatuses, requestBron } from "@/lib/aanvragen-model";
 import { FINDING_CATEGORY_LABELS, formatNlDate, labelForFit, productFits } from "@/lib/acquisition-constants";
-import { labelFor } from "@/lib/product";
+import { loadOrderByLead } from "@/lib/order-ops";
+import { labelFor, workspaceRoutes } from "@/lib/product";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -27,6 +28,7 @@ export default async function AanvraagDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const row = await loadAanvraag(id);
   if (!row) notFound();
+  const order = await loadOrderByLead(row.id);
 
   const original = [
     ["Type", row.type],
@@ -199,22 +201,56 @@ export default async function AanvraagDetailPage({ params }: { params: Promise<{
         </form>
 
         {row.status !== "OMGEZET" ? (
-          <form action={convertAanvraagAction} className="relative space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
-            <FormBusyOverlay label="Omzetten naar klant…" />
-            <h2 className="font-semibold">Klant maken</h2>
-            <p className="text-sm leading-6 text-ink/55">
-              Zet een gewonnen aanvraag om naar een klantomgeving. Dit raakt de scanner niet.
-            </p>
-            <input type="hidden" name="id" value={row.id} />
-            <SubmitButton
-              pendingLabel="Omzetten…"
-              className="h-12 cursor-pointer rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory"
-            >
-              Zet om naar klant
-            </SubmitButton>
-          </form>
+          <div className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+            <form action={convertAanvraagAction} className="relative space-y-4">
+              <FormBusyOverlay label="Omzetten naar klant…" />
+              <h2 className="font-semibold">Klant maken</h2>
+              <p className="text-sm leading-6 text-ink/55">
+                Zet een gewonnen aanvraag om naar een klantomgeving. Dit raakt de scanner niet.
+              </p>
+              <input type="hidden" name="id" value={row.id} />
+              <SubmitButton
+                pendingLabel="Omzetten…"
+                className="h-12 cursor-pointer rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory"
+              >
+                Zet om naar klant
+              </SubmitButton>
+            </form>
+            {order ? (
+              <Link
+                href={`${workspaceRoutes.adminOrders}/${order.id}`}
+                className="inline-flex h-12 items-center rounded-md border border-ink/10 px-5 text-sm font-semibold"
+              >
+                Open opdracht {order.order_number}
+              </Link>
+            ) : (
+              <Link
+                href={`${workspaceRoutes.adminOrders}/nieuw?leadId=${row.id}`}
+                className="inline-flex h-12 items-center rounded-md bg-ink px-5 text-sm font-semibold text-ivory"
+              >
+                Maak opdracht
+              </Link>
+            )}
+          </div>
         ) : (
-          <div className="rounded-2xl border border-ink/10 bg-white p-5 text-sm text-olive">Deze aanvraag is omgezet naar een klant.</div>
+          <div className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5 text-sm text-olive">
+            <p>Deze aanvraag is omgezet naar een klant.</p>
+            {order ? (
+              <Link
+                href={`${workspaceRoutes.adminOrders}/${order.id}`}
+                className="inline-flex h-12 items-center rounded-md border border-ink/10 px-5 text-sm font-semibold text-ink"
+              >
+                Open opdracht {order.order_number}
+              </Link>
+            ) : (
+              <Link
+                href={`${workspaceRoutes.adminOrders}/nieuw?leadId=${row.id}`}
+                className="inline-flex h-12 items-center rounded-md bg-ink px-5 text-sm font-semibold text-ivory"
+              >
+                Maak opdracht
+              </Link>
+            )}
+          </div>
         )}
       </section>
 

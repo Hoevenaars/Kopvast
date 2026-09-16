@@ -1,6 +1,9 @@
+import { loadDueOrderActions } from "@/lib/order-ops";
 import { loadAcquisitionDashboard, type DashboardAction } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
+import { productionNotifications } from "@/lib/production-board";
 import { refreshClient } from "@/lib/refresh";
+import { loadOpenSupportActions } from "@/lib/workspace";
 
 export type NotificationItem = {
   id: string;
@@ -21,8 +24,17 @@ export function notificationsFromActions(actions: DashboardAction[]): Notificati
 }
 
 export async function loadAdminNotifications(): Promise<NotificationItem[]> {
-  const dash = await loadAcquisitionDashboard();
-  const items = notificationsFromActions(dash.actions);
+  const [dash, support] = await Promise.all([loadAcquisitionDashboard(), loadOpenSupportActions()]);
+  const items = [
+    ...support.map((action, index) => ({
+      id: `support-${action.href}-${action.title}-${index}`,
+      title: action.title,
+      detail: `${action.company} · ${action.age}`,
+      href: action.href,
+      status: action.status,
+    })),
+    ...notificationsFromActions(dash.actions),
+  ];
 
   const supabase = refreshClient();
   if (supabase) {
@@ -44,6 +56,24 @@ export async function loadAdminNotifications(): Promise<NotificationItem[]> {
         status: "Actie nodig",
       });
     }
+  }
+
+  try {
+    const productionItems = await productionNotifications();
+    items.unshift(...productionItems);
+  } catch (error) {
+    console.error("[kopvast] Productiemeldingen laden mislukt", error);
+  }
+
+  const dueOrders = await loadDueOrderActions();
+  for (const order of dueOrders.slice(0, 6)) {
+    items.unshift({
+      id: `order-${order.id}`,
+      title: order.next_action || `Opdracht ${order.order_number}`,
+      detail: `${order.customer_name} · ${order.order_number}`,
+      href: `${workspaceRoutes.adminOrders}/${order.id}`,
+      status: "Actie nodig",
+    });
   }
 
   return items.slice(0, 12);
