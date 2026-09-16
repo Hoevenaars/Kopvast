@@ -7,6 +7,12 @@ import type {
   TodoLabelRow,
   TodoRow,
 } from "@/lib/todos";
+import type {
+  AanvraagActivity,
+  AanvraagRecord,
+  ProposalLineRecord,
+  ProposalRecord,
+} from "@/lib/aanvragen-model";
 import type { AssetRow, LeadRow, MailRow, OrganizationRow, ProjectRow, RequestRow } from "@/lib/workspace";
 
 export type MemberRow = {
@@ -67,6 +73,10 @@ type Store = {
   todoLabelLinks: TodoLabelLinkRow[];
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
+  aanvragen: AanvraagRecord[];
+  proposals: ProposalRecord[];
+  proposalLines: ProposalLineRecord[];
+  aanvraagActivities: AanvraagActivity[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -86,6 +96,10 @@ const empty = (): Store => ({
   todoLabelLinks: [],
   todoComments: [],
   mailTemplates: [],
+  aanvragen: [],
+  proposals: [],
+  proposalLines: [],
+  aanvraagActivities: [],
 });
 
 export async function readStore(): Promise<Store> {
@@ -99,6 +113,10 @@ export async function readStore(): Promise<Store> {
         failed_attempts: item.failed_attempts ?? 0,
       })),
       mailTemplates: parsed.mailTemplates ?? [],
+      aanvragen: parsed.aanvragen ?? [],
+      proposals: parsed.proposals ?? [],
+      proposalLines: parsed.proposalLines ?? [],
+      aanvraagActivities: parsed.aanvraagActivities ?? [],
     };
   } catch {
     return empty();

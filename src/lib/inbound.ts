@@ -1,5 +1,6 @@
 import { refreshClient } from "@/lib/refresh";
 import type { EmailStatus } from "@/lib/email-log";
+import { defaultProductFitForSource, defaultStatusForSource } from "@/lib/aanvragen-model";
 
 export type InboundLeadInput = {
   id: string;
@@ -21,7 +22,8 @@ export function inboundType(source: string): "website" | "maatwerk" {
 
 export function mapInboundLead(lead: InboundLeadInput) {
   const type = inboundType(lead.source);
-  const status = type === "maatwerk" ? "MAATWERK_REVIEW" : "NIEUW";
+  const status = defaultStatusForSource(lead.source, type);
+  const productFit = defaultProductFitForSource(lead.source, type);
   const pages = lead.details["Pagina's"] || "";
   const hasBrand = lead.details.Merkstatus || "";
   const requestDetail = lead.details.Idee || lead.message || "";
@@ -32,6 +34,7 @@ export function mapInboundLead(lead: InboundLeadInput) {
   return {
     type,
     status,
+    product_fit: productFit,
     company_name: lead.company || null,
     website: lead.website || null,
     name: lead.name,
@@ -45,7 +48,7 @@ export function mapInboundLead(lead: InboundLeadInput) {
     scale: scale || null,
     timing: timing || null,
     consent: true,
-    source: "kopvast",
+    source: lead.source || "kopvast",
     payload: {
       id: lead.id,
       type,
@@ -64,6 +67,7 @@ export function mapInboundLead(lead: InboundLeadInput) {
       timing,
       consent: true,
       status,
+      product_fit: productFit,
     },
   };
 }
@@ -76,12 +80,16 @@ export async function persistInboundLead(lead: InboundLeadInput): Promise<string
   }
 
   const row = mapInboundLead(lead);
-  const { data, error } = await supabase.from("inbound_leads").insert(row).select("id").single();
-  if (error || !data) {
-    console.error("[kopvast] Inbound lead opslaan mislukt", error?.message);
-    return null;
-  }
-  return data.id as string;
+  const first = await supabase.from("inbound_leads").insert(row).select("id").single();
+  if (!first.error && first.data) return first.data.id as string;
+
+  const { product_fit, ...legacy } = row;
+  void product_fit;
+  const retry = await supabase.from("inbound_leads").insert(legacy).select("id").single();
+  if (!retry.error && retry.data) return retry.data.id as string;
+
+  console.error("[kopvast] Inbound lead opslaan mislukt", first.error?.message || retry.error?.message);
+  return null;
 }
 
 export async function logInboundEmail(input: {

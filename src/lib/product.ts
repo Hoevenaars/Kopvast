@@ -43,7 +43,10 @@ export const workspaceRoutes = {
   adminProspects: "/admin/prospects",
   adminAcquisition: "/admin/acquisitie",
   adminAcquisitionNew: "/admin/acquisitie/nieuw",
-  adminLeads: "/admin/leads",
+  adminAanvragen: "/admin/aanvragen",
+  adminAanvragenNew: "/admin/aanvragen/nieuw",
+  adminVoorstellen: "/admin/voorstellen",
+  adminLeads: "/admin/aanvragen",
   adminCustomers: "/admin/klanten",
   adminUsers: "/admin/gebruikers",
   adminMail: "/admin/mails",
@@ -99,11 +102,14 @@ export const assetKinds = [
 
 export const leadStatuses = [
   { value: "NIEUW", label: "Nieuw" },
-  { value: "MAATWERK_REVIEW", label: "Maatwerk" },
+  { value: "MAATWERK_REVIEW", label: "Review nodig" },
+  { value: "QUALIFIED", label: "Qualified" },
+  { value: "PROPOSAL_NEEDED", label: "Voorstel nodig" },
   { value: "IN_GESPREK", label: "In gesprek" },
   { value: "GEWONNEN", label: "Gewonnen" },
+  { value: "VERLOREN", label: "Verloren" },
   { value: "OMGEZET", label: "Klant" },
-  { value: "AFGEWEZEN", label: "Afgewezen" },
+  { value: "AFGEWEZEN", label: "Verloren" },
 ] as const;
 
 export type OrganizationStatus = (typeof organizationStatuses)[number]["value"];
