@@ -128,6 +128,10 @@ export function isRequestType(value: string): value is RequestType {
   return requestTypes.some((item) => item.value === value);
 }
 
+export function isProjectType(value: string): value is ProjectType {
+  return projectTypes.some((item) => item.value === value);
+}
+
 export function isProjectStatus(value: string): value is ProjectStatus {
   return projectStatuses.some((item) => item.value === value);
 }

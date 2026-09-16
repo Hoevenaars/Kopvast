@@ -1,6 +1,15 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
+  ActivityRow,
+  BrandProfileRow,
+  CustomerReviewRow,
+  InvoiceRow as CustomerInvoiceRow,
+  NoteRow,
+  ProposalRow as CustomerProposalRow,
+  SupportRow,
+} from "@/lib/customers";
+import type {
   TodoBucketRow,
   TodoCommentRow,
   TodoLabelLinkRow,
@@ -77,6 +86,7 @@ export type Store = {
   todoComments: TodoCommentRow[];
   mailTemplates: LocalMailTemplate[];
   proposals: ProposalRow[];
+  customerProposals: CustomerProposalRow[];
   orders: OrderRow[];
   onboardings: OnboardingRow[];
   onboardingChecklists: ChecklistOnboardingRow[];
@@ -84,7 +94,13 @@ export type Store = {
   onboardingFiles: OnboardingFileRow[];
   orderWebsites: OrderWebsiteRow[];
   invoices: InvoiceRow[];
+  customerInvoices: CustomerInvoiceRow[];
   orderActivities: OrderActivityRow[];
+  notes: NoteRow[];
+  support: SupportRow[];
+  brandProfiles: BrandProfileRow[];
+  activity: ActivityRow[];
+  customerReviews: CustomerReviewRow[];
 };
 
 const file = path.join("/tmp", "kopvast-workspace.json");
@@ -105,6 +121,7 @@ const empty = (): Store => ({
   todoComments: [],
   mailTemplates: [],
   proposals: [],
+  customerProposals: [],
   orders: [],
   onboardings: [],
   onboardingChecklists: [],
@@ -112,7 +129,13 @@ const empty = (): Store => ({
   onboardingFiles: [],
   orderWebsites: [],
   invoices: [],
+  customerInvoices: [],
   orderActivities: [],
+  notes: [],
+  support: [],
+  brandProfiles: [],
+  activity: [],
+  customerReviews: [],
 });
 
 export async function readStore(): Promise<Store> {
@@ -127,6 +150,7 @@ export async function readStore(): Promise<Store> {
       })),
       mailTemplates: parsed.mailTemplates ?? [],
       proposals: parsed.proposals ?? [],
+      customerProposals: parsed.customerProposals ?? [],
       orders: parsed.orders ?? [],
       onboardings: parsed.onboardings ?? [],
       onboardingChecklists: parsed.onboardingChecklists ?? [],
@@ -134,7 +158,13 @@ export async function readStore(): Promise<Store> {
       onboardingFiles: parsed.onboardingFiles ?? [],
       orderWebsites: parsed.orderWebsites ?? [],
       invoices: parsed.invoices ?? [],
+      customerInvoices: parsed.customerInvoices ?? [],
       orderActivities: parsed.orderActivities ?? [],
+      notes: parsed.notes ?? [],
+      support: parsed.support ?? [],
+      brandProfiles: parsed.brandProfiles ?? [],
+      activity: parsed.activity ?? [],
+      customerReviews: parsed.customerReviews ?? [],
     };
   } catch {
     return empty();
