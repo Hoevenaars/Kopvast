@@ -54,6 +54,9 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
         <Stat label="Laatste activiteit" value={formatNlDate(prospect.last_activity_at)} />
         <Stat label="Kosten" value={`€ ${prospect.total_cost.toFixed(4)}`} />
       </section>
+      <p className="text-sm text-ink/55">
+        De opportunity score is een rangorde voor later automatisch werk. Jij bepaalt of je mailt.
+      </p>
 
       {prospect.scan ? <ScanProgress running={running} steps={prospect.scan.progress} /> : null}
       {prospect.scan?.error_message ? (
@@ -221,7 +224,7 @@ function OfferCard({ fit }: { fit: ProductFit | null }) {
         : fit === "REVIEW_REQUIRED"
           ? {
               title: "Beoordeling nodig",
-              text: "Er is nog te weinig zekerheid voor een automatisch aanbod. Controleer de findings voordat je een mail verstuurt.",
+              text: "Er is nog te weinig zekerheid voor een automatisch aanbod. Jij mag alsnog mailen: een website kan altijd scherper.",
               price: null,
             }
           : {

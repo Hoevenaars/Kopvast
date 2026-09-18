@@ -40,7 +40,7 @@ export default async function AcquisitionOverviewPage({
       <PageIntro
         eyebrow="Acquisitie"
         title="Acquisitie"
-        text="Vind commerciële kansen, scan websites en benader interessante bedrijven vanuit één plek."
+        text="Vind commerciële kansen, scan websites en benader interessante bedrijven vanuit één plek. De score rangschikt later automatisch werk. Jij bepaalt of je mailt."
         action={
           <Link
             href={workspaceRoutes.adminAcquisitionNew}
