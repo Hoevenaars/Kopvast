@@ -13,7 +13,7 @@ import {
 } from "./acquire-map";
 import { calculateOpportunityScore, thresholdsFromSettings } from "./acquire-score";
 import { detectComplexityFlags, determineProductFit } from "./acquire-fit";
-import { ACTIVITY, emptyScanProgress, SCANNER_VERSION, SCORE_VERSION, type ScanStepKey } from "./acquisition-constants";
+import { ACTIVITY, adminStatusFromScore, emptyScanProgress, SCANNER_VERSION, SCORE_VERSION, type ScanStepKey } from "./acquisition-constants";
 import { logProspectActivity, refreshProspectCosts } from "./acquisition-activity";
 import { upsertContact } from "./acquisition";
 import { storeGeneratedMail } from "./acquisition-send";
@@ -394,7 +394,12 @@ async function acquireWebsite(input: {
     thresholds: settings.thresholds,
   });
 
-  const finalStatus = input.source === "aanvraag" ? inboundStatus(prospect.status) : score.status;
+  const finalStatus =
+    input.source === "aanvraag"
+      ? inboundStatus(prospect.status)
+      : input.source === "admin"
+        ? adminStatusFromScore(score.status)
+        : score.status;
 
   if (analysis?.analysis.findings.length) {
     await insertFindings(

@@ -224,7 +224,7 @@ export async function listAcquisitionProspects(input: {
   if (filter === "reactie") query = query.in("response_status", ["POSITIVE", "QUESTION", "MEETING"]);
   if (filter === "geconverteerd") query = query.eq("status", "CONVERTED");
   if (filter === "geblokkeerd") {
-    query = query.or("do_not_contact.eq.true,status.eq.REJECTED,contact_status.in.(DO_NOT_CONTACT,BLOCKED)");
+    query = query.or("do_not_contact.eq.true,contact_status.in.(DO_NOT_CONTACT,BLOCKED)");
   }
   if (needle) {
     const clauses = [`company_name.ilike.%${needle}%`, `domain.ilike.%${needle}%`];

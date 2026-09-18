@@ -236,6 +236,11 @@ export function statusFromScore(score: number, thresholds: ScoreThresholds = DEF
   return "PRIORITY";
 }
 
+/** Score remains a ranking signal for later automation. Human admin work never treats a low score as "don't contact". */
+export function adminStatusFromScore(status: RefreshStatus): RefreshStatus {
+  return status === "REJECTED" ? "WATCHLIST" : status;
+}
+
 export function labelForStatus(status: string) {
   return prospectStatuses.find((item) => item.value === status)?.label ?? status;
 }

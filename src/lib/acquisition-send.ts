@@ -31,6 +31,7 @@ export function evaluatePreSend(input: {
   prospect: ProspectDetail;
   mail: ProspectMail | null;
   live: boolean;
+  auto?: boolean;
 }): PreSendIssue[] {
   const issues: PreSendIssue[] = [];
   if (!input.prospect) issues.push({ code: "missing_prospect", message: "Prospect ontbreekt." });
@@ -64,10 +65,12 @@ export function evaluatePreSend(input: {
     issues.push({ code: "duplicated_content", message: DUPLICATE_EMAIL_CONTENT_ERROR });
   }
   if (input.mail && !input.mail.scan_id) issues.push({ code: "missing_scan", message: "De mail is niet aan een scan gekoppeld." });
-  const used = input.mail?.findings_used;
-  const hasFindings = Array.isArray(used) ? used.length > 0 : Boolean(used);
-  if (input.mail && !hasFindings) {
-    issues.push({ code: "missing_findings", message: "Er zijn geen gebruikte findings bij deze mail." });
+  if (input.auto) {
+    const used = input.mail?.findings_used;
+    const hasFindings = Array.isArray(used) ? used.length > 0 : Boolean(used);
+    if (input.mail && !hasFindings) {
+      issues.push({ code: "missing_findings", message: "Er zijn geen gebruikte findings bij deze mail." });
+    }
   }
   if (input.live && input.mail && ["queued", "sent", "delivered"].includes(input.mail.status)) {
     issues.push({ code: "duplicate_send", message: "Deze mail is al verzonden of staat in de wachtrij." });
@@ -124,7 +127,7 @@ export async function storeGeneratedMail(
     return null;
   }
   const { data: contact } = input.contactId
-    ? { data: { id: input.contactId, email: null as string | null } }
+    ? await supabase.from("prospect_contacts").select("id, email").eq("id", input.contactId).maybeSingle()
     : await supabase
         .from("prospect_contacts")
         .select("id, email")
@@ -133,12 +136,12 @@ export async function storeGeneratedMail(
         .limit(1)
         .maybeSingle();
 
-  const to = contact && "email" in contact && contact.email ? contact.email : "";
+  const to = contact?.email ? contact.email : "";
   const { data: created, error } = await supabase
     .from("email_messages")
     .insert({
       prospect_id: input.prospectId,
-      contact_id: (contact && "id" in contact ? contact.id : input.contactId) ?? null,
+      contact_id: contact?.id ?? input.contactId ?? null,
       scan_id: input.scanId,
       analysis_id: input.analysisId ?? null,
       kind: "acquisition_outreach",

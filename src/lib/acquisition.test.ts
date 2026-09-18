@@ -3,7 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { render } from "react-email";
 import { calculateOpportunityScore, canonicalDomainFromInput } from "./acquire-score";
-import { statusFromScore, FORBIDDEN_MAIL_CLAIMS, pickCommercialFindings } from "./acquisition-constants";
+import { adminStatusFromScore, statusFromScore, FORBIDDEN_MAIL_CLAIMS, pickCommercialFindings } from "./acquisition-constants";
 import { detectComplexityFlags, determineProductFit } from "./acquire-fit";
 import { composeAcquisitionBody, fallbackAcquisitionMail, pickMailFindings, selectableMailFindings, buildOutreachMailData } from "./acquisition-mail";
 import { buildSpecialOffer } from "./acquisition/special-offer-rules";
@@ -39,6 +39,12 @@ test("scorethresholds komen uit één bron", () => {
   assert.equal(statusFromScore(65), "QUALIFIED");
   assert.equal(statusFromScore(80), "SALES_READY");
   assert.equal(statusFromScore(90), "PRIORITY");
+});
+
+test("handmatige acquisitie zet een lage score niet om in afwijzen", () => {
+  assert.equal(adminStatusFromScore("REJECTED"), "WATCHLIST");
+  assert.equal(adminStatusFromScore("WATCHLIST"), "WATCHLIST");
+  assert.equal(adminStatusFromScore("SALES_READY"), "SALES_READY");
 });
 
 test("opportunity score blijft binnen 100 en telt de vier blokken", () => {
@@ -274,6 +280,46 @@ test("pre-send checks blokkeren suppression en ontbrekende mail", () => {
     live: true,
   });
   assert.equal(open.length, 0);
+
+  const mailWithoutFindings = {
+    id: "m2",
+    prospect_id: "p1",
+    contact_id: "c1",
+    scan_id: "scan1",
+    analysis_id: "a1",
+    subject: "Even gekeken naar nova-advies.nl",
+    body_text: "Goedendag,",
+    status: "draft",
+    kind: "acquisition_outreach",
+    email_mode: "LIVE",
+    intended_to_email: "info@nova-advies.nl",
+    to_email: "info@nova-advies.nl",
+    provider_message_id: null,
+    template_version: "acquisition-outreach-v3",
+    prompt_version: "kopvast-acquisition-mail-v3",
+    findings_used: [],
+    last_error: null,
+    created_at: new Date().toISOString(),
+    sent_at: null,
+    delivered_at: null,
+    failed_at: null,
+  };
+  const humanWithoutFindings = evaluatePreSend({
+    prospect: { ...prospect, suppression: null } as never,
+    mail: mailWithoutFindings as never,
+    live: true,
+  });
+  assert.equal(
+    humanWithoutFindings.some((item) => item.code === "missing_findings"),
+    false
+  );
+  const autoWithoutFindings = evaluatePreSend({
+    prospect: { ...prospect, suppression: null } as never,
+    mail: mailWithoutFindings as never,
+    live: true,
+    auto: true,
+  });
+  assert.ok(autoWithoutFindings.some((item) => item.code === "missing_findings"));
 });
 
 const persingenFindings = [
