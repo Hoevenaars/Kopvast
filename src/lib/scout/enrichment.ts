@@ -41,7 +41,10 @@ export function enrichFromFacts(facts: PageFacts): ScoutEnrichment {
 
   const orgName = asString(org?.name) || facts.ogTitle || facts.title;
   if (orgName) {
-    enrichment.company_name = { value: orgName.replace(/\s*[|\-–].*$/, "").trim(), kind: org?.name ? "found" : "inferred" };
+    enrichment.company_name = {
+      value: orgName.replace(/\s*[:|·•\-–].*$/, "").trim() || orgName.trim(),
+      kind: org?.name ? "found" : "inferred",
+    };
   }
 
   const address = org?.address;
