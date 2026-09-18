@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { assertPublicHostname, normalizeWebsiteUrl } from "./ssrf";
+import { assertPublicHostname, fetchPublicResource, normalizeWebsiteUrl } from "./ssrf";
 
 export type FindingKind = "feit" | "observatie";
 
@@ -33,54 +33,19 @@ const MAX_REDIRECTS = 3;
 const FETCH_TIMEOUT_MS = 8000;
 
 async function fetchPublicHtml(start: URL): Promise<{ finalUrl: string; html: string }> {
-  let current = start;
-
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-    await assertPublicHostname(current.hostname);
-
-    const response = await fetch(current, {
-      method: "GET",
-      redirect: "manual",
-      headers: {
-        Accept: "text/html,application/xhtml+xml",
-        "User-Agent": "KopvastWebsiteCheck/1.0 (+https://kopvast.nl/websitecheck)",
-      },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      if (!location) {
-        throw new Error("De website stuurde een onvolledige omleiding.");
-      }
-      current = new URL(location, current);
-      if (current.protocol !== "http:" && current.protocol !== "https:") {
-        throw new Error("De website stuurde naar een onveilige bestemming.");
-      }
-      continue;
-    }
-
-    if (!response.ok) {
-      throw new Error(`De website gaf status ${response.status} terug.`);
-    }
-
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType && !contentType.includes("html") && !contentType.includes("text/plain")) {
-      throw new Error("Dit adres levert geen webpagina.");
-    }
-
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > MAX_BYTES) {
-      throw new Error("De pagina is te groot om veilig te beoordelen.");
-    }
-
-    return {
-      finalUrl: current.toString(),
-      html: new TextDecoder("utf-8", { fatal: false }).decode(buffer),
-    };
+  const fetched = await fetchPublicResource(start, {
+    timeoutMs: FETCH_TIMEOUT_MS,
+    maxBytes: MAX_BYTES,
+    maxRedirects: MAX_REDIRECTS,
+    userAgent: "KopvastWebsiteCheck/1.0 (+https://kopvast.nl/websitecheck)",
+  });
+  if (fetched.contentType && !fetched.contentType.includes("html") && !fetched.contentType.includes("text/plain")) {
+    throw new Error("Dit adres levert geen webpagina.");
   }
-
-  throw new Error("De website volgt te veel omleidingen.");
+  return {
+    finalUrl: fetched.finalUrl,
+    html: fetched.body.toString("utf8"),
+  };
 }
 
 function text($: cheerio.CheerioAPI, selector: string): string {
