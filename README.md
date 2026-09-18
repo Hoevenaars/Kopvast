@@ -14,6 +14,7 @@ Kopvast helpt ondernemers en organisaties sterker naar buiten te komen met websi
 - Webhook voor delivered / bounced / failed
 - Mijn Kopvast (`/klant`) voor website, merk, bestanden en wijzigingsverzoeken
 - Admin Console (`/admin`) voor acquisitie, aanvragen, klanten en mail
+- Kopvast Scout (`/scout`, productie: https://scout.kopvast.nl) — mobiele PWA om leads in seconden in de pipeline te zetten
 
 Testprijzen (excl. btw): Kopvast Website €1.495 eenmalig, Kopvast Beheer €199 per maand.
 
@@ -56,6 +57,11 @@ Kopieer `.env.example` naar `.env.local` als je e-mailnotificaties wilt.
 | `OPENAI_API_KEY` | Optioneel. Zonder sleutel wordt de URL wel opgeslagen, maar draait de AI niet. |
 | `EMAIL_MODE` | Lokaal: `TEST` (standaard) of `LIVE`. Buiten productie blijft verzending TEST, tenzij je hier expliciet `LIVE` zet. In productie wint Admin → Instellingen. |
 | `EMAIL_TEST_ADDRESS` | Intern testadres voor de knop Testmail, standaard `contact@kopvast.nl`. |
+| `NEXT_PUBLIC_APP_URL` | Productie-origin van Scout, `https://scout.kopvast.nl`. |
+| `ALLOWED_USER_ID` | Enige toegestane Supabase-user voor Scout. Alleen server-side. |
+| `ALLOWED_EMAILS` | Extra e-mailallowlist voor Scout. |
+| `CRON_SECRET` | Beveiligt `/api/scout/jobs` (Vercel Cron). |
+| `SCOUT_PREVIEW_PROCESSING` | Zet op `true` als een preview wél mag scannen/AI’en. Standaard uit. |
 
 ## Livegang
 
@@ -92,6 +98,14 @@ Daarna in Vercel: **Add New Project → Import `Hoevenaars/Kopvast`**. Maak een 
 
    De bezoeker ziet nog steeds alleen de drie feiten/observaties. De interne analyse draait daarna op de server. Dezelfde URL wordt binnen 24 uur niet opnieuw intern geanalyseerd.
 7. **Consoles** — `/inloggen` werkt met e-mail + wachtwoord. Wachtwoorden staan als scrypt-hash in `kopvast_credentials` (of lokaal in `/tmp` zonder service-role). Lukt het wachtwoord niet, dan sturen we een zescijferige code via Resend. Wachtwoord vergeten gaat via `/inloggen/wachtwoord` met dezelfde code. In Instellingen kun je een wachtwoord zetten of wijzigen; andere sessies vervallen dan. Lokaal toont het inlogscherm de code als er geen mail wordt verstuurd. Zet `KOPVAST_SESSION_SECRET` en eventueel extra adminadressen. Een gewonnen aanvraag zet je in `/admin` om naar een klant; die persoon kan daarna `/klant` openen. In `/admin/gebruikers` zet je per gebruiker toegang tot Mijn Kopvast aan of uit.
+8. **Kopvast Scout** — mobiele PWA op `https://scout.kopvast.nl`. Lokaal: [http://localhost:43127/scout](http://localhost:43127/scout). Voeg in Vercel het custom domain `scout.kopvast.nl` toe (bestaand project of nieuw project `kopvast-scout` op deze repo). Gebruik daarna **exact** het DNS-record dat Vercel toont; verzin geen A/CNAME vooraf. Zet production-only:
+   - `NEXT_PUBLIC_APP_URL=https://scout.kopvast.nl`
+   - `ALLOWED_USER_ID` (jouw Supabase user id)
+   - `ALLOWED_EMAILS`
+   - `WEBSITE_REFRESH_SERVICE_ROLE_KEY` / `SUPABASE_SERVICE_ROLE_KEY` (nooit `NEXT_PUBLIC_`)
+   - `CRON_SECRET`
+   - `OPENAI_API_KEY` (anders: lead + heuristiek, geen AI-copy)
+   Preview-deployments krijgen deze secrets niet automatisch. Auth Site URL in Supabase: `https://scout.kopvast.nl`. iOS Shortcut: `/scout/shortcut`. Push slaat de lead onmiddellijk op; scan/analyse lopen asynchroon. Er gaat nooit automatisch acquisitie de deur uit.
 
 ## Beeld
 

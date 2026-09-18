@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 43127",
     "lint": "eslint",
-    "test": "tsx --test src/lib/*.test.ts",
+    "test": "tsx --test src/lib/*.test.ts src/lib/scout.test.ts",
     "email": "email dev --dir src/emails --port 3333"
   },
   "dependencies": {
