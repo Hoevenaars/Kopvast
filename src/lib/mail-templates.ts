@@ -240,7 +240,7 @@ export async function loadNotificationIntro(input: {
   details?: Record<string, string>;
 }) {
   if (isDomainLandingSource(input.source)) {
-    return notificationIntro(input);
+    return notificationIntro({ ...input, email: "" });
   }
   const key: MailTemplateKey = input.source === "maatwerk" ? "notify_maatwerk" : "notify_website";
   const values = (await loadMailTemplateValues())[key];

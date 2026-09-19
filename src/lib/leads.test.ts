@@ -176,6 +176,11 @@ test("interne domeinmail toont DOMEININTERESSE en bod", () => {
   assert.equal(fields.find((field) => field.label === "Website interesse")?.value, "Ja");
   assert.match(notificationIntro(lead), /DOMEININTERESSE/);
   assert.equal(confirmationCopy(DOMAIN_LANDING_SOURCE).eyebrow, "Domein");
+  const reconstructed = notificationFields({
+    ...lead,
+    message: formatLeadDetails(lead.details),
+  });
+  assert.equal(reconstructed.find((field) => field.label === "Bericht"), undefined);
 });
 
 test("klantbevestiging volgt dezelfde huisstijl", async () => {

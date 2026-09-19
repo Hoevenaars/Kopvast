@@ -164,6 +164,10 @@ function domainNotificationFields(lead: LeadEmailFields): EmailField[] {
     { label: "Website interesse", value: details["Website interesse"] || "Nee" },
   ];
   const message = lead.message?.trim();
-  if (message) fields.push({ label: "Bericht", value: message });
+  const reconstructed = Object.entries(details)
+    .filter(([, value]) => value.trim())
+    .map(([key, value]) => `${key}: ${value}`)
+    .join("\n");
+  if (message && message !== reconstructed) fields.push({ label: "Bericht", value: message });
   return fields.filter((field) => field.value);
 }

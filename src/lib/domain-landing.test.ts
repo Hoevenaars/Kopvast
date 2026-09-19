@@ -31,8 +31,9 @@ test("parst intent en bedrag in euro", () => {
   assert.equal(parseDomainIntent("bid"), "bid");
   assert.equal(parseDomainIntent("PrijsAanvraag"), "price");
   assert.equal(parseDomainIntent("anders"), null);
-  assert.equal(parseBidAmount("").ok, true);
-  assert.equal(parseBidAmount("").ok ? parseBidAmount("").amount : null, null);
+  const emptyBid = parseBidAmount("");
+  assert.equal(emptyBid.ok, true);
+  assert.equal(emptyBid.ok ? emptyBid.amount : null, null);
   assert.deepEqual(parseBidAmount("1500"), { ok: true, amount: 1500 });
   assert.deepEqual(parseBidAmount("1.500"), { ok: true, amount: 1500 });
   assert.deepEqual(parseBidAmount("€ 1.250,50"), { ok: true, amount: 1250.5 });

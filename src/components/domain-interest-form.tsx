@@ -36,7 +36,8 @@ export function DomainInterestForm({ domain }: { domain: string | null }) {
           onClick={() => setIntent("price")}
           className={cn(
             buttonVariants({ variant: intent === "price" ? "copper" : "outline", size: "lg" }),
-            "h-12 w-full"
+            "h-12 w-full",
+            intent !== "price" && "border-ink/15 bg-white text-ink"
           )}
         >
           Prijs aanvragen
@@ -46,7 +47,8 @@ export function DomainInterestForm({ domain }: { domain: string | null }) {
           onClick={() => setIntent("bid")}
           className={cn(
             buttonVariants({ variant: intent === "bid" ? "copper" : "outline", size: "lg" }),
-            "h-12 w-full"
+            "h-12 w-full",
+            intent !== "bid" && "border-ink/15 bg-white text-ink"
           )}
         >
           Doe een bod
