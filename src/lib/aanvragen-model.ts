@@ -1,4 +1,5 @@
 import type { ProductFit } from "@/lib/acquisition-constants";
+import { formatBidAmount, isDomainLandingSource, parseDomainIntent } from "@/lib/domain-landing";
 import { products } from "@/lib/site";
 
 export const aanvraagStatuses = [
@@ -19,6 +20,7 @@ export const aanvraagFilters = [
   { value: "alles", label: "Alles" },
   { value: "nieuw", label: "Nieuw" },
   { value: "review", label: "Review nodig" },
+  { value: "domein", label: "Domein" },
   { value: "standard", label: "Standard fit" },
   { value: "custom", label: "Custom fit" },
   { value: "voorstel", label: "Voorstel nodig" },
@@ -131,7 +133,7 @@ export function isProposalStatus(value: string): value is ProposalStatus {
 
 export function defaultProductFitForSource(source: string, type?: string): ProductFit {
   if (source === "maatwerk" || type === "maatwerk") return "CUSTOM_FIT";
-  if (source === "MANUAL") return "REVIEW_REQUIRED";
+  if (source === "MANUAL" || source === "domain_landingspage") return "REVIEW_REQUIRED";
   return "STANDARD_FIT";
 }
 
@@ -153,6 +155,30 @@ export function requestBron(row: Pick<AanvraagRecord, "source" | "payload">): st
   return bronLabel(raw);
 }
 
+export function domainAanvraagFields(row: Pick<AanvraagRecord, "source" | "payload" | "website" | "request_detail" | "functionality" | "scale" | "notes">) {
+  if (!isDomainLandingSource(row.source) && !isDomainLandingSource(typeof row.payload?.source === "string" ? row.payload.source : "")) {
+    return null;
+  }
+  const payload = row.payload ?? {};
+  const domain =
+    (typeof payload.domain === "string" && payload.domain) ||
+    domainFromWebsite(row.website) ||
+    row.website ||
+    "";
+  const intent = parseDomainIntent(typeof payload.intent === "string" ? payload.intent : row.request_detail ?? "");
+  const bidAmount = typeof payload.bid_amount === "number" ? payload.bid_amount : null;
+  const wantsWebsite = payload.wants_website === true || row.scale === "website-interesse";
+  return [
+    ["Type", "Domeininteresse"],
+    ["Bron", "Domeininteresse"],
+    ["Domein", domain],
+    ["Aanvraag", intent === "bid" ? "Bod" : "Prijsaanvraag"],
+    ["Bod", bidAmount != null ? formatBidAmount(bidAmount) : row.functionality],
+    ["Website interesse", wantsWebsite ? "Ja" : "Nee"],
+    ["Toelichting", row.notes],
+  ].filter(([, value]) => value);
+}
+
 export function bronLabel(source: string | null | undefined): string {
   const value = (source ?? "").trim();
   if (!value || value === "kopvast" || value === "website-aanvraag" || value === "aanvraag") return "Websiteformulier";
@@ -160,6 +186,7 @@ export function bronLabel(source: string | null | undefined): string {
   if (value === "MANUAL") return "Handmatig";
   if (value === "kopvast-acquisitie" || value === "acquisitie") return "Acquisitie";
   if (value === "websitecheck") return "Websitecheck";
+  if (value === "domain_landingspage") return "Domeininteresse";
   return value;
 }
 
@@ -188,13 +215,14 @@ export function matchesAanvraagSearch(
 }
 
 export function matchesAanvraagFilter(
-  row: Pick<AanvraagRecord, "status" | "product_fit" | "type" | "proposal_id">,
+  row: Pick<AanvraagRecord, "status" | "product_fit" | "type" | "proposal_id" | "source" | "payload">,
   filter: AanvraagFilter
 ) {
   if (filter === "alles") return true;
   const fit = inferredProductFit(row);
   if (filter === "nieuw") return row.status === "NIEUW";
   if (filter === "review") return REVIEW_STATUSES.has(row.status) || fit === "REVIEW_REQUIRED";
+  if (filter === "domein") return requestBron(row) === "Domeininteresse";
   if (filter === "standard") return fit === "STANDARD_FIT";
   if (filter === "custom") return fit === "CUSTOM_FIT";
   if (filter === "gewonnen") return WON_STATUSES.has(row.status);

@@ -4,7 +4,8 @@ import { createElement } from "react";
 import { render } from "react-email";
 import { LeadConfirmationEmail } from "../emails/lead-confirmation";
 import { LeadNotificationEmail } from "../emails/lead-notification";
-import { confirmationCopy, humanizeValue, notificationFields } from "../emails/copy";
+import { confirmationCopy, humanizeValue, notificationFields, notificationIntro } from "../emails/copy";
+import { DOMAIN_LANDING_SOURCE } from "./domain-landing";
 import { fromAddress } from "./email";
 import { inboundType, mapInboundLead } from "./inbound";
 import { formatLeadDetails } from "./leads";
@@ -125,6 +126,61 @@ test("interne aanvraagmail gebruikt de Kopvast-huisstijl", async () => {
   assert.match(html, /Newsreader|Georgia/);
   assert.match(html, /De uitstraling is verouderd of versnipperd/);
   assert.doesNotMatch(html, /<pre/i);
+});
+
+test("zet domeininteresse om naar inbound lead zonder website-fit", () => {
+  const row = mapInboundLead({
+    id: "lead-domain",
+    name: "Eva",
+    email: "eva@example.com",
+    company: "",
+    website: "voorbeeld.nl",
+    message: "Graag de prijs weten",
+    source: DOMAIN_LANDING_SOURCE,
+    phone: "",
+    details: {
+      Domein: "voorbeeld.nl",
+      Type: "Bod",
+      Bod: "€ 2.500",
+      "Website interesse": "Nee",
+    },
+  });
+  assert.equal(row.source, DOMAIN_LANDING_SOURCE);
+  assert.equal(row.product_fit, "REVIEW_REQUIRED");
+  assert.equal(row.status, "NIEUW");
+  assert.equal(row.company_name, "voorbeeld.nl");
+  assert.equal(row.payload.domain, "voorbeeld.nl");
+  assert.equal(row.payload.intent, "bid");
+  assert.equal(row.payload.bid_amount, 2500);
+  assert.equal(row.payload.wants_website, false);
+});
+
+test("interne domeinmail toont DOMEININTERESSE en bod", () => {
+  const lead = {
+    name: "Eva",
+    email: "eva@example.com",
+    source: DOMAIN_LANDING_SOURCE,
+    website: "voorbeeld.nl",
+    message: "Ik ben geïnteresseerd",
+    details: {
+      Domein: "voorbeeld.nl",
+      Type: "Bod",
+      Bod: "€ 2.500",
+      "Website interesse": "Ja",
+    },
+  };
+  const fields = notificationFields(lead);
+  assert.equal(fields.find((field) => field.label === "Domein")?.value, "voorbeeld.nl");
+  assert.equal(fields.find((field) => field.label === "Type")?.value, "Bod");
+  assert.equal(fields.find((field) => field.label === "Bod")?.value, "€ 2.500");
+  assert.equal(fields.find((field) => field.label === "Website interesse")?.value, "Ja");
+  assert.match(notificationIntro(lead), /DOMEININTERESSE/);
+  assert.equal(confirmationCopy(DOMAIN_LANDING_SOURCE).eyebrow, "Domein");
+  const reconstructed = notificationFields({
+    ...lead,
+    message: formatLeadDetails(lead.details),
+  });
+  assert.equal(reconstructed.find((field) => field.label === "Bericht"), undefined);
 });
 
 test("klantbevestiging volgt dezelfde huisstijl", async () => {

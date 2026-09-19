@@ -1,4 +1,5 @@
-import { confirmationCopy } from "@/emails/copy";
+import { confirmationCopy, notificationIntro } from "@/emails/copy";
+import { isDomainLandingSource } from "@/lib/domain-landing";
 import { products, site } from "@/lib/site";
 import { refreshClient } from "@/lib/refresh";
 import { mutateStore, nowIso, readStore } from "@/lib/workspace-store";
@@ -214,6 +215,9 @@ export async function loadConfirmationCopy(
   source: string,
   vars: Record<string, string> = {}
 ): Promise<ConfirmationMailCopy> {
+  if (isDomainLandingSource(source)) {
+    return confirmationCopy(source);
+  }
   const key: MailTemplateKey = source === "maatwerk" ? "confirm_maatwerk" : "confirm_website";
   const values = (await loadMailTemplateValues())[key];
   const fallback = confirmationCopy(source);
@@ -228,7 +232,16 @@ export async function loadConfirmationCopy(
   };
 }
 
-export async function loadNotificationIntro(input: { name: string; source: string; company?: string }) {
+export async function loadNotificationIntro(input: {
+  name: string;
+  source: string;
+  company?: string;
+  website?: string;
+  details?: Record<string, string>;
+}) {
+  if (isDomainLandingSource(input.source)) {
+    return notificationIntro({ ...input, email: "" });
+  }
   const key: MailTemplateKey = input.source === "maatwerk" ? "notify_maatwerk" : "notify_website";
   const values = (await loadMailTemplateValues())[key];
   return applyPlaceholders(values.intro, { name: input.name, company: input.company ?? "" });

@@ -81,7 +81,7 @@ Heb je de remote al toegevoegd, sla `git remote add` over. GitHub vraagt om in t
 Daarna in Vercel: **Add New Project → Import `Hoevenaars/Kopvast`**. Maak een **nieuw** project; koppel het niet aan een ander bestaand Vercel-project.
 
 1. **Publiceren** — in dit Cursor-gesprek op **Publish** klikken (zonder GitHub), of na de push hierboven het GitHub-repo in Vercel importeren.
-2. **Domein** — `kopvast.nl` is gereserveerd (nu een TransIP-parkeerpagina). In Vercel: Add Domain `kopvast.nl` en `www.kopvast.nl`. In TransIP DNS:
+2. **Domein** — `kopvast.nl` is gereserveerd (nu een TransIP-parkeerpagina). In Vercel: Add Domain `kopvast.nl` en `www.kopvast.nl`. Geparkeerde domeinen die je wilt doorzetten naar `/domein` voeg je als extra custom domain toe aan hetzelfde Vercel-project; de app stuurt die hosts met een 307 door naar `https://kopvast.nl/domein?domain=voorbeeld.nl`. In TransIP DNS:
    - A-record `@` → `10.0.1.2`
    - CNAME `www` → `cname.vercel-dns.com`
 3. **E-mail** — de TransIP-mailbox `contact@kopvast.nl` is voor gewone post. Aanvraagformulieren gaan via Resend. In [resend.com/domains](https://resend.com/domains) moet `kopvast.nl` op **Verified** staan. Maak een API-key op [resend.com/api-keys](https://resend.com/api-keys). Zet in Vercel (Production) en deploy daarna opnieuw:
