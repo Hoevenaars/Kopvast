@@ -1,6 +1,13 @@
 import { refreshClient } from "@/lib/refresh";
 import type { EmailStatus } from "@/lib/email-log";
 import { defaultProductFitForSource, defaultStatusForSource } from "@/lib/aanvragen-model";
+import {
+  DOMAIN_LANDING_SOURCE,
+  isDomainLandingSource,
+  parseBidAmount,
+  parseDomainIntent,
+  parseDomainParam,
+} from "@/lib/domain-landing";
 
 export type InboundLeadInput = {
   id: string;
@@ -21,22 +28,31 @@ export function inboundType(source: string): "website" | "maatwerk" {
 }
 
 export function mapInboundLead(lead: InboundLeadInput) {
+  const domainLead = isDomainLandingSource(lead.source);
   const type = inboundType(lead.source);
   const status = defaultStatusForSource(lead.source, type);
   const productFit = defaultProductFitForSource(lead.source, type);
   const pages = lead.details["Pagina's"] || "";
   const hasBrand = lead.details.Merkstatus || "";
-  const requestDetail = lead.details.Idee || lead.message || "";
-  const functionality = lead.details.Functionaliteit || "";
-  const scale = lead.details.Omvang || "";
+  const domain = domainLead ? parseDomainParam(lead.details.Domein || lead.website) || lead.website : "";
+  const intent = domainLead ? parseDomainIntent(lead.details.Type) : null;
+  const bid = domainLead ? parseBidAmount(lead.details.Bod ?? "") : { ok: true as const, amount: null };
+  const wantsWebsite = domainLead ? lead.details["Website interesse"] === "Ja" : false;
+  const requestDetail = domainLead
+    ? lead.details.Type || "Domeininteresse"
+    : lead.details.Idee || lead.message || "";
+  const functionality = domainLead ? lead.details.Bod || "" : lead.details.Functionaliteit || "";
+  const scale = domainLead ? (wantsWebsite ? "website-interesse" : "") : lead.details.Omvang || "";
   const timing = lead.details.Timing || "";
+  const website = domain || lead.website || "";
+  const companyName = lead.company || (domainLead ? domain : "") || "";
 
   return {
     type,
     status,
     product_fit: productFit,
-    company_name: lead.company || null,
-    website: lead.website || null,
+    company_name: companyName || null,
+    website: website || null,
     name: lead.name,
     email: lead.email,
     phone: lead.phone || null,
@@ -56,8 +72,8 @@ export function mapInboundLead(lead: InboundLeadInput) {
       name: lead.name,
       email: lead.email,
       phone: lead.phone,
-      company_name: lead.company,
-      website: lead.website,
+      company_name: companyName,
+      website,
       notes: lead.message,
       pages,
       has_brand: hasBrand,
@@ -68,6 +84,15 @@ export function mapInboundLead(lead: InboundLeadInput) {
       consent: true,
       status,
       product_fit: productFit,
+      ...(domainLead
+        ? {
+            domain,
+            intent: intent ?? "price",
+            bid_amount: bid.ok ? bid.amount : null,
+            wants_website: wantsWebsite,
+            source: DOMAIN_LANDING_SOURCE,
+          }
+        : {}),
     },
   };
 }

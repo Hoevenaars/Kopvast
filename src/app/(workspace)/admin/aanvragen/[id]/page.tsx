@@ -13,7 +13,7 @@ import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy"
 import { PageIntro } from "@/components/workspace/page-frame";
 import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
 import { loadAanvraag, organizationLabel } from "@/lib/aanvragen";
-import { aanvraagStatuses, requestBron } from "@/lib/aanvragen-model";
+import { aanvraagStatuses, domainAanvraagFields, requestBron } from "@/lib/aanvragen-model";
 import { FINDING_CATEGORY_LABELS, formatNlDate, labelForFit, productFits } from "@/lib/acquisition-constants";
 import { loadOrderByLead } from "@/lib/order-ops";
 import { labelFor, workspaceRoutes } from "@/lib/product";
@@ -30,17 +30,19 @@ export default async function AanvraagDetailPage({ params }: { params: Promise<{
   if (!row) notFound();
   const order = await loadOrderByLead(row.id);
 
-  const original = [
-    ["Type", row.type],
-    ["Bron", requestBron(row)],
-    ["Pagina's", row.pages],
-    ["Merk", row.has_brand],
-    ["Idee", row.request_detail],
-    ["Functionaliteit", row.functionality],
-    ["Omvang", row.scale],
-    ["Timing", row.timing],
-    ["Toelichting", row.notes],
-  ].filter(([, value]) => value);
+  const original =
+    domainAanvraagFields(row) ??
+    [
+      ["Type", row.type],
+      ["Bron", requestBron(row)],
+      ["Pagina's", row.pages],
+      ["Merk", row.has_brand],
+      ["Idee", row.request_detail],
+      ["Functionaliteit", row.functionality],
+      ["Omvang", row.scale],
+      ["Timing", row.timing],
+      ["Toelichting", row.notes],
+    ].filter(([, value]) => value);
 
   return (
     <div className="space-y-8">

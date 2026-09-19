@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { domainLandingRedirectUrl } from "@/lib/domain-landing";
 import { applyHeaders } from "@/lib/scout/headers";
-import { isProductionEnv, isScoutHostname, isScoutVercelProject, scoutAppUrl } from "@/lib/scout/config";
+import { isProductionEnv, isScoutHostname, isScoutVercelProject, marketingSiteUrl, scoutAppUrl } from "@/lib/scout/config";
 
 export function proxy(request: NextRequest) {
   const host = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "").split(",")[0]?.trim() ?? "";
@@ -16,6 +17,11 @@ export function proxy(request: NextRequest) {
     const dest = new URL(path.replace(/^\/scout/, "") || "/", scoutAppUrl().replace(/\/scout$/, ""));
     dest.search = url.search;
     return NextResponse.redirect(dest, 308);
+  }
+
+  const parkedRedirect = domainLandingRedirectUrl(host, marketingSiteUrl());
+  if (parkedRedirect) {
+    return NextResponse.redirect(parkedRedirect, 307);
   }
 
   if (scoutHost) {

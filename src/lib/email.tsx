@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { LeadConfirmationEmail } from "@/emails/lead-confirmation";
 import { LeadNotificationEmail } from "@/emails/lead-notification";
 import { confirmationPlainText, notificationPlainText } from "@/emails/copy";
+import { isDomainLandingSource } from "@/lib/domain-landing";
 import { logEmailEvent } from "@/lib/email-log";
 import { logInboundEmail, type InboundEmailKind } from "@/lib/inbound";
 import { loadConfirmationCopy, loadNotificationIntro } from "@/lib/mail-templates";
@@ -68,7 +69,9 @@ export async function sendLeadNotification(lead: LeadPayload): Promise<{ deliver
   const apiKey = process.env.RESEND_API_KEY;
   const to = notifyAddress();
   const from = fromAddress();
-  const notifySubject = `Aanvraag van ${lead.name}${lead.company ? ` · ${lead.company}` : ""}`;
+  const notifySubject = isDomainLandingSource(lead.source)
+    ? `DOMEININTERESSE${lead.details?.Domein || lead.website ? ` · ${lead.details?.Domein || lead.website}` : ""}`
+    : `Aanvraag van ${lead.name}${lead.company ? ` · ${lead.company}` : ""}`;
 
   if (!apiKey) {
     console.info("[kopvast] Lead opgeslagen zonder e-mail (geen RESEND_API_KEY)", {

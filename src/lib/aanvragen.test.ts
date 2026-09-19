@@ -11,6 +11,7 @@ import {
   recentManualDuplicate,
   requestBron,
   defaultProductFitForSource,
+  domainAanvraagFields,
 } from "./aanvragen-model";
 import { products } from "./site";
 
@@ -61,7 +62,24 @@ test("bronlabels blijven herkenbaar", () => {
   assert.equal(bronLabel("maatwerk"), "Maatwerkformulier");
   assert.equal(bronLabel("MANUAL"), "Handmatig");
   assert.equal(bronLabel("kopvast-acquisitie"), "Acquisitie");
+  assert.equal(bronLabel("domain_landingspage"), "Domeininteresse");
   assert.equal(requestBron({ source: "kopvast", payload: { source: "website-aanvraag" } }), "Websiteformulier");
+});
+
+test("domeinleads vallen in het domeinfilter, niet in standard fit", () => {
+  const row = {
+    ...fluweel,
+    status: "NIEUW",
+    product_fit: "REVIEW_REQUIRED" as const,
+    type: "website",
+    source: "domain_landingspage",
+    payload: { source: "domain_landingspage" },
+    proposal_id: null,
+  };
+  assert.equal(matchesAanvraagFilter(row, "domein"), true);
+  assert.equal(matchesAanvraagFilter(row, "standard"), false);
+  assert.equal(matchesAanvraagFilter(row, "review"), true);
+  assert.equal(defaultProductFitForSource("domain_landingspage"), "REVIEW_REQUIRED");
 });
 
 test("STANDARD_FIT vult standaardregels, CUSTOM_FIT forceert geen €995", () => {
@@ -90,6 +108,29 @@ test("hergebruikt een zojuist gemaakte handmatige aanvraag", () => {
   const hit = recentManualDuplicate(rows, { email: "eva@fluweel.nl", company: "Fluweel Events" }, now);
   assert.equal(hit?.email, "eva@fluweel.nl");
   assert.equal(recentManualDuplicate(rows, { email: "eva@fluweel.nl", company: "Fluweel Events" }, now + 20_000), null);
+});
+
+test("admin toont domein, bod en website-interesse uit de payload", () => {
+  const fields = domainAanvraagFields({
+    source: "domain_landingspage",
+    website: "voorbeeld.nl",
+    request_detail: "Bod",
+    functionality: "€ 2.500",
+    scale: "website-interesse",
+    notes: "Graag reageren",
+    payload: {
+      source: "domain_landingspage",
+      domain: "voorbeeld.nl",
+      intent: "bid",
+      bid_amount: 2500,
+      wants_website: true,
+    },
+  });
+  assert.ok(fields);
+  assert.equal(fields.find((item) => item[0] === "Domein")?.[1], "voorbeeld.nl");
+  assert.equal(fields.find((item) => item[0] === "Aanvraag")?.[1], "Bod");
+  assert.equal(fields.find((item) => item[0] === "Website interesse")?.[1], "Ja");
+  assert.equal(domainAanvraagFields({ ...fluweel, notes: null, request_detail: null, functionality: null, scale: null }), null);
 });
 
 test("een tweede draft voor dezelfde aanvraag wordt hergebruikt", () => {

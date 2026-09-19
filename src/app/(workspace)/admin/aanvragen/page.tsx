@@ -76,7 +76,7 @@ export default async function AdminAanvragenPage({
       {items.length === 0 ? (
         <EmptyState
           title="Geen aanvragen"
-          text="Nieuwe website- of maatwerkaanvragen komen hier binnen. Een formulierinzending mag hier nooit onvindbaar blijven."
+          text="Nieuwe website-, maatwerk- of domeinaanvragen komen hier binnen. Een formulierinzending mag hier nooit onvindbaar blijven."
         />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
