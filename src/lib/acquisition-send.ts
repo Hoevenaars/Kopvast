@@ -437,8 +437,17 @@ export async function storeManualReasonsMail(
     place,
   });
   let html: string;
+  let body = generated.body;
   try {
-    html = (await prepareAcquisitionEmail(generated.emailProps)).html;
+    const prepared = await prepareTrackedAcquisitionEmail({
+      prospectId: input.prospectId,
+      domain: input.domain,
+      companyName: input.companyName,
+      subject: generated.subject,
+      body: generated.body,
+    });
+    html = prepared.html;
+    body = prepared.text;
   } catch (error) {
     console.error("[kopvast] Handmatige acquisitiemail renderen mislukt", error instanceof Error ? error.message : error);
     return null;
@@ -465,7 +474,7 @@ export async function storeManualReasonsMail(
       to_email: to,
       intended_to_email: contact?.email ?? null,
       subject: generated.subject,
-      body_text: generated.body,
+      body_text: body,
       body_html: html,
       status: "draft",
       email_mode: await getEmailMode(),
@@ -480,6 +489,14 @@ export async function storeManualReasonsMail(
     console.error("[kopvast] Handmatige acquisitiemail opslaan mislukt", error.message);
     return null;
   }
+  await prepareTrackedAcquisitionEmail({
+    prospectId: input.prospectId,
+    mailId: created.id,
+    domain: input.domain,
+    companyName: input.companyName,
+    subject: generated.subject,
+    body,
+  }).catch(() => null);
 
   await supabase
     .from("prospects")
@@ -492,7 +509,7 @@ export async function storeManualReasonsMail(
     actorId: input.actorEmail,
     metadata: { mailId: created?.id, prompt: MANUAL_REASONS_PROMPT_VERSION, template: generated.templateVersion },
   });
-  await syncScoutDraftFromMail(input.prospectId, generated.subject, generated.body);
+  await syncScoutDraftFromMail(input.prospectId, generated.subject, body);
   return created?.id ?? null;
 }
 
