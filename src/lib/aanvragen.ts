@@ -7,6 +7,8 @@ import {
   inferredProductFit,
   isAanvraagFilter,
   isAanvraagStatus,
+  isDueRequestAction,
+  mapLiveProposalStatus,
   matchesAanvraagFilter,
   matchesAanvraagSearch,
   payloadRecord,
@@ -18,7 +20,8 @@ import {
   type ProposalRecord,
   type ProposalStatus,
 } from "@/lib/aanvragen-model";
-import { isEmail, normalizeEmail } from "@/lib/product";
+import { isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
+import { findLatestProposalsForRequests, type ProposalRequestRef } from "@/lib/proposal-ops";
 import { refreshClient } from "@/lib/refresh";
 import { mutateStore, newId, nowIso, readLocalLeads, readStore } from "@/lib/workspace-store";
 
@@ -86,9 +89,47 @@ function mapLeadRow(row: Record<string, unknown>, proposal?: { id: string; statu
     qualification_notes: asString(row.qualification_notes) || null,
     payload,
     proposal_id: proposal?.id ?? null,
-    proposal_status: proposal?.status === "DRAFT" || proposal?.status === "SENT" || proposal?.status === "ACCEPTED" || proposal?.status === "REJECTED"
-      ? proposal.status
-      : null,
+    proposal_status: mapLiveProposalStatus(proposal?.status),
+  };
+}
+
+function proposalFromRef(ref: ProposalRequestRef | null | undefined, leadId: string): ProposalRecord | null {
+  if (!ref) return null;
+  return {
+    id: ref.id,
+    inbound_lead_id: leadId,
+    status: mapLiveProposalStatus(ref.status) ?? "DRAFT",
+    product_fit: null,
+    title: ref.title,
+    notes: ref.notes,
+    created_at: ref.createdAt,
+    updated_at: ref.updatedAt,
+    lines: [],
+  };
+}
+
+function actionAge(iso: string | null) {
+  if (!iso) return "—";
+  const hours = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 3_600_000));
+  if (hours < 24) return `${hours}u`;
+  return `${Math.round(hours / 24)}d`;
+}
+
+export type RequestTodayAction = {
+  title: string;
+  company: string;
+  age: string;
+  href: string;
+  status: string;
+};
+
+function requestActionFromRow(row: Pick<AanvraagRecord, "id" | "company_name" | "name" | "next_action" | "next_action_at">): RequestTodayAction {
+  return {
+    title: row.next_action?.trim() || "Aanvraag opvolgen",
+    company: row.company_name?.trim() || row.name,
+    age: actionAge(row.next_action_at),
+    href: `${workspaceRoutes.adminAanvragen}/${row.id}`,
+    status: "Actie nodig",
   };
 }
 
@@ -142,11 +183,20 @@ async function localFromFormLeads(): Promise<AanvraagRecord[]> {
     );
   }
   const proposals = store.aanvraagProposals;
+  const liveRefs = await findLatestProposalsForRequests([...byId.keys()]);
   return [...byId.values()]
     .map((row) => {
+      const live = liveRefs.get(row.id);
+      if (live) {
+        return {
+          ...row,
+          proposal_id: live.id,
+          proposal_status: mapLiveProposalStatus(live.status),
+        };
+      }
       const draft = existingDraftProposal(proposals, row.id);
       const any = draft ?? proposals.find((item) => item.inbound_lead_id === row.id) ?? null;
-      return { ...row, proposal_id: any?.id ?? null, proposal_status: any?.status ?? null };
+      return { ...row, proposal_id: any?.id ?? null, proposal_status: mapLiveProposalStatus(any?.status) };
     })
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
@@ -164,24 +214,11 @@ export async function listAanvragen(query: AanvraagListQuery = {}): Promise<{ it
   }
 
   const ids = (data ?? []).map((row) => String((row as { id: string }).id));
-  const proposalByLead = new Map<string, { id: string; status: string }>();
-  if (ids.length) {
-    const { data: proposals } = await supabase
-      .from("kopvast_proposals")
-      .select("id, inbound_lead_id, status, created_at")
-      .in("inbound_lead_id", ids)
-      .order("created_at", { ascending: false });
-    for (const proposal of proposals ?? []) {
-      const leadId = String((proposal as { inbound_lead_id: string }).inbound_lead_id);
-      const current = proposalByLead.get(leadId);
-      const status = String((proposal as { status: string }).status);
-      if (!current || status === "DRAFT") {
-        proposalByLead.set(leadId, { id: String((proposal as { id: string }).id), status });
-      }
-    }
-  }
-
-  const items = (data ?? []).map((row) => mapLeadRow(row as Record<string, unknown>, proposalByLead.get(String((row as { id: string }).id))));
+  const proposalByLead = await findLatestProposalsForRequests(ids);
+  const items = (data ?? []).map((row) => {
+    const ref = proposalByLead.get(String((row as { id: string }).id));
+    return mapLeadRow(row as Record<string, unknown>, ref ? { id: ref.id, status: ref.status } : null);
+  });
   return { items: applyQuery(items, query), configured: true };
 }
 
@@ -192,7 +229,11 @@ export async function loadAanvraag(id: string): Promise<AanvraagDetail | null> {
     const row = rows.find((item) => item.id === id);
     if (!row) return null;
     const store = await readStore();
-    const proposal = store.aanvraagProposals.find((item) => item.id === row.proposal_id) ?? existingDraftProposal(store.aanvraagProposals, id);
+    const live = (await findLatestProposalsForRequests([id])).get(id);
+    const proposal =
+      proposalFromRef(live, id) ??
+      store.aanvraagProposals.find((item) => item.id === row.proposal_id) ??
+      existingDraftProposal(store.aanvraagProposals, id);
     const lines = store.proposalLines.filter((item) => item.proposal_id === proposal?.id).sort((a, b) => a.sort_order - b.sort_order);
     return {
       ...row,
@@ -205,46 +246,18 @@ export async function loadAanvraag(id: string): Promise<AanvraagDetail | null> {
   const { data } = await supabase.from("inbound_leads").select("*").eq("id", id).maybeSingle();
   if (!data) return null;
 
-  const [{ data: proposals }, { data: activities }] = await Promise.all([
-    supabase.from("kopvast_proposals").select("*").eq("inbound_lead_id", id).order("created_at", { ascending: false }),
+  const [{ data: activities }, proposalRefs] = await Promise.all([
     supabase.from("kopvast_lead_activities").select("*").eq("inbound_lead_id", id).order("created_at", { ascending: false }).limit(40),
+    findLatestProposalsForRequests([id]),
   ]);
 
-  const proposalRow = (proposals ?? []).find((item) => (item as { status: string }).status === "DRAFT") ?? (proposals ?? [])[0] ?? null;
-  let proposal: ProposalRecord | null = null;
-  if (proposalRow) {
-    const { data: lines } = await supabase
-      .from("kopvast_proposal_lines")
-      .select("*")
-      .eq("proposal_id", (proposalRow as { id: string }).id)
-      .order("sort_order");
-    proposal = {
-      id: String((proposalRow as { id: string }).id),
-      inbound_lead_id: id,
-      status: (proposalRow as { status: ProposalStatus }).status,
-      product_fit: isProductFit(String((proposalRow as { product_fit?: string }).product_fit ?? ""))
-        ? ((proposalRow as { product_fit: ProductFit }).product_fit)
-        : null,
-      title: String((proposalRow as { title: string }).title),
-      notes: asString((proposalRow as { notes?: string }).notes) || null,
-      created_at: String((proposalRow as { created_at: string }).created_at),
-      updated_at: String((proposalRow as { updated_at: string }).updated_at),
-      lines: ((lines ?? []) as Array<Record<string, unknown>>).map((line) => ({
-        id: String(line.id),
-        proposal_id: String(line.proposal_id),
-        title: String(line.title ?? ""),
-        description: asString(line.description),
-        amount_label: asString(line.amount_label),
-        cadence: asString(line.cadence),
-        sort_order: Number(line.sort_order ?? 0),
-      })),
-    };
-  }
+  const proposalRef = proposalRefs.get(id) ?? null;
+  const proposal = proposalFromRef(proposalRef, id);
 
   const mapped = mapLeadRow(data as Record<string, unknown>, proposal ? { id: proposal.id, status: proposal.status } : null);
   return {
     ...mapped,
-    proposal,
+    proposal: proposal ? { ...proposal, product_fit: mapped.product_fit } : null,
     activities: ((activities ?? []) as Array<Record<string, unknown>>).map((item) => ({
       id: String(item.id),
       inbound_lead_id: id,
@@ -256,6 +269,40 @@ export async function loadAanvraag(id: string): Promise<AanvraagDetail | null> {
     })),
     scan: mapped.prospect_id ? await loadLinkedScan(mapped.prospect_id) : null,
   };
+}
+
+export async function loadDueRequestActions(): Promise<RequestTodayAction[]> {
+  const supabase = refreshClient();
+  if (!supabase) {
+    const rows = await localFromFormLeads();
+    return rows.filter((row) => isDueRequestAction(row)).slice(0, 8).map(requestActionFromRow);
+  }
+
+  const { data, error } = await supabase
+    .from("inbound_leads")
+    .select("id, company_name, name, next_action, next_action_at, status")
+    .not("next_action", "is", null)
+    .not("next_action_at", "is", null)
+    .lte("next_action_at", new Date().toISOString())
+    .order("next_action_at", { ascending: true })
+    .limit(24);
+  if (error) {
+    console.error("[kopvast] Aanvraag-acties laden mislukt", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as Array<Record<string, unknown>>)
+    .map((row) => ({
+      id: String(row.id),
+      company_name: asString(row.company_name) || null,
+      name: String(row.name ?? ""),
+      next_action: asString(row.next_action) || null,
+      next_action_at: asString(row.next_action_at) || null,
+      status: String(row.status ?? ""),
+    }))
+    .filter((row) => isDueRequestAction(row))
+    .slice(0, 8)
+    .map(requestActionFromRow);
 }
 
 async function loadLinkedScan(prospectId: string): Promise<LinkedScan | null> {
