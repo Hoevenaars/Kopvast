@@ -4,6 +4,7 @@ import { scoutPublicBase, withBase } from "@/lib/scout/base-path";
 import { getDraft, getLead, latestScan } from "@/lib/scout/leads";
 import { SCOUT_STATUS_LABELS } from "@/lib/scout/types";
 import { approveDraftAction, rescanAction, saveDraftAction } from "@/app/(scout)/scout/actions";
+import { ScoutContactEmailForm } from "@/components/scout/contact-email-form";
 import { LeadDraftTools } from "@/components/scout/draft-tools";
 
 export default async function ScoutLeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -69,10 +70,14 @@ export default async function ScoutLeadDetailPage({ params }: { params: Promise<
         <p className="mt-2 whitespace-pre-wrap text-base leading-7 text-ink">{lead.note || "—"}</p>
       </section>
 
-      <section>
+      <section className="space-y-4">
         <h2 className="text-xs tracking-[0.18em] text-olive uppercase">Contactgegevens</h2>
-        <ul className="mt-2 space-y-1 text-sm text-ink">
-          <li>E-mail: {lead.email || enrichment?.email?.value || "niet gevonden"}</li>
+        <ScoutContactEmailForm
+          leadId={lead.id}
+          email={lead.email || enrichment?.email?.value || null}
+          scanFailed={lead.status === "scan_mislukt" || Boolean(lead.last_error)}
+        />
+        <ul className="space-y-1 text-sm text-ink">
           <li>Telefoon: {lead.phone || enrichment?.phone?.value || "niet gevonden"}</li>
           <li>LinkedIn: {lead.linkedin_url || "niet gevonden"}</li>
           <li>Plaats: {lead.city || "niet gevonden"}</li>

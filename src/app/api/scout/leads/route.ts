@@ -30,11 +30,12 @@ export async function POST(request: NextRequest) {
   if (blocked) return blocked;
   try {
     const user = await requireScoutUser();
-    const body = (await request.json()) as { website?: string; note?: string; source?: string };
+    const body = (await request.json()) as { website?: string; note?: string; email?: string; source?: string };
     const result = await pushScoutLead({
       user,
       website: body.website ?? "",
       note: body.note,
+      email: body.email,
       source: inferSource({ source: body.source }),
     });
     const status = result.ok ? 200 : "duplicate" in result ? 409 : 400;

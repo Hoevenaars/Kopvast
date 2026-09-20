@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { parseOptionalManualEmail, pickLeadEmail } from "./contact-email";
 import { extractUrlFromShare, inferSource, parseScoutUrl } from "./scout/urls";
 import { findingsFromFacts, heuristicScores, type PageFacts } from "./scout/scanner";
 import { fallbackCommercialCopy } from "./scout/ai";
@@ -84,6 +85,11 @@ test("productie-origin is scout.kopvast.nl en niet een wildcard vercel.app", () 
   process.env.NEXT_PUBLIC_APP_URL = "https://scout.kopvast.nl";
   assert.equal(originAllowed("https://scout.kopvast.nl"), true);
   assert.equal(originAllowed("https://random.vercel.app"), false);
+});
+
+test("een later gevonden mailadres overschrijft een handmatig adres niet", () => {
+  assert.equal(pickLeadEmail("via.google@atelier.nl", "info@atelier.nl"), "via.google@atelier.nl");
+  assert.deepEqual(parseOptionalManualEmail(""), { ok: true, email: null });
 });
 
 test("Scout-push krijgt een admin-prospectstatus zonder afwijzen", async () => {

@@ -1,3 +1,4 @@
+import { pickLeadEmail, withManualEmailEnrichment } from "@/lib/contact-email";
 import { newId, nowIso } from "@/lib/workspace-store";
 import { allowExpensiveSideEffects } from "./config";
 import { analyseScoutLead } from "./ai";
@@ -61,6 +62,7 @@ export async function runLeadPipeline(leadId: string) {
         domain: recordRow.domain,
         note: recordRow.note,
         company_name: recordRow.company_name,
+        email: recordRow.email,
         source: recordRow.source,
       }
     : null;
@@ -84,13 +86,15 @@ export async function runLeadPipeline(leadId: string) {
   try {
     const { facts, findings } = await scanPublicWebsite(record.url);
     const enrichment = enrichFromFacts(facts);
+    const email = pickLeadEmail(record.email, enrichment.email.value);
+    if (email) Object.assign(enrichment, withManualEmailEnrichment(enrichment, email));
     const companyName =
       enrichment.company_name.value || record.company_name || facts.title || record.domain;
     await updateLead(record.id, {
       pipeline_stage: "enrich",
       company_name: companyName,
       canonical_url: enrichment.canonical_url.value,
-      email: enrichment.email.value,
+      email,
       phone: enrichment.phone.value,
       linkedin_url: enrichment.linkedin_url.value,
       city: enrichment.city.value,

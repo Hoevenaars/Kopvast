@@ -4,6 +4,7 @@ import { sanitizeAcquisitionSearch } from "./mail-body";
 import { refreshClient } from "./refresh";
 import { scoutProspectIds } from "./scout/crm";
 import { assertPublicHostname } from "./ssrf";
+import { parseManualEmail } from "./contact-email";
 import { isEmail, normalizeEmail } from "./product";
 import { canonicalDomainFromInput } from "./acquire-score";
 import { addSuppression, findSuppression, type SuppressionHit } from "./suppression";
@@ -179,6 +180,11 @@ export type CreateProspectResult =
   | { ok: true; prospectId: string; scanId: string; reused: boolean }
   | { ok: false; message: string }
   | { ok: false; duplicate: true; existing: DuplicateProspect; suppressed?: SuppressionHit | null }
+  | { ok: false; emailConflict: true; existing: DuplicateProspect };
+
+export type UpdateContactEmailResult =
+  | { ok: true; email: string }
+  | { ok: false; message: string }
   | { ok: false; emailConflict: true; existing: DuplicateProspect };
 
 function asFilter(value: string | undefined): AcquisitionFilter {
@@ -575,6 +581,85 @@ export async function upsertContact(
     .select("*")
     .single();
   return data as ProspectContact | null;
+}
+
+export async function updateProspectContactEmail(input: {
+  prospectId: string;
+  email: string;
+  actorEmail: string;
+  source?: string;
+}): Promise<UpdateContactEmailResult> {
+  const parsed = parseManualEmail(input.email);
+  if (!parsed.ok) return parsed;
+  const email = parsed.email;
+
+  const supabase = refreshClient();
+  if (!supabase) return { ok: false, message: "Website Refresh is niet geconfigureerd." };
+
+  const { data: prospect } = await supabase
+    .from("prospects")
+    .select("id, domain, do_not_contact, contact_status")
+    .eq("id", input.prospectId)
+    .maybeSingle();
+  if (!prospect) return { ok: false, message: "Prospect niet gevonden." };
+
+  const { data: emailOwner } = await supabase
+    .from("prospect_contacts")
+    .select("prospect_id")
+    .ilike("email", email)
+    .neq("prospect_id", prospect.id)
+    .limit(1)
+    .maybeSingle();
+  if (emailOwner?.prospect_id) {
+    return { ok: false, emailConflict: true, existing: await loadDuplicate(supabase, emailOwner.prospect_id) };
+  }
+
+  const suppression = await findSuppression(supabase, { email, domain: prospect.domain });
+  const contact = await upsertContact(supabase, {
+    prospectId: prospect.id,
+    email,
+    source: input.source ?? "admin",
+    doNotContact: Boolean(suppression) || Boolean(prospect.do_not_contact),
+    status: suppression ? "BLOCKED" : prospect.contact_status === "BLOCKED" ? "BLOCKED" : "UNKNOWN",
+  });
+
+  const patch: Record<string, unknown> = {
+    last_activity_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  if (suppression) {
+    patch.do_not_contact = true;
+    patch.contact_status = "BLOCKED";
+    patch.legal_note = `Suppression: ${suppression.reason}`;
+  }
+  await supabase.from("prospects").update(patch).eq("id", prospect.id);
+
+  if (contact) {
+    await supabase
+      .from("email_messages")
+      .update({
+        intended_to_email: email,
+        to_email: email,
+        contact_id: contact.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("prospect_id", prospect.id)
+      .eq("kind", "acquisition_outreach")
+      .eq("status", "draft");
+  }
+
+  await logProspectActivity(supabase, {
+    prospectId: prospect.id,
+    eventType: ACTIVITY.CONTACT_UPDATED,
+    actorType: "human",
+    actorId: input.actorEmail,
+    metadata: { email, source: input.source ?? "admin", suppressed: Boolean(suppression) },
+  });
+
+  const { syncScoutEmailFromProspect } = await import("./scout/crm");
+  await syncScoutEmailFromProspect(prospect.id, email);
+
+  return { ok: true, email };
 }
 
 export const loadProspectDetail = cache(async (id: string): Promise<ProspectDetail | null> => {
