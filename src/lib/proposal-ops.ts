@@ -550,6 +550,27 @@ function emptyProposal(input: {
   };
 }
 
+export async function findActiveProposalForRequest(leadId: string): Promise<string | null> {
+  const supabase = refreshClient();
+  if (supabase) {
+    const { data } = await supabase
+      .from("proposals")
+      .select("id")
+      .eq("request_id", leadId)
+      .in("status", ["DRAFT", "READY"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data?.id ? String(data.id) : null;
+  }
+  const store = await readStore();
+  return (
+    store.voorstellen.find(
+      (item) => item.inbound_lead_id === leadId && (item.status === "DRAFT" || item.status === "READY")
+    )?.id ?? null
+  );
+}
+
 export async function createProposal(input: {
   type?: string;
   recipientName: string;
@@ -559,6 +580,10 @@ export async function createProposal(input: {
   organizationId?: string | null;
   createdBy: string | null;
 }): Promise<ProposalResult<{ id: string }>> {
+  if (input.leadId) {
+    const existing = await findActiveProposalForRequest(input.leadId);
+    if (existing) return { ok: true, id: existing };
+  }
   const recipientEmail = normalizeEmail(input.recipientEmail);
   if (!isEmail(recipientEmail)) return fail("Vul een geldig e-mailadres in.");
   const organization = input.recipientOrganization.trim() || input.recipientName.trim();
@@ -598,6 +623,10 @@ export async function createProposal(input: {
   if (supabase) {
     const { data, error } = await supabase.from("proposals").insert(toLiveProposal(row)).select("id").single();
     if (error || !data) {
+      if (input.leadId) {
+        const raced = await findActiveProposalForRequest(input.leadId);
+        if (raced) return { ok: true, id: raced };
+      }
       console.error("[kopvast] Voorstel aanmaken mislukt", error?.message);
       return fail("Voorstel opslaan is tijdelijk niet beschikbaar.");
     }
@@ -1187,7 +1216,8 @@ export async function acceptProposal(
     version: publicProposal.version.version,
     amount: publicProposal.snapshot.totals.subtotalCents,
   }, "customer");
-  await handleAcceptedProposal(publicProposal.proposal.id);
+  const { afterProposalAccepted } = await import("@/lib/commercial-handoffs");
+  await afterProposalAccepted(publicProposal.proposal.id);
   return { ok: true, id: publicProposal.proposal.id };
 }
 

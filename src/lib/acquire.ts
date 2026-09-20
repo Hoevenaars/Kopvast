@@ -245,6 +245,24 @@ async function acquireWebsite(input: {
 
   if (input.lead?.email) {
     await upsertContact(supabase, { prospectId: prospect.id, email: input.lead.email, source: "aanvraag" });
+    const { data: inbound } = await supabase
+      .from("inbound_leads")
+      .select("id")
+      .ilike("email", input.lead.email)
+      .is("prospect_id", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (inbound?.id) {
+      const { attachInboundLeadToProspect } = await import("@/lib/commercial-handoffs");
+      await attachInboundLeadToProspect({
+        requestId: inbound.id as string,
+        prospectId: prospect.id,
+        email: input.lead.email,
+        website: websiteUrl,
+        organization: input.company || input.lead.company,
+      });
+    }
   }
 
   await supabase.from("prospect_sources").insert({
