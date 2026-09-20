@@ -188,7 +188,12 @@ export async function createUnreachableMailAction(formData: FormData) {
 }
 
 export async function createUnreachableMailForm(formData: FormData): Promise<void> {
-  await createUnreachableMailAction(formData);
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const result = await createUnreachableMailAction(formData);
+  if (!result.ok) {
+    redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}?mailError=${encodeURIComponent(result.message)}`);
+  }
+  redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}`);
 }
 
 export async function updateFollowUpAction(formData: FormData) {

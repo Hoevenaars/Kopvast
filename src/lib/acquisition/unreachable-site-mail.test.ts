@@ -31,6 +31,32 @@ test("herkent een mislukte scan als onbereikbare prospect", () => {
   assert.equal(isUnreachableProspect({ status: "SALES_READY", scanStatus: "completed" }), false);
 });
 
+test("mislukte scan mag LIVE zonder scan-id, ook als de tekst is aangepast", () => {
+  const issues = evaluatePreSend({
+    prospect: {
+      status: "SCAN_FAILED",
+      contact: { email: "info@rngnederland.nl", do_not_contact: false },
+      do_not_contact: false,
+      contact_status: "UNKNOWN",
+      suppression: null,
+      auto_outreach_blocked: false,
+      scan: { status: "failed", error_message: "getaddrinfo EBUSY rngnederland.nl" },
+    } as never,
+    mail: {
+      subject: "De website van rngnederland.nl is nu niet bereikbaar",
+      body_text: "Goedendag,\n\nKunnen we jullie helpen de site weer online te krijgen?",
+      scan_id: null,
+      status: "draft",
+      findings_used: [],
+    } as never,
+    live: true,
+  });
+  assert.equal(
+    issues.some((item) => item.code === "missing_scan"),
+    false
+  );
+});
+
 test("handmatig versturen van een onbereikbare-site-mail eist geen scan-id", () => {
   const mail = buildUnreachableSiteMail({ domain: "atelierlint.nl" });
   const issues = evaluatePreSend({

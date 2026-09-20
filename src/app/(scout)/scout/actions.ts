@@ -116,25 +116,26 @@ export async function createUnreachableDraftAction(formData: FormData) {
 
 export async function sendScoutMailAction(formData: FormData) {
   const user = await requireScoutUser();
+  const base = await scoutPublicBase();
   const leadId = String(formData.get("leadId") ?? "");
+  const errorPath = (message: string) => withBase(base, `/leads/${leadId}?error=${encodeURIComponent(message)}`);
   const lead = await getLead(user.id, leadId);
-  if (!lead) throw new Error("Lead niet gevonden.");
-  if (!lead.email) throw new Error("Voeg eerst een e-mailadres toe.");
+  if (!lead) redirect(errorPath("Lead niet gevonden."));
+  if (!lead.email) redirect(errorPath("Voeg eerst een e-mailadres toe."));
   await saveDraft(user.id, leadId, {
     subject: String(formData.get("subject") ?? ""),
     message: String(formData.get("message") ?? ""),
   }).catch(() => undefined);
   await syncProspectFromScout(leadId);
-  if (!lead.prospect_id) throw new Error("Deze lead staat nog niet in Acquisitie.");
+  if (!lead.prospect_id) redirect(errorPath("Deze lead staat nog niet in Acquisitie."));
   const ensured = await ensureUnreachableSiteMail(lead.prospect_id, user.email);
-  if (!ensured.ok) throw new Error(ensured.message);
+  if (!ensured.ok) redirect(errorPath(ensured.message));
   const sent = await sendProspectLiveMail({
     prospectId: lead.prospect_id,
     mailId: ensured.mailId,
     actorEmail: user.email,
   });
-  if (!sent.ok) throw new Error("message" in sent ? sent.message : "Versturen is mislukt.");
-  const base = await scoutPublicBase();
+  if (!sent.ok) redirect(errorPath("message" in sent ? sent.message : "Versturen is mislukt."));
   redirect(withBase(base, `/leads/${leadId}`));
 }
 

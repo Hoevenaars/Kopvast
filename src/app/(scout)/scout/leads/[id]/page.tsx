@@ -14,16 +14,30 @@ import { ScoutContactEmailForm } from "@/components/scout/contact-email-form";
 import { LeadDraftTools } from "@/components/scout/draft-tools";
 import { buildUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
 
-export default async function ScoutLeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ScoutLeadDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const user = await readScoutUser();
   const base = await scoutPublicBase();
   if (!user) redirect(withBase(base, "/login"));
   const { id } = await params;
+  const { error } = await searchParams;
   const lead = await getLead(user.id, id);
   if (!lead) notFound();
   const draft = await getDraft(lead.id);
   const scan = await latestScan(lead.id);
   const enrichment = lead.enrichment as Record<string, { value?: string | null; kind?: string }>;
+  const generated =
+    lead.email && (lead.status === "scan_mislukt" || Boolean(lead.last_error))
+      ? buildUnreachableSiteMail({ domain: lead.domain, companyName: lead.company_name })
+      : null;
+  const subject = draft?.subject ?? generated?.subject ?? "";
+  const message = draft?.message ?? generated?.body ?? "";
+  const canEditMail = Boolean(draft || generated);
 
   return (
     <main className="space-y-8 pb-8">
@@ -93,23 +107,24 @@ export default async function ScoutLeadDetailPage({ params }: { params: Promise<
 
       <section>
         <h2 className="text-xs tracking-[0.18em] text-olive uppercase">Acquisitieconcept</h2>
-        {draft ? (
+        {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+        {canEditMail ? (
           <form action={saveDraftAction} className="mt-3 space-y-3">
             <input type="hidden" name="leadId" value={lead.id} />
             <input
               name="subject"
-              defaultValue={draft.subject ?? ""}
+              defaultValue={subject}
               className="h-12 w-full rounded-2xl border border-ink/10 bg-white px-4"
             />
             <textarea
               name="message"
-              defaultValue={draft.message ?? ""}
+              defaultValue={message}
               rows={10}
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3"
             />
             <div className="flex flex-col gap-2">
               <button className="h-12 rounded-2xl border border-ink/15 bg-white text-sm">Aanpassen</button>
-              <LeadDraftTools subject={draft.subject ?? ""} message={draft.message ?? ""} />
+              <LeadDraftTools subject={subject} message={message} />
               <button formAction={approveDraftAction} className="h-12 rounded-2xl bg-ink text-sm text-ivory">
                 Goedkeuren
               </button>
