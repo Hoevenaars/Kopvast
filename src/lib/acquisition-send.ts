@@ -71,10 +71,17 @@ export function evaluatePreSend(input: {
   if (input.mail?.body_text && findDuplicatedAcquisitionContent(input.mail.body_text)) {
     issues.push({ code: "duplicated_content", message: DUPLICATE_EMAIL_CONTENT_ERROR });
   }
-  if (input.mail && !input.mail.scan_id && !isUnreachableSiteMail(input.mail.body_text)) {
+  const unreachable =
+    isUnreachableSiteMail(input.mail?.body_text) ||
+    isUnreachableProspect({
+      status: input.prospect.status,
+      scanStatus: input.prospect.scan?.status,
+      scanError: input.prospect.scan?.error_message,
+    });
+  if (input.mail && !input.mail.scan_id && !unreachable) {
     issues.push({ code: "missing_scan", message: "De mail is niet aan een scan gekoppeld." });
   }
-  if (input.auto) {
+  if (input.auto && !unreachable) {
     const used = input.mail?.findings_used;
     const hasFindings = Array.isArray(used) ? used.length > 0 : Boolean(used);
     if (input.mail && !hasFindings) {

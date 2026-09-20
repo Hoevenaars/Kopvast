@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   convertProspectForm,
   createUnreachableMailForm,
@@ -10,6 +10,8 @@ import { PageIntro } from "@/components/workspace/page-frame";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { fieldClass, Field } from "@/components/form-fields";
 import { loadProspectDetail } from "@/lib/acquisition";
+import { ensureUnreachableSiteMail } from "@/lib/acquisition-send";
+import { isUnreachableProspect } from "@/lib/acquisition/unreachable-site-mail";
 import { loadScoutCaptureForProspect } from "@/lib/scout/crm";
 import { ScoutCapturePanel } from "@/app/(workspace)/admin/scout/scout-capture-panel";
 import {
@@ -23,6 +25,7 @@ import {
   responseStatuses,
   type ProductFit,
 } from "@/lib/acquisition-constants";
+import { workspaceRoutes } from "@/lib/product";
 import { products } from "@/lib/site";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { ProspectContactEmailForm } from "../contact-email-form";
@@ -36,10 +39,29 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: prospect?.company_name || prospect?.domain || "Prospect", robots: { index: false, follow: false } };
 }
 
-export default async function ProspectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProspectDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ mailError?: string }>;
+}) {
   const { id } = await params;
+  const { mailError } = await searchParams;
   const prospect = await loadProspectDetail(id);
   if (!prospect) notFound();
+  if (
+    !prospect.mail &&
+    prospect.contact?.email &&
+    isUnreachableProspect({
+      status: prospect.status,
+      scanStatus: prospect.scan?.status,
+      scanError: prospect.scan?.error_message,
+    })
+  ) {
+    const ensured = await ensureUnreachableSiteMail(prospect.id, "kopvast.nl");
+    if (ensured.ok) redirect(`${workspaceRoutes.adminAcquisition}/${id}`);
+  }
   const scout = await loadScoutCaptureForProspect(id);
 
   const running = ["queued", "running"].includes(prospect.scan?.status ?? "") || ["SCANNING", "ANALYSING", "VALIDATING"].includes(prospect.status);
@@ -102,6 +124,10 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
       </section>
 
       <OfferCard fit={prospect.product_fit} />
+
+      {mailError ? (
+        <p className="rounded-2xl border border-destructive/30 bg-white px-4 py-3 text-sm text-destructive">{mailError}</p>
+      ) : null}
 
       {prospect.mail ? (
         <MailEditor
