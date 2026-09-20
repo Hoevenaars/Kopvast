@@ -18,6 +18,13 @@ import {
   type ProductFit,
 } from "./acquisition-constants";
 import { isEmail, normalizeEmail } from "./product";
+import {
+  buildUnreachableSiteMail,
+  isUnreachableProspect,
+  isUnreachableSiteMail,
+  UNREACHABLE_SITE_PROMPT_VERSION,
+  UNREACHABLE_SITE_TEMPLATE_VERSION,
+} from "./acquisition/unreachable-site-mail";
 
 export const TEST_MAIL_IDEMPOTENCY_WINDOW_MS = 15_000;
 
@@ -64,8 +71,17 @@ export function evaluatePreSend(input: {
   if (input.mail?.body_text && findDuplicatedAcquisitionContent(input.mail.body_text)) {
     issues.push({ code: "duplicated_content", message: DUPLICATE_EMAIL_CONTENT_ERROR });
   }
-  if (input.mail && !input.mail.scan_id) issues.push({ code: "missing_scan", message: "De mail is niet aan een scan gekoppeld." });
-  if (input.auto) {
+  const unreachable =
+    isUnreachableSiteMail(input.mail?.body_text) ||
+    isUnreachableProspect({
+      status: input.prospect.status,
+      scanStatus: input.prospect.scan?.status,
+      scanError: input.prospect.scan?.error_message,
+    });
+  if (input.mail && !input.mail.scan_id && !unreachable) {
+    issues.push({ code: "missing_scan", message: "De mail is niet aan een scan gekoppeld." });
+  }
+  if (input.auto && !unreachable) {
     const used = input.mail?.findings_used;
     const hasFindings = Array.isArray(used) ? used.length > 0 : Boolean(used);
     if (input.mail && !hasFindings) {
@@ -178,10 +194,163 @@ export async function storeGeneratedMail(
   return created?.id ?? null;
 }
 
+export async function storeUnreachableSiteMail(
+  supabase: SupabaseClient,
+  input: {
+    prospectId: string;
+    contactId?: string | null;
+    scanId?: string | null;
+    companyName?: string | null;
+    domain: string;
+    actorType?: "system" | "agent" | "human";
+    actorId?: string;
+  }
+) {
+  const generated = buildUnreachableSiteMail({
+    domain: input.domain,
+    companyName: input.companyName,
+  });
+  let html: string;
+  try {
+    html = (
+      await prepareAcquisitionEmail({
+        subject: generated.subject,
+        body: generated.body,
+        companyName: input.companyName,
+        domain: input.domain,
+      })
+    ).html;
+  } catch (error) {
+    console.error("[kopvast] Onbereikbare-site-mail renderen mislukt", error instanceof Error ? error.message : error);
+    return null;
+  }
+
+  const { data: contact } = input.contactId
+    ? await supabase.from("prospect_contacts").select("id, email").eq("id", input.contactId).maybeSingle()
+    : await supabase
+        .from("prospect_contacts")
+        .select("id, email")
+        .eq("prospect_id", input.prospectId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+  const to = contact?.email || `draft@${input.domain}`;
+
+  const { data: created, error } = await supabase
+    .from("email_messages")
+    .insert({
+      prospect_id: input.prospectId,
+      contact_id: contact?.id ?? input.contactId ?? null,
+      scan_id: input.scanId ?? null,
+      kind: "acquisition_outreach",
+      to_email: to,
+      intended_to_email: contact?.email ?? null,
+      subject: generated.subject,
+      body_text: generated.body,
+      body_html: html,
+      status: "draft",
+      email_mode: await getEmailMode(),
+      template_version: UNREACHABLE_SITE_TEMPLATE_VERSION,
+      prompt_version: UNREACHABLE_SITE_PROMPT_VERSION,
+      findings_used: [],
+      provider: "resend",
+    })
+    .select("id")
+    .single();
+  if (error) {
+    console.error("[kopvast] Onbereikbare-site-mail opslaan mislukt", error.message);
+    return null;
+  }
+
+  await supabase
+    .from("prospects")
+    .update({ mail_status: "draft", updated_at: new Date().toISOString() })
+    .eq("id", input.prospectId);
+  await logProspectActivity(supabase, {
+    prospectId: input.prospectId,
+    eventType: ACTIVITY.MAIL_GENERATED,
+    actorType: input.actorType ?? "human",
+    actorId: input.actorId ?? "kopvast.nl",
+    metadata: { mailId: created?.id, prompt: UNREACHABLE_SITE_PROMPT_VERSION, template: UNREACHABLE_SITE_TEMPLATE_VERSION },
+  });
+  return created?.id ?? null;
+}
+
+export async function ensureUnreachableSiteMail(
+  prospectId: string,
+  actorEmail: string,
+  input?: { replaceDraft?: boolean }
+) {
+  const supabase = refreshClient();
+  if (!supabase) return { ok: false as const, message: "Website Refresh is niet geconfigureerd." };
+  const detail = await loadProspectDetail(prospectId);
+  if (!detail) return { ok: false as const, message: "Prospect niet gevonden." };
+  if (!detail.contact?.email) return { ok: false as const, message: "Voeg eerst een e-mailadres toe." };
+  if (
+    !isUnreachableProspect({
+      status: detail.status,
+      scanStatus: detail.scan?.status,
+      scanError: detail.scan?.error_message,
+    })
+  ) {
+    return { ok: false as const, message: "Deze mail is bedoeld als de website niet bereikbaar is." };
+  }
+  if (detail.mail && ["queued", "sent", "delivered"].includes(detail.mail.status)) {
+    return { ok: true as const, mailId: detail.mail.id, existing: true };
+  }
+  if (detail.mail?.status === "draft" && !input?.replaceDraft) {
+    return { ok: true as const, mailId: detail.mail.id, existing: true };
+  }
+  if (detail.mail?.status === "draft") {
+    await supabase
+      .from("email_messages")
+      .update({ status: "cancelled", cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", detail.mail.id)
+      .eq("status", "draft");
+  }
+  const mailId = await storeUnreachableSiteMail(supabase, {
+    prospectId,
+    contactId: detail.contact.id,
+    scanId: detail.scan?.id ?? null,
+    companyName: detail.company_name,
+    domain: detail.domain,
+    actorType: "human",
+    actorId: actorEmail,
+  });
+  if (!mailId) return { ok: false as const, message: "De mail klaarzetten is mislukt." };
+
+  const { upsertDraft } = await import("@/lib/scout/leads");
+  const { data: scoutLead } = await supabase
+    .from("scout_leads")
+    .select("id")
+    .eq("prospect_id", prospectId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (scoutLead?.id) {
+    const generated = buildUnreachableSiteMail({
+      domain: detail.domain,
+      companyName: detail.company_name,
+    });
+    await upsertDraft(scoutLead.id, { subject: generated.subject, message: generated.body });
+  }
+
+  return { ok: true as const, mailId, existing: false };
+}
+
 export async function regenerateProspectMail(prospectId: string, actorEmail: string) {
   const supabase = refreshClient();
   if (!supabase) return { ok: false as const, message: "Website Refresh is niet geconfigureerd." };
   const detail = await loadProspectDetail(prospectId);
+  if (
+    isUnreachableProspect({
+      status: detail?.status,
+      scanStatus: detail?.scan?.status,
+      scanError: detail?.scan?.error_message,
+    })
+  ) {
+    return ensureUnreachableSiteMail(prospectId, actorEmail, { replaceDraft: true });
+  }
   if (!detail?.scan) return { ok: false as const, message: "Er is nog geen scan om een mail op te baseren." };
   if (detail.mail?.status === "draft") {
     await supabase

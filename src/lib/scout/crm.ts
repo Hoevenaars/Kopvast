@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { logProspectActivity } from "@/lib/acquisition-activity";
+import { UNREACHABLE_SITE_PROMPT_VERSION, UNREACHABLE_SITE_TEMPLATE_VERSION } from "@/lib/acquisition/unreachable-site-mail";
 import { withManualEmailEnrichment } from "@/lib/contact-email";
 import { isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
 import { nowIso } from "@/lib/workspace-store";
@@ -255,7 +256,8 @@ async function upsertScoutOutreachDraft(prospectId: string, draft: ScoutDraft) {
     .limit(1)
     .maybeSingle();
   if (existing && existing.status !== "draft") return;
-  if (existing && existing.prompt_version !== "kopvast-scout") return;
+  const editableVersions = new Set(["kopvast-scout", UNREACHABLE_SITE_PROMPT_VERSION, null, undefined]);
+  if (existing && !editableVersions.has(existing.prompt_version)) return;
 
   const { data: contact } = await supabase
     .from("prospect_contacts")
@@ -265,12 +267,13 @@ async function upsertScoutOutreachDraft(prospectId: string, draft: ScoutDraft) {
     .limit(1)
     .maybeSingle();
   const to = contact?.email || "draft@scout.kopvast.nl";
+  const unreachable = existing?.prompt_version === UNREACHABLE_SITE_PROMPT_VERSION;
   const row = {
     subject: draft.subject,
     body_text: draft.message,
     status: "draft",
-    prompt_version: "kopvast-scout",
-    template_version: "scout-capture",
+    prompt_version: unreachable ? UNREACHABLE_SITE_PROMPT_VERSION : "kopvast-scout",
+    template_version: unreachable ? UNREACHABLE_SITE_TEMPLATE_VERSION : "scout-capture",
     intended_to_email: contact?.email ?? null,
     to_email: to,
     contact_id: contact?.id ?? null,

@@ -3,20 +3,41 @@ import { readScoutUser } from "@/lib/scout/auth";
 import { scoutPublicBase, withBase } from "@/lib/scout/base-path";
 import { getDraft, getLead, latestScan } from "@/lib/scout/leads";
 import { SCOUT_STATUS_LABELS } from "@/lib/scout/types";
-import { approveDraftAction, rescanAction, saveDraftAction } from "@/app/(scout)/scout/actions";
+import {
+  approveDraftAction,
+  createUnreachableDraftAction,
+  rescanAction,
+  saveDraftAction,
+  sendScoutMailAction,
+} from "@/app/(scout)/scout/actions";
 import { ScoutContactEmailForm } from "@/components/scout/contact-email-form";
 import { LeadDraftTools } from "@/components/scout/draft-tools";
+import { buildUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
 
-export default async function ScoutLeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ScoutLeadDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const user = await readScoutUser();
   const base = await scoutPublicBase();
   if (!user) redirect(withBase(base, "/login"));
   const { id } = await params;
+  const { error } = await searchParams;
   const lead = await getLead(user.id, id);
   if (!lead) notFound();
   const draft = await getDraft(lead.id);
   const scan = await latestScan(lead.id);
   const enrichment = lead.enrichment as Record<string, { value?: string | null; kind?: string }>;
+  const generated =
+    lead.email && (lead.status === "scan_mislukt" || Boolean(lead.last_error))
+      ? buildUnreachableSiteMail({ domain: lead.domain, companyName: lead.company_name })
+      : null;
+  const subject = draft?.subject ?? generated?.subject ?? "";
+  const message = draft?.message ?? generated?.body ?? "";
+  const canEditMail = Boolean(draft || generated);
 
   return (
     <main className="space-y-8 pb-8">
@@ -86,28 +107,49 @@ export default async function ScoutLeadDetailPage({ params }: { params: Promise<
 
       <section>
         <h2 className="text-xs tracking-[0.18em] text-olive uppercase">Acquisitieconcept</h2>
-        {draft ? (
+        {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+        {canEditMail ? (
           <form action={saveDraftAction} className="mt-3 space-y-3">
             <input type="hidden" name="leadId" value={lead.id} />
             <input
               name="subject"
-              defaultValue={draft.subject ?? ""}
+              defaultValue={subject}
               className="h-12 w-full rounded-2xl border border-ink/10 bg-white px-4"
             />
             <textarea
               name="message"
-              defaultValue={draft.message ?? ""}
+              defaultValue={message}
               rows={10}
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3"
             />
             <div className="flex flex-col gap-2">
               <button className="h-12 rounded-2xl border border-ink/15 bg-white text-sm">Aanpassen</button>
-              <LeadDraftTools subject={draft.subject ?? ""} message={draft.message ?? ""} />
+              <LeadDraftTools subject={subject} message={message} />
               <button formAction={approveDraftAction} className="h-12 rounded-2xl bg-ink text-sm text-ivory">
                 Goedkeuren
               </button>
+              {lead.email ? (
+                <button formAction={sendScoutMailAction} className="h-12 rounded-2xl bg-copper-dark text-sm text-ivory">
+                  Versturen
+                </button>
+              ) : null}
             </div>
-            <p className="text-xs text-olive">Goedkeuren zet het klaar. Er wordt niets automatisch verstuurd.</p>
+            <p className="text-xs text-olive">
+              {lead.email
+                ? "Versturen gaat naar het opgeslagen adres. In TEST blijft de echte verzending intern."
+                : "Goedkeuren zet het klaar. Voeg een e-mailadres toe om te kunnen versturen."}
+            </p>
+          </form>
+        ) : lead.email && (lead.status === "scan_mislukt" || lead.last_error) ? (
+          <form action={createUnreachableDraftAction} className="mt-3 space-y-3">
+            <input type="hidden" name="leadId" value={lead.id} />
+            <p className="text-sm leading-6 text-olive">
+              De site is niet bereikbaar. Maak een mail om te helpen de site op te zetten.
+            </p>
+            <p className="rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm leading-6 text-ink">
+              {buildUnreachableSiteMail({ domain: lead.domain, companyName: lead.company_name }).subject}
+            </p>
+            <button className="h-12 w-full rounded-2xl bg-copper-dark text-sm text-ivory">Maak mail</button>
           </form>
         ) : (
           <p className="mt-2 text-sm text-olive">Nog geen concept. {lead.last_error || "De scan loopt op de achtergrond."}</p>

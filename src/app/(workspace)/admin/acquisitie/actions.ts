@@ -16,6 +16,7 @@ import {
   type UpdateContactEmailResult,
 } from "@/lib/acquisition";
 import {
+  ensureUnreachableSiteMail,
   regenerateProspectMail,
   saveProspectMailDraft,
   sendProspectLiveMail,
@@ -171,8 +172,28 @@ export async function updateContactEmailAction(
     actorEmail: session.email,
     source: "admin",
   });
+  if (result.ok) {
+    await ensureUnreachableSiteMail(prospectId, session.email);
+  }
   revalidateAcquisition(prospectId);
   return result;
+}
+
+export async function createUnreachableMailAction(formData: FormData) {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const result = await ensureUnreachableSiteMail(prospectId, session.email);
+  revalidateAcquisition(prospectId);
+  return result;
+}
+
+export async function createUnreachableMailForm(formData: FormData): Promise<void> {
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const result = await createUnreachableMailAction(formData);
+  if (!result.ok) {
+    redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}?mailError=${encodeURIComponent(result.message)}`);
+  }
+  redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}`);
 }
 
 export async function updateFollowUpAction(formData: FormData) {

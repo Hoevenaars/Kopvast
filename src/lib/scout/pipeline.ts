@@ -185,6 +185,11 @@ export async function runLeadPipeline(leadId: string) {
       actor_type: "system",
       metadata: { message: message.slice(0, 200) },
     });
+    const failed = await getLeadById(record.id);
+    if (failed?.email) {
+      const { ensureScoutUnreachableDraft } = await import("./unreachable");
+      await ensureScoutUnreachableDraft(failed);
+    }
     await syncProspectFromScout(record.id);
     throw error;
   }

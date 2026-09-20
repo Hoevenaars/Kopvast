@@ -1,10 +1,17 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { convertProspectForm, rescanProspectAction, updateFollowUpForm } from "@/app/(workspace)/admin/acquisitie/actions";
+import { notFound, redirect } from "next/navigation";
+import {
+  convertProspectForm,
+  createUnreachableMailForm,
+  rescanProspectAction,
+  updateFollowUpForm,
+} from "@/app/(workspace)/admin/acquisitie/actions";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { fieldClass, Field } from "@/components/form-fields";
 import { loadProspectDetail } from "@/lib/acquisition";
+import { ensureUnreachableSiteMail } from "@/lib/acquisition-send";
+import { isUnreachableProspect } from "@/lib/acquisition/unreachable-site-mail";
 import { loadScoutCaptureForProspect } from "@/lib/scout/crm";
 import { ScoutCapturePanel } from "@/app/(workspace)/admin/scout/scout-capture-panel";
 import {
@@ -18,6 +25,7 @@ import {
   responseStatuses,
   type ProductFit,
 } from "@/lib/acquisition-constants";
+import { workspaceRoutes } from "@/lib/product";
 import { products } from "@/lib/site";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { ProspectContactEmailForm } from "../contact-email-form";
@@ -31,10 +39,29 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: prospect?.company_name || prospect?.domain || "Prospect", robots: { index: false, follow: false } };
 }
 
-export default async function ProspectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProspectDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ mailError?: string }>;
+}) {
   const { id } = await params;
+  const { mailError } = await searchParams;
   const prospect = await loadProspectDetail(id);
   if (!prospect) notFound();
+  if (
+    !prospect.mail &&
+    prospect.contact?.email &&
+    isUnreachableProspect({
+      status: prospect.status,
+      scanStatus: prospect.scan?.status,
+      scanError: prospect.scan?.error_message,
+    })
+  ) {
+    const ensured = await ensureUnreachableSiteMail(prospect.id, "kopvast.nl");
+    if (ensured.ok) redirect(`${workspaceRoutes.adminAcquisition}/${id}`);
+  }
   const scout = await loadScoutCaptureForProspect(id);
 
   const running = ["queued", "running"].includes(prospect.scan?.status ?? "") || ["SCANNING", "ANALYSING", "VALIDATING"].includes(prospect.status);
@@ -98,6 +125,10 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
 
       <OfferCard fit={prospect.product_fit} />
 
+      {mailError ? (
+        <p className="rounded-2xl border border-destructive/30 bg-white px-4 py-3 text-sm text-destructive">{mailError}</p>
+      ) : null}
+
       {prospect.mail ? (
         <MailEditor
           key={prospect.mail.id}
@@ -112,6 +143,22 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
           testTo={settings.testEmail}
           canSend={!blocked && Boolean(prospect.contact?.email)}
         />
+      ) : prospect.contact?.email && (prospect.status === "SCAN_FAILED" || Boolean(prospect.scan?.error_message)) ? (
+        <form action={createUnreachableMailForm} className="relative space-y-4 rounded-2xl border border-copper/25 bg-[#FBF6F2] p-5">
+          <FormBusyOverlay label="Mail klaarzetten…" />
+          <input type="hidden" name="prospectId" value={prospect.id} />
+          <h2 className="font-semibold">Site niet bereikbaar</h2>
+          <p className="text-sm leading-6 text-ink/70">
+            De website ging niet open. Zet een mail klaar om te helpen de site op te zetten. Daarna kun je die
+            nalopen en versturen.
+          </p>
+          <SubmitButton
+            pendingLabel="Mail klaarzetten…"
+            className="h-12 cursor-pointer rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory"
+          >
+            Maak mail
+          </SubmitButton>
+        </form>
       ) : (
         <section className="rounded-2xl border border-dashed border-ink/15 p-5 text-sm text-ink/50">
           De acquisitiemail verschijnt hier zodra de scan klaar is.
