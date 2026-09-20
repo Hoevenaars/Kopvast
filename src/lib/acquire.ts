@@ -65,6 +65,42 @@ export async function acquireLead(lead: AcquireLead & { website?: string }): Pro
   });
 }
 
+export async function processQueuedAcquisitionScans(limit = 4): Promise<
+  Array<{ scanId: string; prospectId: string; ok: boolean; error?: string }>
+> {
+  const supabase = refreshClient();
+  if (!supabase) return [];
+
+  const { data: scans, error } = await supabase
+    .from("website_scans")
+    .select("id, prospect_id, website_url")
+    .eq("status", "queued")
+    .order("started_at", { ascending: true })
+    .limit(limit);
+  if (error) {
+    console.error("[kopvast] Queued scans ophalen mislukt", error.message);
+    return [];
+  }
+
+  const results: Array<{ scanId: string; prospectId: string; ok: boolean; error?: string }> = [];
+  for (const scan of scans ?? []) {
+    try {
+      await acquireAdminScan({
+        prospectId: scan.prospect_id,
+        scanId: scan.id,
+        website: scan.website_url || "",
+        force: true,
+      });
+      results.push({ scanId: scan.id, prospectId: scan.prospect_id, ok: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Scan mislukt";
+      console.error("[kopvast] Queued scan mislukt", scan.id, message);
+      results.push({ scanId: scan.id, prospectId: scan.prospect_id, ok: false, error: message });
+    }
+  }
+  return results;
+}
+
 export async function acquireAdminScan(input: {
   prospectId: string;
   scanId: string;

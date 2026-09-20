@@ -60,7 +60,7 @@ Kopieer `.env.example` naar `.env.local` als je e-mailnotificaties wilt.
 | `NEXT_PUBLIC_APP_URL` | Productie-origin van Scout, `https://scout.kopvast.nl`. |
 | `ALLOWED_USER_ID` | Enige toegestane Supabase-user voor Scout. Alleen server-side. |
 | `ALLOWED_EMAILS` | Extra e-mailallowlist voor Scout. |
-| `CRON_SECRET` | Beveiligt `/api/scout/jobs` (Vercel Cron). |
+| `CRON_SECRET` | Beveiligt `/api/scout/jobs` en `/api/acquisition/jobs` (Vercel Cron). |
 | `SCOUT_PREVIEW_PROCESSING` | Zet op `true` als een preview wél mag scannen/AI’en. Standaard uit. |
 
 ## Livegang

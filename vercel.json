@@ -3,6 +3,10 @@
     {
       "path": "/api/scout/jobs",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/acquisition/jobs",
+      "schedule": "* * * * *"
     }
   ]
 }
