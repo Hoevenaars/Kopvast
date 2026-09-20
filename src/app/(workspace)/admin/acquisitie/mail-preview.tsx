@@ -1,6 +1,8 @@
 import { site } from "@/lib/site";
 import {
   CHOICE_INTRO,
+  DEFAULT_CHOICE_A_URL,
+  DEFAULT_CHOICE_B_URL,
   DUPLICATE_EMAIL_CONTENT_ERROR,
   MORE_INFO_CTA_LABEL,
   PROPOSAL_CTA_LABEL,
@@ -8,6 +10,8 @@ import {
   emailPropsFromDraft,
   findDuplicatedAcquisitionContent,
 } from "@/emails/acquisition-outreach-copy";
+import { isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
+import { splitMailParagraphs } from "@/lib/mail-body";
 
 export function MailPreview({
   subject,
@@ -20,6 +24,50 @@ export function MailPreview({
   companyName?: string | null;
   domain: string;
 }) {
+  if (isUnreachableSiteMail(body)) {
+    const blocks = splitMailParagraphs(body);
+    const proposalUrl = blocks.find((item) => item.startsWith("http") && item.includes("werkwijze")) || DEFAULT_CHOICE_A_URL;
+    const moreInfoUrl = blocks.find((item) => item.startsWith("http") && item.includes("websites")) || DEFAULT_CHOICE_B_URL;
+    return (
+      <div className="overflow-hidden rounded-xl border border-ink/10 bg-white">
+        <div className="px-6 pt-7 pb-8 text-[15px] leading-6 text-ink">
+          <p className="mb-7 text-[19px] leading-6 font-extrabold tracking-[-0.5px]">{site.name.toUpperCase()}</p>
+          {subject.trim() ? <p className="mb-5 text-sm text-ink/45">{subject.trim()}</p> : null}
+          {blocks
+            .filter(
+              (item) =>
+                item !== site.name &&
+                item !== site.tagline &&
+                item !== CHOICE_INTRO &&
+                item !== REPLY_HINT &&
+                !item.startsWith(PROPOSAL_CTA_LABEL) &&
+                !item.startsWith(MORE_INFO_CTA_LABEL) &&
+                !item.startsWith("http")
+            )
+            .map((item) => (
+              <p key={item} className="mb-4">
+                {item}
+              </p>
+            ))}
+          <p className="mb-4 font-bold">{CHOICE_INTRO}</p>
+          <p className="mb-3">
+            <a href={proposalUrl} className="inline-block rounded-[4px] bg-[#121212] px-[18px] py-[13px] text-sm font-bold text-white no-underline">
+              {PROPOSAL_CTA_LABEL}
+            </a>
+          </p>
+          <p className="mb-4">
+            <a href={moreInfoUrl} className="inline-block rounded-[4px] border border-[#121212] bg-white px-[18px] py-[12px] text-sm font-bold text-[#121212] no-underline">
+              {MORE_INFO_CTA_LABEL}
+            </a>
+          </p>
+          <p className="mb-6 text-[14px] leading-[22px] text-ink/60">{REPLY_HINT}</p>
+          <p className="mb-0">{site.name}</p>
+          <p className="mt-0.5 text-[13px] text-ink/45">{site.tagline}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!body.trim()) {
     return (
       <div className="overflow-hidden rounded-xl border border-ink/10 bg-white">

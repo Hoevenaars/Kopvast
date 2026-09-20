@@ -22,6 +22,8 @@ import {
   visibleEmailTextFromHtml,
 } from "../emails/acquisition-outreach";
 import { evaluatePreSend } from "./acquisition-send";
+import { prepareAcquisitionEmail } from "./acquisition-render";
+import { buildUnreachableSiteMail } from "./acquisition/unreachable-site-mail";
 import { sanitizeAcquisitionSearch, splitMailParagraphs } from "./mail-body";
 import { normalizeWebsiteUrl } from "./ssrf";
 import { domainFromUrl } from "./acquire-map";
@@ -624,6 +626,20 @@ test("mailparagrafen splitsen op lege regels", () => {
     "Derde.",
   ]);
   assert.deepEqual(splitMailParagraphs("   "), []);
+});
+
+test("onbereikbare-site-mail rendert zonder te doen alsof we de site zagen", async () => {
+  const mail = buildUnreachableSiteMail({ domain: "atelierlint.nl", companyName: "Atelier Lint" });
+  const prepared = await prepareAcquisitionEmail({
+    domain: "atelierlint.nl",
+    companyName: "Atelier Lint",
+    subject: mail.subject,
+    body: mail.body,
+  });
+  assert.match(prepared.html, /niet bereikbaar/);
+  assert.match(prepared.html, /op te zetten/);
+  assert.doesNotMatch(prepared.html, /kort bekeken/);
+  assert.doesNotMatch(prepared.html, /Twee dingen vielen direct op/);
 });
 
 test("zoekterm gooit PostgREST-tekens eruit", () => {
