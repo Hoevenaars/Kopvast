@@ -19,6 +19,12 @@ import {
 } from "./acquisition-constants";
 import { isEmail, normalizeEmail } from "./product";
 import {
+  findingsFromManualReasons,
+  mailHasFindings,
+  MANUAL_REASONS_PROMPT_VERSION,
+  parseManualReasonCategories,
+} from "./acquisition/manual-reasons";
+import {
   buildUnreachableSiteMail,
   isUnreachableProspect,
   isUnreachableSiteMail,
@@ -71,22 +77,22 @@ export function evaluatePreSend(input: {
   if (input.mail?.body_text && findDuplicatedAcquisitionContent(input.mail.body_text)) {
     issues.push({ code: "duplicated_content", message: DUPLICATE_EMAIL_CONTENT_ERROR });
   }
+  const used = input.mail?.findings_used;
+  const hasFindings = Array.isArray(used) ? used.length > 0 : Boolean(used);
   const unreachable =
     isUnreachableSiteMail(input.mail?.body_text) ||
-    isUnreachableProspect({
+    (isUnreachableProspect({
       status: input.prospect.status,
       scanStatus: input.prospect.scan?.status,
       scanError: input.prospect.scan?.error_message,
-    });
-  if (input.mail && !input.mail.scan_id && !unreachable) {
+    }) &&
+      !hasFindings &&
+      input.mail?.prompt_version !== MANUAL_REASONS_PROMPT_VERSION);
+  if (input.mail && !input.mail.scan_id && !unreachable && !hasFindings) {
     issues.push({ code: "missing_scan", message: "De mail is niet aan een scan gekoppeld." });
   }
-  if (input.auto && !unreachable) {
-    const used = input.mail?.findings_used;
-    const hasFindings = Array.isArray(used) ? used.length > 0 : Boolean(used);
-    if (input.mail && !hasFindings) {
-      issues.push({ code: "missing_findings", message: "Er zijn geen gebruikte findings bij deze mail." });
-    }
+  if (input.auto && !unreachable && input.mail && !hasFindings) {
+    issues.push({ code: "missing_findings", message: "Er zijn geen gebruikte findings bij deze mail." });
   }
   if (input.live && input.mail && ["queued", "sent", "delivered"].includes(input.mail.status)) {
     issues.push({ code: "duplicate_send", message: "Deze mail is al verzonden of staat in de wachtrij." });
@@ -338,17 +344,225 @@ export async function ensureUnreachableSiteMail(
   return { ok: true as const, mailId, existing: false };
 }
 
+async function cancelDraftMail(supabase: SupabaseClient, mailId: string) {
+  await supabase
+    .from("email_messages")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", mailId)
+    .eq("status", "draft");
+}
+
+async function persistManualFindings(
+  supabase: SupabaseClient,
+  input: { prospectId: string; scanId?: string | null; findings: MailFinding[] }
+) {
+  const { error } = await supabase.from("findings").insert(
+    input.findings.map((finding) => ({
+      prospect_id: input.prospectId,
+      scan_id: input.scanId ?? null,
+      category: finding.category,
+      finding_type: finding.finding_type,
+      title: finding.title,
+      description: finding.description,
+      severity: finding.severity,
+      confidence: finding.confidence ?? 0.7,
+      evidence_type: "manual",
+      evidence_reference: "handmatig-bekeken",
+      created_by: "system",
+    }))
+  );
+  if (error) console.error("[kopvast] Handmatige findings opslaan mislukt", error.message);
+}
+
+async function syncScoutDraftFromMail(prospectId: string, subject: string, body: string) {
+  const supabase = refreshClient();
+  if (!supabase) return;
+  const { upsertDraft } = await import("@/lib/scout/leads");
+  const { data: scoutLead } = await supabase
+    .from("scout_leads")
+    .select("id")
+    .eq("prospect_id", prospectId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (scoutLead?.id) await upsertDraft(scoutLead.id, { subject, message: body });
+}
+
+export async function storeManualReasonsMail(
+  supabase: SupabaseClient,
+  input: {
+    prospectId: string;
+    contactId?: string | null;
+    scanId?: string | null;
+    companyName?: string | null;
+    domain: string;
+    fit: ProductFit;
+    findings: MailFinding[];
+    place?: string | null;
+    actorEmail: string;
+  }
+) {
+  let place = input.place;
+  if (place === undefined) {
+    const { data: location } = await supabase
+      .from("prospects")
+      .select("city")
+      .eq("id", input.prospectId)
+      .maybeSingle();
+    place = location?.city ?? null;
+  }
+  const generated = fallbackAcquisitionMail({
+    companyName: input.companyName,
+    domain: input.domain,
+    fit: input.fit,
+    findings: input.findings,
+    place,
+  });
+  let html: string;
+  try {
+    html = (await prepareAcquisitionEmail(generated.emailProps)).html;
+  } catch (error) {
+    console.error("[kopvast] Handmatige acquisitiemail renderen mislukt", error instanceof Error ? error.message : error);
+    return null;
+  }
+
+  const { data: contact } = input.contactId
+    ? await supabase.from("prospect_contacts").select("id, email").eq("id", input.contactId).maybeSingle()
+    : await supabase
+        .from("prospect_contacts")
+        .select("id, email")
+        .eq("prospect_id", input.prospectId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+  const to = contact?.email || `draft@${input.domain}`;
+
+  const { data: created, error } = await supabase
+    .from("email_messages")
+    .insert({
+      prospect_id: input.prospectId,
+      contact_id: contact?.id ?? input.contactId ?? null,
+      scan_id: input.scanId ?? null,
+      kind: "acquisition_outreach",
+      to_email: to,
+      intended_to_email: contact?.email ?? null,
+      subject: generated.subject,
+      body_text: generated.body,
+      body_html: html,
+      status: "draft",
+      email_mode: await getEmailMode(),
+      template_version: generated.templateVersion,
+      prompt_version: MANUAL_REASONS_PROMPT_VERSION,
+      findings_used: generated.findingsUsed,
+      provider: "resend",
+    })
+    .select("id")
+    .single();
+  if (error) {
+    console.error("[kopvast] Handmatige acquisitiemail opslaan mislukt", error.message);
+    return null;
+  }
+
+  await supabase
+    .from("prospects")
+    .update({ mail_status: "draft", updated_at: new Date().toISOString() })
+    .eq("id", input.prospectId);
+  await logProspectActivity(supabase, {
+    prospectId: input.prospectId,
+    eventType: ACTIVITY.MAIL_GENERATED,
+    actorType: "human",
+    actorId: input.actorEmail,
+    metadata: { mailId: created?.id, prompt: MANUAL_REASONS_PROMPT_VERSION, template: generated.templateVersion },
+  });
+  await syncScoutDraftFromMail(input.prospectId, generated.subject, generated.body);
+  return created?.id ?? null;
+}
+
+export async function generateManualReasonsMail(input: {
+  prospectId: string;
+  reasons: string[];
+  actorEmail: string;
+}) {
+  const supabase = refreshClient();
+  if (!supabase) return { ok: false as const, message: "Website Refresh is niet geconfigureerd." };
+  const parsed = parseManualReasonCategories(input.reasons);
+  if (!parsed.ok) return parsed;
+  const detail = await loadProspectDetail(input.prospectId);
+  if (!detail) return { ok: false as const, message: "Prospect niet gevonden." };
+  if (!detail.contact?.email) return { ok: false as const, message: "Voeg eerst een e-mailadres toe." };
+  if (detail.mail && ["queued", "sent", "delivered"].includes(detail.mail.status)) {
+    return { ok: false as const, message: "Deze mail is al verzonden of staat in de wachtrij." };
+  }
+  if (detail.mail?.status === "draft") await cancelDraftMail(supabase, detail.mail.id);
+
+  const findings = findingsFromManualReasons(parsed.categories);
+  await persistManualFindings(supabase, {
+    prospectId: detail.id,
+    scanId: detail.scan?.id ?? null,
+    findings,
+  });
+
+  const mailId = await storeManualReasonsMail(supabase, {
+    prospectId: detail.id,
+    contactId: detail.contact.id,
+    scanId: detail.scan?.id ?? null,
+    companyName: detail.company_name,
+    domain: detail.domain,
+    fit: detail.product_fit ?? "REVIEW_REQUIRED",
+    findings,
+    actorEmail: input.actorEmail,
+  });
+  if (!mailId) return { ok: false as const, message: "De mail klaarzetten is mislukt." };
+  return { ok: true as const, mailId };
+}
+
+export async function generateAndSendManualReasonsMail(input: {
+  prospectId: string;
+  reasons: string[];
+  actorEmail: string;
+}) {
+  const generated = await generateManualReasonsMail(input);
+  if (!generated.ok) return generated;
+  const sent = await sendProspectLiveMail({
+    prospectId: input.prospectId,
+    mailId: generated.mailId,
+    actorEmail: input.actorEmail,
+  });
+  if (!sent.ok) {
+    return {
+      ok: false as const,
+      message: `Mail is klaargezet, maar versturen lukte niet: ${sent.message}`,
+      mailId: generated.mailId,
+    };
+  }
+  return { ok: true as const, mailId: generated.mailId, sent: true as const };
+}
+
 export async function regenerateProspectMail(prospectId: string, actorEmail: string) {
   const supabase = refreshClient();
   if (!supabase) return { ok: false as const, message: "Website Refresh is niet geconfigureerd." };
   const detail = await loadProspectDetail(prospectId);
-  if (
-    isUnreachableProspect({
-      status: detail?.status,
-      scanStatus: detail?.scan?.status,
-      scanError: detail?.scan?.error_message,
-    })
-  ) {
+  const failedScan = isUnreachableProspect({
+    status: detail?.status,
+    scanStatus: detail?.scan?.status,
+    scanError: detail?.scan?.error_message,
+  });
+  if (failedScan && detail && (detail.findings.length || mailHasFindings(detail.mail))) {
+    if (detail.mail?.status === "draft") await cancelDraftMail(supabase, detail.mail.id);
+    const id = await storeManualReasonsMail(supabase, {
+      prospectId,
+      contactId: detail.contact?.id,
+      scanId: detail.scan?.id ?? null,
+      companyName: detail.company_name,
+      domain: detail.domain,
+      fit: detail.product_fit ?? "REVIEW_REQUIRED",
+      findings: detail.findings.length ? detail.findings : (detail.mail?.findings_used as MailFinding[]) ?? [],
+      actorEmail,
+    });
+    if (!id) return { ok: false as const, message: "Opnieuw genereren is mislukt." };
+    return { ok: true as const };
+  }
+  if (failedScan) {
     return ensureUnreachableSiteMail(prospectId, actorEmail, { replaceDraft: true });
   }
   if (!detail?.scan) return { ok: false as const, message: "Er is nog geen scan om een mail op te baseren." };
