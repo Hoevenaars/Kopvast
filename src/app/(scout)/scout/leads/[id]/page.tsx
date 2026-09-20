@@ -5,14 +5,17 @@ import { getDraft, getLead, latestScan } from "@/lib/scout/leads";
 import { SCOUT_STATUS_LABELS } from "@/lib/scout/types";
 import {
   approveDraftAction,
+  createManualReasonsMailScoutAction,
   createUnreachableDraftAction,
   rescanAction,
   saveDraftAction,
   sendScoutMailAction,
 } from "@/app/(scout)/scout/actions";
+import { ManualReasonsForm } from "@/components/acquisition/manual-reasons-form";
 import { ScoutContactEmailForm } from "@/components/scout/contact-email-form";
 import { LeadDraftTools } from "@/components/scout/draft-tools";
-import { buildUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
+import { buildUnreachableSiteMail, isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
+import { resolveEmailSettings } from "@/lib/email-mode";
 
 export default async function ScoutLeadDetailPage({
   params,
@@ -30,14 +33,17 @@ export default async function ScoutLeadDetailPage({
   if (!lead) notFound();
   const draft = await getDraft(lead.id);
   const scan = await latestScan(lead.id);
+  const settings = await resolveEmailSettings();
   const enrichment = lead.enrichment as Record<string, { value?: string | null; kind?: string }>;
+  const scanFailed = lead.status === "scan_mislukt" || Boolean(lead.last_error);
   const generated =
-    lead.email && (lead.status === "scan_mislukt" || Boolean(lead.last_error))
+    lead.email && scanFailed && (!draft || isUnreachableSiteMail(draft.message))
       ? buildUnreachableSiteMail({ domain: lead.domain, companyName: lead.company_name })
       : null;
   const subject = draft?.subject ?? generated?.subject ?? "";
   const message = draft?.message ?? generated?.body ?? "";
-  const canEditMail = Boolean(draft || generated);
+  const canEditMail = Boolean(draft);
+  const showManualReasons = scanFailed && (!draft || isUnreachableSiteMail(draft.message));
 
   return (
     <main className="space-y-8 pb-8">
@@ -108,6 +114,20 @@ export default async function ScoutLeadDetailPage({
       <section>
         <h2 className="text-xs tracking-[0.18em] text-olive uppercase">Acquisitieconcept</h2>
         {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+        {showManualReasons ? (
+          <div className="mt-3">
+            <ManualReasonsForm
+              action={createManualReasonsMailScoutAction}
+              hiddenFields={{ leadId: lead.id }}
+              email={lead.email || enrichment?.email?.value || null}
+              mode={settings.mode}
+              intended={lead.email || enrichment?.email?.value || null}
+              testTo={settings.testEmail}
+              canSend={Boolean(lead.email || enrichment?.email?.value)}
+              variant="scout"
+            />
+          </div>
+        ) : null}
         {canEditMail ? (
           <form action={saveDraftAction} className="mt-3 space-y-3">
             <input type="hidden" name="leadId" value={lead.id} />
@@ -140,18 +160,20 @@ export default async function ScoutLeadDetailPage({
                 : "Goedkeuren zet het klaar. Voeg een e-mailadres toe om te kunnen versturen."}
             </p>
           </form>
-        ) : lead.email && (lead.status === "scan_mislukt" || lead.last_error) ? (
+        ) : lead.email && scanFailed ? (
           <form action={createUnreachableDraftAction} className="mt-3 space-y-3">
             <input type="hidden" name="leadId" value={lead.id} />
             <p className="text-sm leading-6 text-olive">
-              De site is niet bereikbaar. Maak een mail om te helpen de site op te zetten.
+              Kon je de website zelf ook niet openen? Maak dan een mail om te helpen de site op te zetten.
             </p>
             <p className="rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm leading-6 text-ink">
               {buildUnreachableSiteMail({ domain: lead.domain, companyName: lead.company_name }).subject}
             </p>
-            <button className="h-12 w-full rounded-2xl bg-copper-dark text-sm text-ivory">Maak mail</button>
+            <button className="h-12 w-full rounded-2xl bg-copper-dark text-sm text-ivory">
+              Maak mail voor onbereikbare site
+            </button>
           </form>
-        ) : (
+        ) : showManualReasons ? null : (
           <p className="mt-2 text-sm text-olive">Nog geen concept. {lead.last_error || "De scan loopt op de achtergrond."}</p>
         )}
       </section>

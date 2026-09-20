@@ -9,6 +9,7 @@ import {
 } from "@/emails/acquisition-outreach";
 import { FORBIDDEN_MAIL_CLAIMS, MAIL_PROMPT_VERSION, MAIL_TEMPLATE_VERSION, type ProductFit } from "./acquisition-constants";
 import { OUTREACH_COPY_RULES, SPECIAL_OFFER_CLASSIFICATION_PROMPT } from "./acquisition/outreach-copy-rules";
+import { MANUAL_MAIL_REASONS } from "./acquisition/manual-reasons";
 import {
   buildSpecialOffer,
   isContentOfferReason,
@@ -56,15 +57,9 @@ const CATEGORY_PRIORITY: Record<string, number> = {
   complexity: 12,
 };
 
-const CATEGORY_TITLES: Record<string, string> = {
-  commercial: "De diensten mogen duidelijker naar voren komen.",
-  visual: "De eerste indruk kan sterker.",
-  trust: "Het vertrouwen mag eerder voelbaar zijn.",
-  conversion: "De route naar contact kan directer.",
-  mobile: "Op mobiel verdwijnt de belangrijkste boodschap.",
-  content: "Het verhaal mag scherper.",
-  navigation: "De weg door de website kan eenvoudiger.",
-};
+const CATEGORY_TITLES: Record<string, string> = Object.fromEntries(
+  MANUAL_MAIL_REASONS.map((item) => [item.category, item.title])
+);
 
 const FORBIDDEN_COPY_PHRASES = [
   /onze scan toont/i,
