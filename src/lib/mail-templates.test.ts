@@ -55,6 +55,13 @@ test("standaardtemplates bevatten bevestiging en acquisitie", () => {
   assert.ok(values.acquisition.opening);
 });
 
+test("acquisitietemplate toont alleen velden die de brief nog gebruikt", () => {
+  const acquisition = mailTemplateRecords().find((item) => item.key === "acquisition");
+  const ids = (acquisition?.fields ?? []).map((field) => field.id);
+  assert.deepEqual(ids, ["greeting", "signatureName", "signatureTagline", "offerCustom"]);
+  assert.match(acquisition?.help ?? "", /spelregels persoonlijke benadering/);
+});
+
 test("testmail-idempotency blijft gelijk binnen het venster", () => {
   const start = 1_000_000;
   assert.equal(testMailIdempotencyKey("mail-1", start), testMailIdempotencyKey("mail-1", start + 1_000));

@@ -19,6 +19,8 @@ import {
 } from "@/lib/acquisition";
 import {
   ensureUnreachableSiteMail,
+  generateAndSendManualReasonsMail,
+  generateManualReasonsMail,
   regenerateProspectMail,
   saveProspectMailDraft,
   sendProspectLiveMail,
@@ -192,9 +194,19 @@ export async function updateContactEmailAction(
     actorEmail: session.email,
     source: "admin",
   });
-  if (result.ok) {
-    await ensureUnreachableSiteMail(prospectId, session.email);
-  }
+  revalidateAcquisition(prospectId);
+  return result;
+}
+
+export async function createManualReasonsMailAction(formData: FormData) {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const reasons = formData.getAll("reason").map(String);
+  const intent = String(formData.get("intent") ?? "send");
+  const result =
+    intent === "draft"
+      ? await generateManualReasonsMail({ prospectId, reasons, actorEmail: session.email })
+      : await generateAndSendManualReasonsMail({ prospectId, reasons, actorEmail: session.email });
   revalidateAcquisition(prospectId);
   return result;
 }

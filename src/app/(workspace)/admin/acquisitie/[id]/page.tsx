@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
   convertProspectForm,
+  createManualReasonsMailAction,
   createUnreachableMailForm,
   rescanProspectAction,
   updateFollowUpForm,
 } from "@/app/(workspace)/admin/acquisitie/actions";
+import { ManualReasonsForm } from "@/components/acquisition/manual-reasons-form";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { fieldClass, Field } from "@/components/form-fields";
 import { loadProspectDetail } from "@/lib/acquisition";
-import { ensureUnreachableSiteMail } from "@/lib/acquisition-send";
+import { mailHasFindings } from "@/lib/acquisition/manual-reasons";
 import { isUnreachableProspect } from "@/lib/acquisition/unreachable-site-mail";
 import { loadScoutCaptureForProspect } from "@/lib/scout/crm";
 import { ScoutCapturePanel } from "@/app/(workspace)/admin/scout/scout-capture-panel";
@@ -25,8 +27,8 @@ import {
   responseStatuses,
   type ProductFit,
 } from "@/lib/acquisition-constants";
+import { explainOutreachOffer } from "@/lib/acquisition/outreach-policy";
 import { workspaceRoutes } from "@/lib/product";
-import { products } from "@/lib/site";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { ProspectContactEmailForm } from "../contact-email-form";
 import { MailEditor } from "../mail-editor";
@@ -50,18 +52,6 @@ export default async function ProspectDetailPage({
   const { mailError } = await searchParams;
   const prospect = await loadProspectDetail(id);
   if (!prospect) notFound();
-  if (
-    !prospect.mail &&
-    prospect.contact?.email &&
-    isUnreachableProspect({
-      status: prospect.status,
-      scanStatus: prospect.scan?.status,
-      scanError: prospect.scan?.error_message,
-    })
-  ) {
-    const ensured = await ensureUnreachableSiteMail(prospect.id, "kopvast.nl");
-    if (ensured.ok) redirect(`${workspaceRoutes.adminAcquisition}/${id}`);
-  }
   const scout = await loadScoutCaptureForProspect(id);
 
   const running = ["queued", "running"].includes(prospect.scan?.status ?? "") || ["SCANNING", "ANALYSING", "VALIDATING"].includes(prospect.status);
@@ -69,6 +59,14 @@ export default async function ProspectDetailPage({
   const settings = await resolveEmailSettings();
   const mode = settings.mode;
   const blocked = prospect.do_not_contact || prospect.contact_status === "BLOCKED" || prospect.contact_status === "DO_NOT_CONTACT" || Boolean(prospect.suppression);
+  const scanFailed = isUnreachableProspect({
+    status: prospect.status,
+    scanStatus: prospect.scan?.status,
+    scanError: prospect.scan?.error_message,
+  });
+  const mailSent = ["queued", "sent", "delivered"].includes(prospect.mail?.status ?? "");
+  const showManualReasons = scanFailed && !mailSent && !mailHasFindings(prospect.mail);
+  const showUnreachableCreate = scanFailed && Boolean(prospect.contact?.email) && !prospect.mail;
 
   return (
     <div className="space-y-8">
@@ -83,6 +81,7 @@ export default async function ProspectDetailPage({
         <Stat label="Contactstatus" value={labelForContact(prospect.contact_status)} />
         <Stat label="Mailstatus" value={labelForMail(prospect.mail_status)} />
         <Stat label="Laatste activiteit" value={formatNlDate(prospect.last_activity_at)} />
+        <Stat label="Plaats" value={prospect.city || "—"} />
         <Stat label="Kosten" value={`€ ${prospect.total_cost.toFixed(4)}`} />
       </section>
       <p className="text-sm text-ink/55">
@@ -123,10 +122,22 @@ export default async function ProspectDetailPage({
         )}
       </section>
 
-      <OfferCard fit={prospect.product_fit} />
+      <OfferCard fit={prospect.product_fit} city={prospect.city} />
 
       {mailError ? (
         <p className="rounded-2xl border border-destructive/30 bg-white px-4 py-3 text-sm text-destructive">{mailError}</p>
+      ) : null}
+
+      {showManualReasons ? (
+        <ManualReasonsForm
+          action={createManualReasonsMailAction}
+          hiddenFields={{ prospectId: prospect.id }}
+          email={prospect.contact?.email ?? null}
+          mode={mode}
+          intended={prospect.contact?.email ?? null}
+          testTo={settings.testEmail}
+          canSend={!blocked && Boolean(prospect.contact?.email)}
+        />
       ) : null}
 
       {prospect.mail ? (
@@ -143,23 +154,22 @@ export default async function ProspectDetailPage({
           testTo={settings.testEmail}
           canSend={!blocked && Boolean(prospect.contact?.email)}
         />
-      ) : prospect.contact?.email && (prospect.status === "SCAN_FAILED" || Boolean(prospect.scan?.error_message)) ? (
+      ) : showUnreachableCreate ? (
         <form action={createUnreachableMailForm} className="relative space-y-4 rounded-2xl border border-copper/25 bg-[#FBF6F2] p-5">
           <FormBusyOverlay label="Mail klaarzetten…" />
           <input type="hidden" name="prospectId" value={prospect.id} />
           <h2 className="font-semibold">Site niet bereikbaar</h2>
           <p className="text-sm leading-6 text-ink/70">
-            De website ging niet open. Zet een mail klaar om te helpen de site op te zetten. Daarna kun je die
-            nalopen en versturen.
+            Kon je de website zelf ook niet openen? Zet dan een mail klaar om te helpen de site op te zetten.
           </p>
           <SubmitButton
             pendingLabel="Mail klaarzetten…"
             className="h-12 cursor-pointer rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory"
           >
-            Maak mail
+            Maak mail voor onbereikbare site
           </SubmitButton>
         </form>
-      ) : (
+      ) : showManualReasons ? null : (
         <section className="rounded-2xl border border-dashed border-ink/15 p-5 text-sm text-ink/50">
           De acquisitiemail verschijnt hier zodra de scan klaar is.
         </section>
@@ -262,39 +272,22 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OfferCard({ fit }: { fit: ProductFit | null }) {
+function OfferCard({ fit, city }: { fit: ProductFit | null; city: string | null }) {
   if (!fit) return null;
 
-  const copy =
-    fit === "CUSTOM_FIT"
-      ? {
-          title: "Kopvast Maatwerk",
-          text: "De website lijkt commercieel interessant, maar de benodigde functionaliteit valt waarschijnlijk buiten het vaste websitepakket.",
-          price: "Op aanvraag",
-        }
-      : fit === "NOT_FIT"
-        ? {
-            title: "Geen standaard fit",
-            text: "Deze website lijkt niet bij het Kopvast-aanbod te passen. Er wordt geen automatische prijs of standaardpakket voorgesteld.",
-            price: null,
-          }
-        : fit === "REVIEW_REQUIRED"
-          ? {
-              title: "Beoordeling nodig",
-              text: "Er is nog te weinig zekerheid voor een automatisch aanbod. Jij mag alsnog mailen: een website kan altijd scherper.",
-              price: null,
-            }
-          : {
-              title: "Kopvast Website",
-              text: "Een professionele website met een duidelijke structuur, sterke presentatie en heldere route naar contact.",
-              price: `Vanaf ${products.website.price} excl. btw`,
-            };
+  const copy = explainOutreachOffer({ fit, place: city });
 
   return (
     <section className="rounded-2xl border border-ink/10 bg-white p-5">
       <h2 className="text-2xl font-semibold">{copy.title}</h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-ink/60">{copy.text}</p>
       {copy.price ? <p className="mt-4 text-sm font-semibold">{copy.price}</p> : null}
+      {copy.reasonLabels.length ? (
+        <p className="mt-2 text-xs text-ink/45">Reden: {copy.reasonLabels.join(" · ")}</p>
+      ) : null}
+      {city && !copy.eligible && fit === "STANDARD_FIT" ? (
+        <p className="mt-2 text-xs text-ink/45">Plaats {city} geeft geen automatische korting.</p>
+      ) : null}
     </section>
   );
 }

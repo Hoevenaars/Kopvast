@@ -14,7 +14,14 @@ import {
 import { scoutPublicBase, withBase } from "@/lib/scout/base-path";
 import { pushScoutLead, rescanScoutLead } from "@/lib/scout/capture";
 import { interpretScoutPhoto } from "@/lib/scout/camera";
-import { ensureUnreachableSiteMail, sendProspectLiveMail } from "@/lib/acquisition-send";
+import {
+  ensureUnreachableSiteMail,
+  generateAndSendManualReasonsMail,
+  generateManualReasonsMail,
+  sendProspectLiveMail,
+} from "@/lib/acquisition-send";
+import { loadProspectDetail } from "@/lib/acquisition";
+import { isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
 import { approveDraft, getLead, saveDraft, updateScoutLeadEmail } from "@/lib/scout/leads";
 import { syncProspectFromScout } from "@/lib/scout/crm";
 import { ensureScoutUnreachableDraft } from "@/lib/scout/unreachable";
@@ -128,7 +135,15 @@ export async function sendScoutMailAction(formData: FormData) {
   }).catch(() => undefined);
   await syncProspectFromScout(leadId);
   if (!lead.prospect_id) redirect(errorPath("Deze lead staat nog niet in Acquisitie."));
-  const ensured = await ensureUnreachableSiteMail(lead.prospect_id, user.email);
+  const detail = await loadProspectDetail(lead.prospect_id);
+  const existing = detail?.mail;
+  const mailId =
+    existing && existing.status === "draft" && !isUnreachableSiteMail(existing.body_text)
+      ? existing.id
+      : null;
+  const ensured = mailId
+    ? { ok: true as const, mailId }
+    : await ensureUnreachableSiteMail(lead.prospect_id, user.email);
   if (!ensured.ok) redirect(errorPath(ensured.message));
   const sent = await sendProspectLiveMail({
     prospectId: lead.prospect_id,
@@ -137,6 +152,25 @@ export async function sendScoutMailAction(formData: FormData) {
   });
   if (!sent.ok) redirect(errorPath("message" in sent ? sent.message : "Versturen is mislukt."));
   redirect(withBase(base, `/leads/${leadId}`));
+}
+
+export async function createManualReasonsMailScoutAction(formData: FormData) {
+  const user = await requireScoutUser();
+  const leadId = String(formData.get("leadId") ?? "");
+  const lead = await getLead(user.id, leadId);
+  if (!lead) return { ok: false as const, message: "Lead niet gevonden." };
+  if (!lead.prospect_id) return { ok: false as const, message: "Deze lead staat nog niet in Acquisitie." };
+  const reasons = formData.getAll("reason").map(String);
+  const intent = String(formData.get("intent") ?? "send");
+  const result =
+    intent === "draft"
+      ? await generateManualReasonsMail({ prospectId: lead.prospect_id, reasons, actorEmail: user.email })
+      : await generateAndSendManualReasonsMail({
+          prospectId: lead.prospect_id,
+          reasons,
+          actorEmail: user.email,
+        });
+  return result;
 }
 
 export async function approveDraftAction(formData: FormData) {

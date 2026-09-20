@@ -127,6 +127,7 @@ export type ProspectDetail = {
   company_name: string | null;
   domain: string;
   website_url: string;
+  city: string | null;
   status: ProspectStatus;
   opportunity_score: number | null;
   website_improvement_potential: number | null;
@@ -832,6 +833,7 @@ export const loadProspectDetail = cache(async (id: string): Promise<ProspectDeta
     company_name: prospect.company_name,
     domain: prospect.domain,
     website_url: prospect.website_url,
+    city: typeof prospect.city === "string" && prospect.city.trim() ? prospect.city.trim() : null,
     status: prospect.status,
     opportunity_score: prospect.opportunity_score == null ? null : Number(prospect.opportunity_score),
     website_improvement_potential: score?.website_improvement_potential == null ? null : Number(score.website_improvement_potential),

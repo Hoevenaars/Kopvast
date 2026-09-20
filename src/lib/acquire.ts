@@ -590,6 +590,7 @@ async function acquireWebsite(input: {
       domain,
       fit: fit.fit,
       findings: (findings ?? []) as MailFinding[],
+      place: analysis?.analysis.city ?? null,
     });
     await markProgress(supabase, scanId, "mail", "done");
   } else if (scanId) {
