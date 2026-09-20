@@ -6,6 +6,7 @@ import { enrichFromFacts } from "./enrichment";
 import { enqueuePipelineJob, failJob, claimPendingJobs, completeJob } from "./jobs";
 import { appendEvent, getLeadById, insertScan, updateLead, upsertDraft } from "./leads";
 import { scanPublicWebsite } from "./scanner";
+import { syncProspectFromScout } from "./crm";
 import type { ScoutEnrichment } from "./types";
 
 export { enqueuePipelineJob };
@@ -68,6 +69,7 @@ export async function runLeadPipeline(leadId: string) {
   await updateLead(record.id, { status: "scannen", pipeline_stage: "scan", last_error: null });
   await appendEvent({ lead_id: record.id, event_type: "scan_started", actor_type: "system", metadata: {} });
   await linkProspect(record.id, record.domain, record.url, record.note, record.source);
+  await syncProspectFromScout(record.id);
 
   if (!allowExpensiveSideEffects()) {
     await updateLead(record.id, {
@@ -75,6 +77,7 @@ export async function runLeadPipeline(leadId: string) {
       pipeline_stage: "capture",
       last_error: "Preview verwerkt leads niet automatisch.",
     });
+    await syncProspectFromScout(record.id);
     return;
   }
 
@@ -163,6 +166,7 @@ export async function runLeadPipeline(leadId: string) {
     await upsertDraft(record.id, { subject: analysis.draftSubject, message: analysis.draftMessage });
     await updateLead(record.id, { status: "concept_klaar", pipeline_stage: "draft" });
     await appendEvent({ lead_id: record.id, event_type: "draft_generated", actor_type: "agent", metadata: {} });
+    await syncProspectFromScout(record.id);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Scan mislukt.";
     await updateLead(record.id, {
@@ -177,6 +181,7 @@ export async function runLeadPipeline(leadId: string) {
       actor_type: "system",
       metadata: { message: message.slice(0, 200) },
     });
+    await syncProspectFromScout(record.id);
     throw error;
   }
 }

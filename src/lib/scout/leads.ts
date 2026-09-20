@@ -4,7 +4,7 @@ import { scoutServiceClient } from "./auth";
 import { mutateLocalScout, readLocalScout } from "./store";
 import { emptyEnrichment, type DuplicateLead, type ScoutDraft, type ScoutLead, type ScoutLeadEvent, type ScoutScan, type ScoutSource, type ScoutStatus, type ScoutUser } from "./types";
 
-function mapLead(row: Record<string, unknown>): ScoutLead {
+export function mapLead(row: Record<string, unknown>): ScoutLead {
   return {
     id: String(row.id),
     user_id: String(row.user_id),

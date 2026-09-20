@@ -5,6 +5,8 @@ import { PageIntro } from "@/components/workspace/page-frame";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { fieldClass, Field } from "@/components/form-fields";
 import { loadProspectDetail } from "@/lib/acquisition";
+import { loadScoutCaptureForProspect } from "@/lib/scout/crm";
+import { ScoutCapturePanel } from "@/app/(workspace)/admin/scout/scout-capture-panel";
 import {
   FINDING_CATEGORY_LABELS,
   formatNlDate,
@@ -32,6 +34,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const prospect = await loadProspectDetail(id);
   if (!prospect) notFound();
+  const scout = await loadScoutCaptureForProspect(id);
 
   const running = ["queued", "running"].includes(prospect.scan?.status ?? "") || ["SCANNING", "ANALYSING", "VALIDATING"].includes(prospect.status);
   const commercialFindings = pickCommercialFindings(prospect.findings, 5);
@@ -43,6 +46,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
     <div className="space-y-8">
       <PageIntro eyebrow={prospect.domain} title={prospect.company_name || prospect.domain} text={prospect.website_url} />
       <EmailModeBanner mode={mode} testTo={settings.testEmail} />
+      {scout ? <ScoutCapturePanel capture={scout} /> : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Opportunity Score" value={prospect.opportunity_score == null ? "—" : `${Math.round(prospect.opportunity_score)} / 100`} />
@@ -184,7 +188,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
         <ul className="mt-4 divide-y divide-ink/6">
           {prospect.activities.map((item) => (
             <li key={item.id} className="flex flex-col gap-1 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-              <span>{item.event_type}</span>
+              <span>{item.event_type === "SCOUT_CAPTURED" ? "Scout-push" : item.event_type}</span>
               <span className="text-xs text-ink/40">
                 {item.actor_type} · {new Date(item.created_at).toLocaleString("nl-NL")}
               </span>

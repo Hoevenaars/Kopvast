@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
 import { sanitizeAcquisitionSearch } from "./mail-body";
 import { refreshClient } from "./refresh";
+import { scoutProspectIds } from "./scout/crm";
 import { assertPublicHostname } from "./ssrf";
 import { isEmail, normalizeEmail } from "./product";
 import { canonicalDomainFromInput } from "./acquire-score";
@@ -50,6 +51,7 @@ export type ProspectListItem = {
   created_at: string;
   email: string | null;
   suppressed: boolean;
+  fromScout: boolean;
 };
 
 export type ProspectContact = {
@@ -217,6 +219,11 @@ export async function listAcquisitionProspects(input: {
     .eq("is_archived", false);
 
   if (filter === "nieuw") query = query.in("status", ["NEW", "VALIDATING", "SCANNING", "ANALYSING"]);
+  if (filter === "scout") {
+    const ids = await scoutProspectIds();
+    if (!ids.length) return { items: [], configured: true };
+    query = query.in("id", ids);
+  }
   if (filter === "scan") query = query.in("status", ["QUALIFIED", "WATCHLIST", "SALES_READY", "PRIORITY"]);
   if (filter === "sales") query = query.in("status", ["SALES_READY", "PRIORITY"]);
   if (filter === "concept") query = query.eq("mail_status", "draft");
@@ -245,6 +252,7 @@ export async function listAcquisitionProspects(input: {
 
   const rows = (data ?? []) as Array<ProspectListItem & { do_not_contact?: boolean }>;
   const ids = rows.map((item) => item.id);
+  const scoutIds = new Set(await scoutProspectIds());
   const { data: contacts } = ids.length
     ? await supabase.from("prospect_contacts").select("prospect_id, email, do_not_contact").in("prospect_id", ids)
     : { data: [] as Array<{ prospect_id: string; email: string; do_not_contact: boolean }> };
@@ -258,6 +266,7 @@ export async function listAcquisitionProspects(input: {
     ...row,
     email: emailByProspect.get(row.id) ?? null,
     suppressed: Boolean(row.do_not_contact),
+    fromScout: scoutIds.has(row.id),
   }));
 
   return { items, configured: true };
