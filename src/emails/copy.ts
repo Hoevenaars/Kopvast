@@ -35,6 +35,8 @@ export type EmailField = {
 export function sourceLabel(source: string) {
   if (source === "maatwerk") return "Maatwerk";
   if (source === "website-aanvraag") return "Kopvast Website";
+  if (source === "acquisitie-voorstel") return "Acquisitie · voorstel";
+  if (source === "acquisitie-info") return "Acquisitie · meer info";
   if (isDomainLandingSource(source)) return "DOMEININTERESSE";
   return "Aanvraag";
 }

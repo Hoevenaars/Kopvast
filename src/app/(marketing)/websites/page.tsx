@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ArrowRight } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { AcquisitionStartBlock } from "@/components/acquisition-start-block";
 import { ButtonLink } from "@/components/button-link";
 import { CtaBand } from "@/components/cta-band";
 import { MaatwerkBlock } from "@/components/maatwerk-block";
@@ -57,6 +58,10 @@ export default function WebsitesPage() {
             </ButtonLink>
           </>
         }
+      />
+
+      <AcquisitionStartBlock
+        params={{ choice: "info", website: "", company: "", offerPrice: 1495 }}
       />
 
       <section className="container-page py-16">
