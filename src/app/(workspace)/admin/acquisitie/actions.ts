@@ -5,14 +5,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { workspaceRoutes } from "@/lib/product";
-import { acquireAdminScan } from "@/lib/acquire";
+import { acquireAdminScan, processQueuedAcquisitionScans } from "@/lib/acquire";
 import {
   convertProspectToLead,
   createAcquisitionProspect,
+  importAcquisitionProspects,
   reuseProspectScan,
   updateProspectContactEmail,
   updateProspectFollowUp,
   type CreateProspectResult,
+  type ImportProspectsResult,
   type UpdateContactEmailResult,
 } from "@/lib/acquisition";
 import {
@@ -34,6 +36,24 @@ function revalidateAcquisition(id?: string) {
   revalidatePath(workspaceRoutes.adminAcquisition);
   revalidatePath(workspaceRoutes.adminScout);
   if (id) revalidatePath(`${workspaceRoutes.adminAcquisition}/${id}`);
+}
+
+export async function importProspectsAction(
+  _previous: ImportProspectsResult | null,
+  formData: FormData
+): Promise<ImportProspectsResult> {
+  const session = await requireAdmin();
+  const result = await importAcquisitionProspects({
+    text: String(formData.get("list") ?? ""),
+    actorEmail: session.email,
+  });
+  if (result.ok && result.created) {
+    after(() =>
+      processQueuedAcquisitionScans(4).catch((error) => console.error("[kopvast] Import-scan mislukt", error))
+    );
+    revalidateAcquisition();
+  }
+  return result;
 }
 
 export async function createProspectAction(

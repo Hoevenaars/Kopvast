@@ -10,6 +10,11 @@ import { canonicalDomainFromInput } from "./acquire-score";
 import { addSuppression, findSuppression, type SuppressionHit } from "./suppression";
 import { logProspectActivity } from "./acquisition-activity";
 import {
+  MAX_IMPORT_PROSPECTS,
+  parseProspectImportText,
+  type ParsedImportRow,
+} from "./acquisition-import";
+import {
   ACTIVITY,
   emptyScanProgress,
   isAcquisitionFilter,
@@ -187,6 +192,26 @@ export type UpdateContactEmailResult =
   | { ok: false; message: string }
   | { ok: false; emailConflict: true; existing: DuplicateProspect };
 
+export type ImportProspectItemResult = {
+  website: string;
+  email: string | null;
+  company: string | null;
+} & (
+  | { ok: true; prospectId: string; scanId: string }
+  | { ok: false; reason: "duplicate" | "email_conflict" | "invalid" | "error"; message: string; existingId?: string }
+);
+
+export type ImportProspectsResult =
+  | {
+      ok: true;
+      created: number;
+      skipped: number;
+      failed: number;
+      items: ImportProspectItemResult[];
+      parseErrors: Array<{ line: string; message: string }>;
+    }
+  | { ok: false; message: string };
+
 function asFilter(value: string | undefined): AcquisitionFilter {
   return value && isAcquisitionFilter(value) ? value : "alles";
 }
@@ -299,16 +324,20 @@ async function loadDuplicate(supabase: SupabaseClient, prospectId: string): Prom
 
 export async function createAcquisitionProspect(input: {
   website: string;
-  email: string;
+  email?: string;
   company?: string;
   notes?: string;
   actorEmail: string;
+  skipRateLimit?: boolean;
+  sourceReference?: string;
+  sourceName?: string;
+  contactSource?: string;
 }): Promise<CreateProspectResult> {
   const supabase = refreshClient();
   if (!supabase) return { ok: false, message: "Website Refresh is niet geconfigureerd." };
 
-  const email = normalizeEmail(input.email);
-  if (!isEmail(email)) return { ok: false, message: "Vul een geldig e-mailadres in." };
+  const email = input.email?.trim() ? normalizeEmail(input.email) : "";
+  if (input.email?.trim() && !isEmail(email)) return { ok: false, message: "Vul een geldig e-mailadres in." };
 
   let parsed: ReturnType<typeof canonicalDomainFromInput>;
   try {
@@ -318,18 +347,20 @@ export async function createAcquisitionProspect(input: {
     return { ok: false, message: error instanceof Error ? error.message : "Dit websiteadres is niet geldig." };
   }
 
-  const since = new Date(Date.now() - 60_000).toISOString();
-  const { count } = await supabase
-    .from("activity_logs")
-    .select("id", { count: "exact", head: true })
-    .eq("event_type", ACTIVITY.SCAN_STARTED)
-    .eq("actor_id", input.actorEmail)
-    .gte("created_at", since);
-  if ((count ?? 0) >= 8) {
-    return { ok: false, message: "Te veel scans achter elkaar. Wacht even en probeer opnieuw." };
+  if (!input.skipRateLimit) {
+    const since = new Date(Date.now() - 60_000).toISOString();
+    const { count } = await supabase
+      .from("activity_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("event_type", ACTIVITY.SCAN_STARTED)
+      .eq("actor_id", input.actorEmail)
+      .gte("created_at", since);
+    if ((count ?? 0) >= 8) {
+      return { ok: false, message: "Te veel scans achter elkaar. Wacht even en probeer opnieuw." };
+    }
   }
 
-  const suppression = await findSuppression(supabase, { email, domain: parsed.domain });
+  const suppression = await findSuppression(supabase, { email: email || undefined, domain: parsed.domain });
 
   const { data: existing } = await supabase
     .from("prospects")
@@ -347,17 +378,20 @@ export async function createAcquisitionProspect(input: {
     };
   }
 
-  const { data: emailOwner } = await supabase
-    .from("prospect_contacts")
-    .select("prospect_id")
-    .ilike("email", email)
-    .limit(1)
-    .maybeSingle();
-  if (emailOwner?.prospect_id) {
-    return { ok: false, emailConflict: true, existing: await loadDuplicate(supabase, emailOwner.prospect_id) };
+  if (email) {
+    const { data: emailOwner } = await supabase
+      .from("prospect_contacts")
+      .select("prospect_id")
+      .ilike("email", email)
+      .limit(1)
+      .maybeSingle();
+    if (emailOwner?.prospect_id) {
+      return { ok: false, emailConflict: true, existing: await loadDuplicate(supabase, emailOwner.prospect_id) };
+    }
   }
 
   const token = crypto.randomUUID().replace(/-/g, "");
+  const contactSource = input.contactSource || "admin";
   const { data: created, error } = await supabase
     .from("prospects")
     .insert({
@@ -365,11 +399,11 @@ export async function createAcquisitionProspect(input: {
       domain: parsed.domain,
       website_url: parsed.websiteUrl,
       source_type: "kopvast",
-      source_reference: "kopvast_admin",
+      source_reference: input.sourceReference || "kopvast_admin",
       status: "SCANNING",
       notes: input.notes?.trim() || null,
       contact_status: suppression ? "BLOCKED" : "UNKNOWN",
-      contact_source: "admin",
+      contact_source: contactSource,
       do_not_contact: Boolean(suppression),
       legal_note: suppression ? `Suppression: ${suppression.reason}` : null,
       public_check_token: token,
@@ -382,13 +416,15 @@ export async function createAcquisitionProspect(input: {
     return { ok: false, message: "Prospect opslaan is mislukt." };
   }
 
-  const contact = await upsertContact(supabase, {
-    prospectId: created.id,
-    email,
-    source: "admin",
-    doNotContact: Boolean(suppression),
-    status: suppression ? "BLOCKED" : "UNKNOWN",
-  });
+  const contact = email
+    ? await upsertContact(supabase, {
+        prospectId: created.id,
+        email,
+        source: contactSource,
+        doNotContact: Boolean(suppression),
+        status: suppression ? "BLOCKED" : "UNKNOWN",
+      })
+    : null;
 
   const { data: scan, error: scanError } = await supabase
     .from("website_scans")
@@ -411,8 +447,8 @@ export async function createAcquisitionProspect(input: {
     prospect_id: created.id,
     source_type: "kopvast",
     source_url: parsed.websiteUrl,
-    source_name: "Kopvast admin",
-    notes: contact ? contact.email : email,
+    source_name: input.sourceName || "Kopvast admin",
+    notes: contact?.email || email || input.notes || null,
   });
 
   await logProspectActivity(supabase, {
@@ -421,7 +457,7 @@ export async function createAcquisitionProspect(input: {
     actorType: "human",
     actorId: input.actorEmail,
     newStatus: "SCANNING",
-    metadata: { domain: parsed.domain, email, suppressed: Boolean(suppression) },
+    metadata: { domain: parsed.domain, email: email || null, suppressed: Boolean(suppression) },
   });
   await logProspectActivity(supabase, {
     prospectId: created.id,
@@ -433,6 +469,87 @@ export async function createAcquisitionProspect(input: {
   });
 
   return { ok: true, prospectId: created.id, scanId: scan.id, reused: false };
+}
+
+export async function importAcquisitionProspects(input: {
+  text: string;
+  actorEmail: string;
+  rows?: ParsedImportRow[];
+}): Promise<ImportProspectsResult> {
+  const parsed = input.rows ? { rows: input.rows, errors: [] } : parseProspectImportText(input.text);
+  if (!parsed.rows.length && !parsed.errors.length) {
+    return { ok: false, message: "Plak minstens één website met e-mailadres." };
+  }
+  if (parsed.rows.length > MAX_IMPORT_PROSPECTS) {
+    return { ok: false, message: `Een lijst mag maximaal ${MAX_IMPORT_PROSPECTS} websites bevatten.` };
+  }
+
+  const items: ImportProspectItemResult[] = [];
+  for (const row of parsed.rows) {
+    const result = await createAcquisitionProspect({
+      website: row.website,
+      email: row.email ?? "",
+      company: row.company ?? "",
+      notes: row.notes ?? "",
+      actorEmail: input.actorEmail,
+      skipRateLimit: true,
+      sourceReference: "kopvast_import",
+      sourceName: "Kopvast import",
+      contactSource: "import",
+    });
+    if (result.ok) {
+      items.push({
+        ok: true,
+        website: row.website,
+        email: row.email,
+        company: row.company,
+        prospectId: result.prospectId,
+        scanId: result.scanId,
+      });
+      continue;
+    }
+    if ("duplicate" in result && result.duplicate) {
+      items.push({
+        ok: false,
+        reason: "duplicate",
+        website: row.website,
+        email: row.email,
+        company: row.company,
+        message: `${result.existing.domain} staat al in Kopvast.`,
+        existingId: result.existing.id,
+      });
+      continue;
+    }
+    if ("emailConflict" in result && result.emailConflict) {
+      items.push({
+        ok: false,
+        reason: "email_conflict",
+        website: row.website,
+        email: row.email,
+        company: row.company,
+        message: `${row.email} hoort al bij ${result.existing.domain}.`,
+        existingId: result.existing.id,
+      });
+      continue;
+    }
+    items.push({
+      ok: false,
+      reason: "error",
+      website: row.website,
+      email: row.email,
+      company: row.company,
+      message: "message" in result ? result.message : "Prospect opslaan is mislukt.",
+    });
+  }
+
+  return {
+    ok: true,
+    created: items.filter((item) => item.ok).length,
+    skipped: items.filter((item) => !item.ok && (item.reason === "duplicate" || item.reason === "email_conflict")).length,
+    failed: items.filter((item) => !item.ok && item.reason !== "duplicate" && item.reason !== "email_conflict").length,
+    items,
+    parseErrors: parsed.errors,
+  };
 }
 
 export async function reuseProspectScan(input: {

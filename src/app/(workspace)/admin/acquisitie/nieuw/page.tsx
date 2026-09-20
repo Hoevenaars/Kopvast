@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageIntro } from "@/components/workspace/page-frame";
+import { ImportProspectsForm } from "../import-prospects-form";
 import { NewProspectForm } from "../new-prospect-form";
 
 export const metadata: Metadata = { title: "Nieuwe prospect", robots: { index: false, follow: false } };
@@ -13,6 +14,7 @@ export default function NewAcquisitionPage() {
         text="Voeg een website toe. Kopvast analyseert de site en bereidt een persoonlijke acquisitiemail voor."
       />
       <NewProspectForm />
+      <ImportProspectsForm />
     </div>
   );
 }
