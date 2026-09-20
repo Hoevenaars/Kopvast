@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { parseScoutUrl } from "./urls";
-import { findLeadByDomain, findProspectDuplicate, insertLead, toDuplicate, appendEvent } from "./leads";
+import { findLeadByDomain, insertLead, toDuplicate, appendEvent } from "./leads";
 import { enqueuePipelineJob } from "./jobs";
 import { processScoutJobs } from "./pipeline";
 import { consumeRateLimit, rateLimitMessage } from "./rate-limit";
@@ -26,12 +26,6 @@ export async function pushScoutLead(input: {
   const existing = await findLeadByDomain(input.user.id, parsed.domain);
   if (existing && existing.id !== input.forceRescanOf) {
     return { ok: false, duplicate: true, existing: toDuplicate(existing) };
-  }
-  if (!existing) {
-    const prospect = await findProspectDuplicate(parsed.domain);
-    if (prospect && prospect.id !== input.forceRescanOf) {
-      return { ok: false, duplicate: true, existing: prospect };
-    }
   }
 
   const note = input.note?.trim() || null;

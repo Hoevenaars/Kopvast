@@ -116,7 +116,14 @@ export default async function AcquisitionOverviewPage({
                   >
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <h2 className="text-lg font-semibold">{item.company_name || item.domain}</h2>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-lg font-semibold">{item.company_name || item.domain}</h2>
+                          {item.fromScout ? (
+                            <span className="rounded-full bg-[#F3E4DD] px-2 py-0.5 text-[11px] font-semibold tracking-wide text-copper-dark">
+                              Scout
+                            </span>
+                          ) : null}
+                        </div>
                         <p className="text-sm text-ink/45">{item.domain}</p>
                         <p className="mt-1 text-sm text-ink/55">{item.email || "Geen e-mail"}</p>
                       </div>

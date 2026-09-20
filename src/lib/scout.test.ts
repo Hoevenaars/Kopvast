@@ -85,3 +85,15 @@ test("productie-origin is scout.kopvast.nl en niet een wildcard vercel.app", () 
   assert.equal(originAllowed("https://scout.kopvast.nl"), true);
   assert.equal(originAllowed("https://random.vercel.app"), false);
 });
+
+test("Scout-push krijgt een admin-prospectstatus zonder afwijzen", async () => {
+  const { mergeScoutNote, prospectStatusFromScout, scoutSourceLabel } = await import("./scout/crm-map");
+  assert.equal(prospectStatusFromScout("scannen", null), "SCANNING");
+  assert.equal(prospectStatusFromScout("scan_mislukt", 12), "SCAN_FAILED");
+  assert.equal(prospectStatusFromScout("concept_klaar", 40), "WATCHLIST");
+  assert.equal(prospectStatusFromScout("concept_klaar", 82), "SALES_READY");
+  assert.equal(scoutSourceLabel("safari_share"), "Deelblad");
+  assert.equal(mergeScoutNote(null, "Nieuwe showroom"), "Nieuwe showroom");
+  assert.equal(mergeScoutNote("Nieuwe showroom", "Nieuwe showroom"), "Nieuwe showroom");
+  assert.match(mergeScoutNote("Bestaande notitie", "Nieuwe showroom") ?? "", /Scout: Nieuwe showroom/);
+});

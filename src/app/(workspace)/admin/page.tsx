@@ -4,6 +4,8 @@ import { ArrowUpRight, CheckCircle2, Mail, ScanSearch, Users, Workflow } from "l
 import { PageIntro } from "@/components/workspace/page-frame";
 import { loadAcquisitionDashboard } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
+import { listAdminScoutCaptures } from "@/lib/scout/crm";
+import { SCOUT_STATUS_LABELS } from "@/lib/scout/types";
 import { loadProposalTodayActions } from "@/lib/proposal-ops";
 import { formatEuro } from "@/lib/sites";
 import { loadBeheerOverview, loadOpenSupportActions } from "@/lib/workspace";
@@ -15,13 +17,21 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminDashboard() {
-  const [data, proposalActions, supportActions, beheer] = await Promise.all([
+  const [data, proposalActions, supportActions, beheer, scoutCaptures] = await Promise.all([
     loadAcquisitionDashboard(),
     loadProposalTodayActions(),
     loadOpenSupportActions(),
     loadBeheerOverview(),
+    listAdminScoutCaptures(8),
   ]);
-  const actions = [...proposalActions, ...supportActions, ...data.actions];
+  const scoutActions = scoutCaptures.map((item) => ({
+    title: "Scout-push",
+    company: item.company_name || item.domain,
+    status: SCOUT_STATUS_LABELS[item.status],
+    age: scoutAge(item.created_at),
+    href: item.prospect_id ? `${workspaceRoutes.adminAcquisition}/${item.prospect_id}` : workspaceRoutes.adminScout,
+  }));
+  const actions = [...scoutActions, ...proposalActions, ...supportActions, ...data.actions];
   const metrics = [
     { key: "prospects" as const, label: "Nieuwe prospects", value: String(data.metrics.prospects), icon: ScanSearch },
     { key: "scans" as const, label: "Scans", value: String(data.metrics.scans), icon: CheckCircle2 },
@@ -161,4 +171,10 @@ function AutomationMetric({ label, value, warning = false }: { label: string; va
       <span className={warning ? "font-semibold text-[#E0A98D]" : "font-semibold text-ivory"}>{value}</span>
     </div>
   );
+}
+
+function scoutAge(iso: string) {
+  const hours = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 3_600_000));
+  if (hours < 24) return `${hours}u`;
+  return `${Math.round(hours / 24)}d`;
 }

@@ -92,6 +92,7 @@ export type ProspectStatus = (typeof prospectStatuses)[number]["value"];
 export const acquisitionFilters = [
   { value: "alles", label: "Alles" },
   { value: "nieuw", label: "Nieuw" },
+  { value: "scout", label: "Scout" },
   { value: "scan", label: "Scan gereed" },
   { value: "sales", label: "Sales ready" },
   { value: "concept", label: "Concept klaar" },
