@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { convertProspectForm, rescanProspectAction, updateFollowUpForm } from "@/app/(workspace)/admin/acquisitie/actions";
+import {
+  convertProspectForm,
+  createUnreachableMailForm,
+  rescanProspectAction,
+  updateFollowUpForm,
+} from "@/app/(workspace)/admin/acquisitie/actions";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { fieldClass, Field } from "@/components/form-fields";
@@ -112,6 +117,22 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
           testTo={settings.testEmail}
           canSend={!blocked && Boolean(prospect.contact?.email)}
         />
+      ) : prospect.contact?.email && (prospect.status === "SCAN_FAILED" || Boolean(prospect.scan?.error_message)) ? (
+        <form action={createUnreachableMailForm} className="relative space-y-4 rounded-2xl border border-copper/25 bg-[#FBF6F2] p-5">
+          <FormBusyOverlay label="Mail klaarzetten…" />
+          <input type="hidden" name="prospectId" value={prospect.id} />
+          <h2 className="font-semibold">Site niet bereikbaar</h2>
+          <p className="text-sm leading-6 text-ink/70">
+            De website ging niet open. Zet een mail klaar om te helpen de site op te zetten. Daarna kun je die
+            nalopen en versturen.
+          </p>
+          <SubmitButton
+            pendingLabel="Mail klaarzetten…"
+            className="h-12 cursor-pointer rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory"
+          >
+            Maak mail
+          </SubmitButton>
+        </form>
       ) : (
         <section className="rounded-2xl border border-dashed border-ink/15 p-5 text-sm text-ink/50">
           De acquisitiemail verschijnt hier zodra de scan klaar is.

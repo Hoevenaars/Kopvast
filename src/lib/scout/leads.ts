@@ -356,6 +356,12 @@ export async function updateScoutLeadEmail(user: ScoutUser, leadId: string, rawE
     metadata: { email: parsed.email },
   });
 
+  if (lead.status === "scan_mislukt" || lead.last_error) {
+    const { ensureScoutUnreachableDraft } = await import("./unreachable");
+    const next = await getLead(user.id, leadId);
+    if (next?.email) await ensureScoutUnreachableDraft(next);
+  }
+
   return { ok: true as const, email: parsed.email };
 }
 

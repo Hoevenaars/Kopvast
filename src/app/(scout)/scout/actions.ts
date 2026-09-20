@@ -14,7 +14,10 @@ import {
 import { scoutPublicBase, withBase } from "@/lib/scout/base-path";
 import { pushScoutLead, rescanScoutLead } from "@/lib/scout/capture";
 import { interpretScoutPhoto } from "@/lib/scout/camera";
+import { ensureUnreachableSiteMail, sendProspectLiveMail } from "@/lib/acquisition-send";
 import { approveDraft, getLead, saveDraft, updateScoutLeadEmail } from "@/lib/scout/leads";
+import { syncProspectFromScout } from "@/lib/scout/crm";
+import { ensureScoutUnreachableDraft } from "@/lib/scout/unreachable";
 import { consumeRateLimit, rateLimitMessage } from "@/lib/scout/rate-limit";
 import { inferSource } from "@/lib/scout/urls";
 import type { DuplicateLead } from "@/lib/scout/types";
@@ -95,6 +98,42 @@ export async function saveDraftAction(formData: FormData) {
     subject: String(formData.get("subject") ?? ""),
     message: String(formData.get("message") ?? ""),
   });
+  await syncProspectFromScout(leadId);
+  const base = await scoutPublicBase();
+  redirect(withBase(base, `/leads/${leadId}`));
+}
+
+export async function createUnreachableDraftAction(formData: FormData) {
+  const user = await requireScoutUser();
+  const leadId = String(formData.get("leadId") ?? "");
+  const lead = await getLead(user.id, leadId);
+  if (!lead) throw new Error("Lead niet gevonden.");
+  if (!lead.email) throw new Error("Voeg eerst een e-mailadres toe.");
+  await ensureScoutUnreachableDraft(lead);
+  const base = await scoutPublicBase();
+  redirect(withBase(base, `/leads/${leadId}`));
+}
+
+export async function sendScoutMailAction(formData: FormData) {
+  const user = await requireScoutUser();
+  const leadId = String(formData.get("leadId") ?? "");
+  const lead = await getLead(user.id, leadId);
+  if (!lead) throw new Error("Lead niet gevonden.");
+  if (!lead.email) throw new Error("Voeg eerst een e-mailadres toe.");
+  await saveDraft(user.id, leadId, {
+    subject: String(formData.get("subject") ?? ""),
+    message: String(formData.get("message") ?? ""),
+  }).catch(() => undefined);
+  await syncProspectFromScout(leadId);
+  if (!lead.prospect_id) throw new Error("Deze lead staat nog niet in Acquisitie.");
+  const ensured = await ensureUnreachableSiteMail(lead.prospect_id, user.email);
+  if (!ensured.ok) throw new Error(ensured.message);
+  const sent = await sendProspectLiveMail({
+    prospectId: lead.prospect_id,
+    mailId: ensured.mailId,
+    actorEmail: user.email,
+  });
+  if (!sent.ok) throw new Error("message" in sent ? sent.message : "Versturen is mislukt.");
   const base = await scoutPublicBase();
   redirect(withBase(base, `/leads/${leadId}`));
 }

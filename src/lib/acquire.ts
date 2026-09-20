@@ -16,7 +16,7 @@ import { detectComplexityFlags, determineProductFit } from "./acquire-fit";
 import { ACTIVITY, adminStatusFromScore, emptyScanProgress, SCANNER_VERSION, SCORE_VERSION, type ScanStepKey } from "./acquisition-constants";
 import { logProspectActivity, refreshProspectCosts } from "./acquisition-activity";
 import { upsertContact } from "./acquisition";
-import { storeGeneratedMail } from "./acquisition-send";
+import { storeGeneratedMail, storeUnreachableSiteMail } from "./acquisition-send";
 import type { MailFinding } from "./acquisition-mail";
 
 const AI_REPEAT_HOURS = 24;
@@ -615,6 +615,24 @@ async function failScan(
     newStatus: "SCAN_FAILED",
     metadata: { reason: input.reason },
   });
+
+  const { data: contact } = await supabase
+    .from("prospect_contacts")
+    .select("id, email")
+    .eq("prospect_id", input.prospectId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (contact?.email) {
+    await storeUnreachableSiteMail(supabase, {
+      prospectId: input.prospectId,
+      contactId: contact.id,
+      scanId: input.scanId ?? null,
+      domain: input.domain,
+      actorType: "system",
+      actorId: "kopvast.nl",
+    });
+  }
 }
 
 async function markProgress(supabase: SupabaseClient, scanId: string, key: ScanStepKey, status: "done" | "failed" | "pending") {
