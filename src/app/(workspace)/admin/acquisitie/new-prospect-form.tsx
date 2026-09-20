@@ -6,7 +6,7 @@ import { createProspectAction, reuseProspectAction } from "@/app/(workspace)/adm
 import { areaClass, fieldClass, Field } from "@/components/form-fields";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { workspaceRoutes } from "@/lib/product";
-import { formatNlDate, labelForMail, labelForResponse, labelForStatus } from "@/lib/acquisition-constants";
+import { acquisitionPhase, formatNlDate, labelForMail, labelForResponse } from "@/lib/acquisition-constants";
 
 export function NewProspectForm() {
   const [state, action] = useActionState(createProspectAction, null);
@@ -146,7 +146,7 @@ function ExistingCard({
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
         <Item label="Bedrijf" value={existing.company_name || existing.domain} />
         <Item label="Domein" value={existing.domain} />
-        <Item label="Status" value={labelForStatus(existing.status)} />
+        <Item label="Fase" value={acquisitionPhase(existing)} />
         <Item label="Vorige scan" value={formatNlDate(existing.last_scan_at)} />
         <Item label="Laatste contact" value={formatNlDate(existing.last_contacted_at)} />
         <Item label="Mail" value={labelForMail(existing.mail_status)} />

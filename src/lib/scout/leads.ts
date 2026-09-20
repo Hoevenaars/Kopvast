@@ -400,8 +400,35 @@ export async function approveDraft(userId: string, leadId: string) {
       }
     });
   }
-  await updateLead(leadId, { status: "benaderd", pipeline_stage: "approve" });
+  await updateLead(leadId, { pipeline_stage: "approve" });
   await appendEvent({ lead_id: leadId, event_type: "draft_approved", actor_type: "human", metadata: {} });
+}
+
+export async function markLeadContacted(leadId: string) {
+  const lead = await getLeadById(leadId);
+  if (!lead) return;
+  if (lead.status === "reactie" || lead.status === "kans" || lead.status === "gewonnen" || lead.status === "afgevallen") {
+    return;
+  }
+  const now = nowIso();
+  await updateLead(leadId, { status: "benaderd", pipeline_stage: "sent" });
+  const supabase = scoutServiceClient();
+  if (supabase) {
+    await supabase
+      .from("scout_outreach_drafts")
+      .update({ status: "sent", updated_at: now })
+      .eq("lead_id", leadId);
+  } else {
+    await mutateLocalScout((store) => {
+      for (const draft of store.drafts) {
+        if (draft.lead_id === leadId) {
+          draft.status = "sent";
+          draft.updated_at = now;
+        }
+      }
+    });
+  }
+  await appendEvent({ lead_id: leadId, event_type: "email_sent", actor_type: "human", metadata: {} });
 }
 
 export async function listEvents(leadId: string) {

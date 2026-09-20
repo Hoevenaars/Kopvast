@@ -98,6 +98,8 @@ test("Scout-push krijgt een admin-prospectstatus zonder afwijzen", async () => {
   assert.equal(prospectStatusFromScout("scan_mislukt", 12), "SCAN_FAILED");
   assert.equal(prospectStatusFromScout("concept_klaar", 40), "WATCHLIST");
   assert.equal(prospectStatusFromScout("concept_klaar", 82), "SALES_READY");
+  assert.equal(prospectStatusFromScout("benaderd", 40), "CONTACTED");
+  assert.equal(prospectStatusFromScout("reactie", 90), "CONTACTED");
   assert.equal(scoutSourceLabel("safari_share"), "Deelblad");
   assert.equal(mergeScoutNote(null, "Nieuwe showroom"), "Nieuwe showroom");
   assert.equal(mergeScoutNote("Nieuwe showroom", "Nieuwe showroom"), "Nieuwe showroom");

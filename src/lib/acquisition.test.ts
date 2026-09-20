@@ -3,7 +3,15 @@ import test from "node:test";
 import { createElement } from "react";
 import { render } from "react-email";
 import { calculateOpportunityScore, canonicalDomainFromInput } from "./acquire-score";
-import { adminStatusFromScore, statusFromScore, FORBIDDEN_MAIL_CLAIMS, pickCommercialFindings } from "./acquisition-constants";
+import {
+  acquisitionPhase,
+  adminStatusFromScore,
+  nextStatusAfterLiveMail,
+  preservesOutreachStatus,
+  statusFromScore,
+  FORBIDDEN_MAIL_CLAIMS,
+  pickCommercialFindings,
+} from "./acquisition-constants";
 import { detectComplexityFlags, determineProductFit } from "./acquire-fit";
 import { composeAcquisitionBody, fallbackAcquisitionMail, pickMailFindings, selectableMailFindings, buildOutreachMailData } from "./acquisition-mail";
 import { buildSpecialOffer } from "./acquisition/special-offer-rules";
@@ -47,6 +55,17 @@ test("handmatige acquisitie zet een lage score niet om in afwijzen", () => {
   assert.equal(adminStatusFromScore("REJECTED"), "WATCHLIST");
   assert.equal(adminStatusFromScore("WATCHLIST"), "WATCHLIST");
   assert.equal(adminStatusFromScore("SALES_READY"), "SALES_READY");
+});
+
+test("verzonden mail zet de fase op benaderd", () => {
+  assert.equal(nextStatusAfterLiveMail("WATCHLIST"), "CONTACTED");
+  assert.equal(nextStatusAfterLiveMail("ANALYSING"), "CONTACTED");
+  assert.equal(nextStatusAfterLiveMail("CONVERTED"), null);
+  assert.equal(preservesOutreachStatus("CONTACTED"), true);
+  assert.equal(acquisitionPhase({ status: "WATCHLIST", mail_status: "sent" }), "Benaderd");
+  assert.equal(acquisitionPhase({ status: "CONTACTED", mail_status: "sent" }), "Benaderd");
+  assert.equal(acquisitionPhase({ status: "WATCHLIST", mail_status: "draft" }), "Watchlist");
+  assert.equal(acquisitionPhase({ status: "CONTACTED", response_status: "POSITIVE" }), "Benaderd");
 });
 
 test("opportunity score blijft binnen 100 en telt de vier blokken", () => {

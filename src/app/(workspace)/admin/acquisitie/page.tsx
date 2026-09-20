@@ -9,10 +9,10 @@ import {
   formatNlDate,
   isAcquisitionFilter,
   isAcquisitionSort,
+  acquisitionPhase,
   labelForFit,
   labelForMail,
   labelForResponse,
-  labelForStatus,
 } from "@/lib/acquisition-constants";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { workspaceRoutes } from "@/lib/product";
@@ -132,7 +132,7 @@ export default async function AcquisitionOverviewPage({
                     <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
                       <Meta label="Score" value={item.opportunity_score == null ? "—" : `${Math.round(item.opportunity_score)} / 100`} />
                       <Meta label="Fit" value={labelForFit(item.product_fit)} />
-                      <Meta label="Status" value={labelForStatus(item.status)} />
+                      <Meta label="Fase" value={acquisitionPhase(item)} />
                       <Meta label="Mail" value={labelForMail(item.mail_status)} />
                       <Meta label="Response" value={labelForResponse(item.response_status)} />
                       <Meta label="Laatste activiteit" value={formatNlDate(item.last_activity_at)} />

@@ -20,9 +20,16 @@ export function isScoutSourceReference(value: string | null | undefined) {
   return Boolean(value?.startsWith("scout_"));
 }
 
+export const SCOUT_OUTREACH_STATUSES = ["benaderd", "reactie", "kans", "gewonnen", "afgevallen"] as const;
+
+export function preservesScoutOutreach(status: string | null | undefined) {
+  return SCOUT_OUTREACH_STATUSES.includes(status as (typeof SCOUT_OUTREACH_STATUSES)[number]);
+}
+
 export function prospectStatusFromScout(status: ScoutStatus, score: number | null): ProspectStatus {
   if (status === "nieuw" || status === "scannen") return "SCANNING";
   if (status === "scan_mislukt") return "SCAN_FAILED";
+  if (status === "benaderd" || status === "reactie" || status === "kans") return "CONTACTED";
   if (status === "gewonnen") return "SALES_READY";
   if (status === "afgevallen") return "WATCHLIST";
   if (score == null) return "ANALYSING";

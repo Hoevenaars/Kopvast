@@ -13,7 +13,7 @@ import {
 } from "./acquire-map";
 import { calculateOpportunityScore, thresholdsFromSettings } from "./acquire-score";
 import { detectComplexityFlags, determineProductFit } from "./acquire-fit";
-import { ACTIVITY, adminStatusFromScore, emptyScanProgress, SCANNER_VERSION, SCORE_VERSION, type ScanStepKey } from "./acquisition-constants";
+import { ACTIVITY, adminStatusFromScore, emptyScanProgress, preservesOutreachStatus, SCANNER_VERSION, SCORE_VERSION, type ScanStepKey } from "./acquisition-constants";
 import { logProspectActivity, refreshProspectCosts } from "./acquisition-activity";
 import { upsertContact } from "./acquisition";
 import { storeGeneratedMail, storeUnreachableSiteMail } from "./acquisition-send";
@@ -276,7 +276,7 @@ async function acquireWebsite(input: {
         progress: emptyScanProgress(),
       })
       .eq("id", scanId);
-    await supabase.from("prospects").update({ status: "SCANNING" }).eq("id", prospect.id);
+    await supabase.from("prospects").update({ status: scanPipelineStatus(prospect.status, "SCANNING") }).eq("id", prospect.id);
   }
 
   if (!input.reachable) {
@@ -287,6 +287,7 @@ async function acquireWebsite(input: {
       websiteUrl,
       reason: "website_unreachable",
       message: "Website niet bereikbaar",
+      currentStatus: prospect.status,
     });
     return;
   }
@@ -364,7 +365,7 @@ async function acquireWebsite(input: {
     await markProgress(supabase, scanId, "findings", mapped.length ? "done" : "pending");
   }
 
-  await supabase.from("prospects").update({ status: "ANALYSING" }).eq("id", prospect.id);
+  await supabase.from("prospects").update({ status: scanPipelineStatus(prospect.status, "ANALYSING") }).eq("id", prospect.id);
 
   const settings = await loadAiSettings(supabase);
   const analysis = settings.enabled
@@ -510,7 +511,7 @@ async function acquireWebsite(input: {
       company_size_estimate: analysis?.analysis.company_size_estimate ?? undefined,
       company_size_confidence: analysis?.analysis.company_size_confidence ?? undefined,
       ai_recommendation: analysis?.analysis.recommendation ?? null,
-      status: finalStatus,
+      status: scanPipelineStatus(prospect.status, finalStatus),
       reject_reason:
         finalStatus === "REJECTED"
           ? analysis?.analysis.unsupported_language
@@ -617,7 +618,7 @@ async function acquireWebsite(input: {
 
 async function failScan(
   supabase: SupabaseClient,
-  input: { prospectId: string; scanId?: string; domain: string; websiteUrl: string; reason: string; message: string }
+  input: { prospectId: string; scanId?: string; domain: string; websiteUrl: string; reason: string; message: string; currentStatus?: string }
 ) {
   if (input.scanId) {
     await markProgress(supabase, input.scanId, "reachable", "failed");
@@ -636,7 +637,7 @@ async function failScan(
   await supabase
     .from("prospects")
     .update({
-      status: "SCAN_FAILED",
+      status: scanPipelineStatus(input.currentStatus ?? "", "SCAN_FAILED"),
       reject_reason: input.reason,
       last_scan_at: new Date().toISOString(),
       last_activity_at: new Date().toISOString(),
@@ -694,8 +695,13 @@ function leadNote(lead?: AcquireLead): string | null {
 }
 
 function inboundStatus(current: string): string {
+  if (preservesOutreachStatus(current)) return current;
   if (current === "PRIORITY" || current === "SALES_READY" || current === "PREVIEW_READY") return current;
   return "SALES_READY";
+}
+
+function scanPipelineStatus(current: string, next: string) {
+  return preservesOutreachStatus(current) ? current : next;
 }
 
 async function recentlyAnalysed(supabase: SupabaseClient, prospectId: string): Promise<boolean> {

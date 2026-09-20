@@ -5,6 +5,7 @@ import { withManualEmailEnrichment } from "@/lib/contact-email";
 import { isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
 import { nowIso } from "@/lib/workspace-store";
 import { scoutServiceClient } from "./auth";
+import { preservesOutreachStatus } from "@/lib/acquisition-constants";
 import { mergeScoutNote, prospectStatusFromScout } from "./crm-map";
 import { getDraft, getLeadById, mapLead } from "./leads";
 import { mutateLocalScout } from "./store";
@@ -163,7 +164,9 @@ export async function syncProspectFromScout(leadId: string): Promise<string | nu
     updated_at: nowIso(),
   };
   if (!locked) {
-    patch.status = nextStatus;
+    if (!preservesOutreachStatus(String(prospect.status)) || nextStatus === "CONVERTED") {
+      patch.status = nextStatus;
+    }
     if (draft && !SENT_MAIL_STATUSES.has(String(prospect.mail_status ?? ""))) {
       patch.mail_status = "draft";
     }

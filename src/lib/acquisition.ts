@@ -258,7 +258,9 @@ export async function listAcquisitionProspects(input: {
   if (filter === "scan") query = query.in("status", ["QUALIFIED", "WATCHLIST", "SALES_READY", "PRIORITY"]);
   if (filter === "sales") query = query.in("status", ["SALES_READY", "PRIORITY"]);
   if (filter === "concept") query = query.eq("mail_status", "draft");
-  if (filter === "verzonden") query = query.in("mail_status", ["queued", "sent", "delivered"]);
+  if (filter === "verzonden") {
+    query = query.or("status.eq.CONTACTED,mail_status.in.(queued,sent,delivered)");
+  }
   if (filter === "reactie") query = query.in("response_status", ["POSITIVE", "QUESTION", "MEETING"]);
   if (filter === "geconverteerd") query = query.eq("status", "CONVERTED");
   if (filter === "geblokkeerd") {
