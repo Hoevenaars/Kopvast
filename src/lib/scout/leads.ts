@@ -2,6 +2,7 @@ import { newId, nowIso } from "@/lib/workspace-store";
 import { canonicalDomainFromInput } from "@/lib/acquire-score";
 import { scoutServiceClient } from "./auth";
 import { mutateLocalScout, readLocalScout } from "./store";
+import { parseManualEmail, withManualEmailEnrichment } from "@/lib/contact-email";
 import { emptyEnrichment, type DuplicateLead, type ScoutDraft, type ScoutLead, type ScoutLeadEvent, type ScoutScan, type ScoutSource, type ScoutStatus, type ScoutUser } from "./types";
 
 export function mapLead(row: Record<string, unknown>): ScoutLead {
@@ -83,9 +84,11 @@ export async function insertLead(input: {
   domain: string;
   canonicalUrl: string;
   note: string | null;
+  email?: string | null;
   source: ScoutSource;
 }): Promise<ScoutLead> {
   const now = nowIso();
+  const email = input.email?.trim() || null;
   const row = {
     id: newId(),
     user_id: input.user.id,
@@ -97,7 +100,7 @@ export async function insertLead(input: {
     industry: null,
     city: null,
     description: null,
-    email: null,
+    email,
     phone: null,
     linkedin_url: null,
     source: input.source,
@@ -108,7 +111,7 @@ export async function insertLead(input: {
     commercial_summary: null,
     biggest_opportunity: null,
     opportunities: [],
-    enrichment: emptyEnrichment(),
+    enrichment: email ? withManualEmailEnrichment(emptyEnrichment(), email) : emptyEnrichment(),
     prospect_id: null,
     last_scan_at: null,
     last_error: null,
@@ -322,6 +325,38 @@ export async function getDraft(leadId: string): Promise<ScoutDraft | null> {
   }
   const store = await readLocalScout();
   return store.drafts.find((draft) => draft.lead_id === leadId) ?? null;
+}
+
+export async function updateScoutLeadEmail(user: ScoutUser, leadId: string, rawEmail: string) {
+  const parsed = parseManualEmail(rawEmail);
+  if (!parsed.ok) return parsed;
+  const lead = await getLead(user.id, leadId);
+  if (!lead) return { ok: false as const, message: "Lead niet gevonden." };
+
+  if (lead.prospect_id) {
+    const { updateProspectContactEmail } = await import("@/lib/acquisition");
+    const result = await updateProspectContactEmail({
+      prospectId: lead.prospect_id,
+      email: parsed.email,
+      actorEmail: user.email,
+      source: "scout",
+    });
+    if (!result.ok) return result;
+  } else {
+    await updateLead(leadId, {
+      email: parsed.email,
+      enrichment: withManualEmailEnrichment(lead.enrichment, parsed.email),
+    });
+  }
+
+  await appendEvent({
+    lead_id: leadId,
+    event_type: "contact_updated",
+    actor_type: "human",
+    metadata: { email: parsed.email },
+  });
+
+  return { ok: true as const, email: parsed.email };
 }
 
 export async function saveDraft(userId: string, leadId: string, input: { subject: string; message: string }) {

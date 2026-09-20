@@ -1,10 +1,12 @@
 import { revalidatePath } from "next/cache";
 import { logProspectActivity } from "@/lib/acquisition-activity";
+import { withManualEmailEnrichment } from "@/lib/contact-email";
 import { isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
 import { nowIso } from "@/lib/workspace-store";
 import { scoutServiceClient } from "./auth";
 import { mergeScoutNote, prospectStatusFromScout } from "./crm-map";
 import { getDraft, getLeadById, mapLead } from "./leads";
+import { mutateLocalScout } from "./store";
 import {
   SCOUT_STATUS_LABELS,
   type ScoutDraft,
@@ -132,6 +134,7 @@ function revalidateAdminSurfaces(prospectId?: string | null) {
   revalidatePath(workspaceRoutes.admin);
   revalidatePath(workspaceRoutes.adminAcquisition);
   revalidatePath(workspaceRoutes.adminScout);
+  revalidatePath("/scout");
   if (prospectId) revalidatePath(`${workspaceRoutes.adminAcquisition}/${prospectId}`);
 }
 
@@ -209,6 +212,35 @@ export async function syncProspectFromScout(leadId: string): Promise<string | nu
 
   revalidateAdminSurfaces(lead.prospect_id);
   return lead.prospect_id;
+}
+
+export async function syncScoutEmailFromProspect(prospectId: string, email: string) {
+  const supabase = scoutServiceClient();
+  const updatedAt = nowIso();
+  if (supabase) {
+    const { data } = await supabase.from("scout_leads").select("id, enrichment").eq("prospect_id", prospectId);
+    for (const row of data ?? []) {
+      await supabase
+        .from("scout_leads")
+        .update({
+          email,
+          enrichment: withManualEmailEnrichment(row.enrichment as Record<string, unknown>, email),
+          updated_at: updatedAt,
+        })
+        .eq("id", row.id);
+    }
+    revalidateAdminSurfaces(prospectId);
+    return;
+  }
+  await mutateLocalScout((store) => {
+    for (const lead of store.leads) {
+      if (lead.prospect_id === prospectId) {
+        lead.email = email;
+        lead.enrichment = withManualEmailEnrichment(lead.enrichment, email);
+        lead.updated_at = updatedAt;
+      }
+    }
+  });
 }
 
 async function upsertScoutOutreachDraft(prospectId: string, draft: ScoutDraft) {

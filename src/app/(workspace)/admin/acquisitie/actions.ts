@@ -10,8 +10,10 @@ import {
   convertProspectToLead,
   createAcquisitionProspect,
   reuseProspectScan,
+  updateProspectContactEmail,
   updateProspectFollowUp,
   type CreateProspectResult,
+  type UpdateContactEmailResult,
 } from "@/lib/acquisition";
 import {
   regenerateProspectMail,
@@ -29,6 +31,7 @@ async function requireAdmin() {
 function revalidateAcquisition(id?: string) {
   revalidatePath(workspaceRoutes.admin);
   revalidatePath(workspaceRoutes.adminAcquisition);
+  revalidatePath(workspaceRoutes.adminScout);
   if (id) revalidatePath(`${workspaceRoutes.adminAcquisition}/${id}`);
 }
 
@@ -151,6 +154,22 @@ export async function sendLiveMailAction(formData: FormData) {
     prospectId,
     mailId: String(formData.get("mailId") ?? ""),
     actorEmail: session.email,
+  });
+  revalidateAcquisition(prospectId);
+  return result;
+}
+
+export async function updateContactEmailAction(
+  _previous: UpdateContactEmailResult | null,
+  formData: FormData
+): Promise<UpdateContactEmailResult> {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const result = await updateProspectContactEmail({
+    prospectId,
+    email: String(formData.get("email") ?? ""),
+    actorEmail: session.email,
+    source: "admin",
   });
   revalidateAcquisition(prospectId);
   return result;

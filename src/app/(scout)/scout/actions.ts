@@ -14,7 +14,7 @@ import {
 import { scoutPublicBase, withBase } from "@/lib/scout/base-path";
 import { pushScoutLead, rescanScoutLead } from "@/lib/scout/capture";
 import { interpretScoutPhoto } from "@/lib/scout/camera";
-import { approveDraft, getLead, saveDraft } from "@/lib/scout/leads";
+import { approveDraft, getLead, saveDraft, updateScoutLeadEmail } from "@/lib/scout/leads";
 import { consumeRateLimit, rateLimitMessage } from "@/lib/scout/rate-limit";
 import { inferSource } from "@/lib/scout/urls";
 import type { DuplicateLead } from "@/lib/scout/types";
@@ -50,6 +50,7 @@ export async function pushLeadAction(_prev: ScoutPushState, formData: FormData):
     user,
     website: String(formData.get("website") ?? ""),
     note: String(formData.get("note") ?? ""),
+    email: String(formData.get("email") ?? ""),
     source: inferSource({ source: String(formData.get("source") ?? "") }),
     forceRescanOf: String(formData.get("rescanId") ?? "") || undefined,
   });
@@ -63,6 +64,26 @@ export async function rescanAction(formData: FormData) {
   const user = await requireScoutUser();
   const leadId = String(formData.get("leadId") ?? "");
   await rescanScoutLead({ user, leadId });
+  const base = await scoutPublicBase();
+  redirect(withBase(base, `/leads/${leadId}`));
+}
+
+export type ScoutEmailState =
+  | { ok: true; email: string }
+  | { ok: false; message: string }
+  | null;
+
+export async function updateScoutEmailAction(_prev: ScoutEmailState, formData: FormData): Promise<ScoutEmailState> {
+  assertSameOrigin(await headers());
+  const user = await requireScoutUser();
+  const leadId = String(formData.get("leadId") ?? "");
+  const result = await updateScoutLeadEmail(user, leadId, String(formData.get("email") ?? ""));
+  if (!result.ok) {
+    if ("emailConflict" in result && result.emailConflict) {
+      return { ok: false, message: `Dit e-mailadres hoort al bij ${result.existing.company_name || result.existing.domain}.` };
+    }
+    return { ok: false, message: "message" in result ? result.message : "E-mail opslaan is mislukt." };
+  }
   const base = await scoutPublicBase();
   redirect(withBase(base, `/leads/${leadId}`));
 }

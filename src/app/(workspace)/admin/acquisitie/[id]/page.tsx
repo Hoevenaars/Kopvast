@@ -20,6 +20,7 @@ import {
 } from "@/lib/acquisition-constants";
 import { products } from "@/lib/site";
 import { resolveEmailSettings } from "@/lib/email-mode";
+import { ProspectContactEmailForm } from "../contact-email-form";
 import { MailEditor } from "../mail-editor";
 import { ScanProgress } from "../scan-progress";
 import { EmailModeBanner } from "../email-mode-banner";
@@ -54,7 +55,6 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
         <Stat label="Product Fit" value={labelForFit(prospect.product_fit)} />
         <Stat label="Contactstatus" value={labelForContact(prospect.contact_status)} />
         <Stat label="Mailstatus" value={labelForMail(prospect.mail_status)} />
-        <Stat label="E-mail" value={prospect.contact?.email || "—"} />
         <Stat label="Laatste activiteit" value={formatNlDate(prospect.last_activity_at)} />
         <Stat label="Kosten" value={`€ ${prospect.total_cost.toFixed(4)}`} />
       </section>
@@ -66,6 +66,12 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
       {prospect.scan?.error_message ? (
         <p className="rounded-2xl border border-destructive/30 bg-white px-4 py-3 text-sm text-destructive">{prospect.scan.error_message}</p>
       ) : null}
+
+      <ProspectContactEmailForm
+        prospectId={prospect.id}
+        email={prospect.contact?.email ?? null}
+        scanFailed={prospect.status === "SCAN_FAILED" || Boolean(prospect.scan?.error_message)}
+      />
 
       <section className="rounded-2xl border border-ink/10 bg-white p-5">
         <h2 className="font-semibold">Wat valt op?</h2>

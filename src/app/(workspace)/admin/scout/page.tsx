@@ -56,10 +56,11 @@ export default async function AdminScoutPage() {
                     </div>
                     <p className="text-xs text-ink/40">{formatNlDate(item.created_at)}</p>
                   </div>
-                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-5">
                     <Meta label="Status" value={SCOUT_STATUS_LABELS[item.status]} />
                     <Meta label="Score" value={item.score == null ? "—" : `${item.score} / 100`} />
                     <Meta label="Bron" value={scoutSourceLabel(item.source)} />
+                    <Meta label="E-mail" value={item.email || "Geen e-mail"} />
                     <Meta label="Concept" value={item.draft_status ? (item.draft_status === "approved" ? "Goedgekeurd" : "Klaar") : "Nog niet"} />
                   </dl>
                 </PendingLink>

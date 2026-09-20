@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { parseOptionalManualEmail } from "@/lib/contact-email";
 import { parseScoutUrl } from "./urls";
 import { findLeadByDomain, insertLead, toDuplicate, appendEvent } from "./leads";
 import { enqueuePipelineJob } from "./jobs";
@@ -10,6 +11,7 @@ export async function pushScoutLead(input: {
   user: ScoutUser;
   website: string;
   note?: string | null;
+  email?: string | null;
   source: ScoutSource;
   forceRescanOf?: string;
 }): Promise<PushLeadResult> {
@@ -28,6 +30,9 @@ export async function pushScoutLead(input: {
     return { ok: false, duplicate: true, existing: toDuplicate(existing) };
   }
 
+  const parsedEmail = parseOptionalManualEmail(input.email);
+  if (!parsedEmail.ok) return parsedEmail;
+
   const note = input.note?.trim() || null;
   const lead = existing
     ? existing
@@ -37,6 +42,7 @@ export async function pushScoutLead(input: {
         domain: parsed.domain,
         canonicalUrl: parsed.canonicalUrl,
         note,
+        email: parsedEmail.email,
         source: input.source,
       });
 

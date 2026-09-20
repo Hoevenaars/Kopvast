@@ -121,6 +121,19 @@ export function ScoutCaptureForm({
           />
         </label>
         <label className="block">
+          <span className="text-xs tracking-[0.18em] text-olive uppercase">E-mail</span>
+          <input
+            name="email"
+            type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            autoComplete="email"
+            placeholder="Optioneel, als de site niet open gaat"
+            className="mt-2 h-14 w-full rounded-2xl border border-ink/10 bg-white px-4 text-base text-ink outline-none ring-copper/40 placeholder:text-stone focus:ring-2"
+          />
+        </label>
+        <label className="block">
           <span className="text-xs tracking-[0.18em] text-olive uppercase">Opmerking</span>
           <textarea
             name="note"
