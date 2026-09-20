@@ -43,7 +43,7 @@ export default async function AdminDashboard() {
     { label: "Nieuw", value: data.pipeline.nieuw },
     { label: "Qualified", value: data.pipeline.qualified },
     { label: "Sales ready", value: data.pipeline.salesReady },
-    { label: "Verzonden", value: data.pipeline.verzonden },
+    { label: "Benaderd", value: data.pipeline.verzonden },
     { label: "Response", value: data.pipeline.response },
   ];
   const healthy = data.metrics.errors === 0 && supportActions.length === 0;

@@ -15,6 +15,7 @@ import {
   CONTACT_STATUSES_ALLOWED_TO_SEND,
   MAIL_PROMPT_VERSION,
   MAIL_TEMPLATE_VERSION,
+  nextStatusAfterLiveMail,
   type ProductFit,
 } from "./acquisition-constants";
 import { isEmail, normalizeEmail } from "./product";
@@ -564,7 +565,17 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
     .select("id")
     .maybeSingle();
   if (lockError) return { ok: false as const, message: lockError.message };
-  if (!locked) return { ok: true as const, skippedDuplicate: true };
+  if (!locked) {
+    const contactedStatus = nextStatusAfterLiveMail(detail.status);
+    if (contactedStatus && detail.status !== contactedStatus) {
+      await supabase
+        .from("prospects")
+        .update({ status: contactedStatus, updated_at: new Date().toISOString() })
+        .eq("id", detail.id);
+    }
+    await markScoutLeadsContacted(detail.id);
+    return { ok: true as const, skippedDuplicate: true };
+  }
 
   await supabase.from("prospects").update({ mail_status: "queued", updated_at: new Date().toISOString() }).eq("id", detail.id);
   await logProspectActivity(supabase, {
@@ -647,15 +658,19 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
       updated_at: new Date().toISOString(),
     })
     .eq("id", mail!.id);
+  const contactedStatus = nextStatusAfterLiveMail(detail.status);
   await supabase
     .from("prospects")
     .update({
       mail_status: "sent",
       last_contacted_at: new Date().toISOString(),
+      last_activity_at: new Date().toISOString(),
       response_status: detail.response_status ?? "NO_RESPONSE",
+      ...(contactedStatus ? { status: contactedStatus } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", detail.id);
+  await markScoutLeadsContacted(detail.id);
   await supabase.from("cost_events").insert({
     prospect_id: detail.id,
     scan_id: mail!.scan_id,
@@ -781,6 +796,16 @@ export async function applyAcquisitionWebhook(input: {
     });
   }
   return true;
+}
+
+export async function markScoutLeadsContacted(prospectId: string) {
+  const { markLeadContacted } = await import("@/lib/scout/leads");
+  const supabase = refreshClient();
+  if (!supabase) return;
+  const { data } = await supabase.from("scout_leads").select("id").eq("prospect_id", prospectId);
+  for (const row of data ?? []) {
+    await markLeadContacted(String(row.id));
+  }
 }
 
 export function fallbackMailForTests(input: Parameters<typeof fallbackAcquisitionMail>[0]) {

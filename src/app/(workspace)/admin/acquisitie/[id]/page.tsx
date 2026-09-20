@@ -16,11 +16,11 @@ import { loadScoutCaptureForProspect } from "@/lib/scout/crm";
 import { ScoutCapturePanel } from "@/app/(workspace)/admin/scout/scout-capture-panel";
 import {
   FINDING_CATEGORY_LABELS,
+  acquisitionPhase,
   formatNlDate,
   labelForContact,
   labelForFit,
   labelForMail,
-  labelForStatus,
   pickCommercialFindings,
   responseStatuses,
   type ProductFit,
@@ -78,7 +78,7 @@ export default async function ProspectDetailPage({
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Opportunity Score" value={prospect.opportunity_score == null ? "—" : `${Math.round(prospect.opportunity_score)} / 100`} />
-        <Stat label="Prospectstatus" value={labelForStatus(prospect.status)} />
+        <Stat label="Fase" value={acquisitionPhase(prospect)} />
         <Stat label="Product Fit" value={labelForFit(prospect.product_fit)} />
         <Stat label="Contactstatus" value={labelForContact(prospect.contact_status)} />
         <Stat label="Mailstatus" value={labelForMail(prospect.mail_status)} />

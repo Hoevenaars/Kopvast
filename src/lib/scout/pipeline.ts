@@ -8,7 +8,8 @@ import { enqueuePipelineJob, failJob, claimPendingJobs, completeJob } from "./jo
 import { appendEvent, getLeadById, insertScan, updateLead, upsertDraft } from "./leads";
 import { scanPublicWebsite } from "./scanner";
 import { syncProspectFromScout } from "./crm";
-import type { ScoutEnrichment } from "./types";
+import { preservesScoutOutreach } from "./crm-map";
+import type { ScoutEnrichment, ScoutStatus } from "./types";
 
 export { enqueuePipelineJob };
 
@@ -64,18 +65,24 @@ export async function runLeadPipeline(leadId: string) {
         company_name: recordRow.company_name,
         email: recordRow.email,
         source: recordRow.source,
+        status: recordRow.status,
       }
     : null;
   if (!record) throw new Error("Lead ontbreekt.");
 
-  await updateLead(record.id, { status: "scannen", pipeline_stage: "scan", last_error: null });
+  const keepOutreach = preservesScoutOutreach(record.status);
+  await updateLead(record.id, {
+    ...(keepOutreach ? {} : { status: "scannen" as ScoutStatus }),
+    pipeline_stage: "scan",
+    last_error: null,
+  });
   await appendEvent({ lead_id: record.id, event_type: "scan_started", actor_type: "system", metadata: {} });
   await linkProspect(record.id, record.domain, record.url, record.note, record.source);
   await syncProspectFromScout(record.id);
 
   if (!allowExpensiveSideEffects()) {
     await updateLead(record.id, {
-      status: "nieuw",
+      ...(keepOutreach ? {} : { status: "nieuw" as ScoutStatus }),
       pipeline_stage: "capture",
       last_error: "Preview verwerkt leads niet automatisch.",
     });
@@ -150,7 +157,7 @@ export async function runLeadPipeline(leadId: string) {
     });
 
     await updateLead(record.id, {
-      status: "geanalyseerd",
+      ...(keepOutreach ? {} : { status: "geanalyseerd" as ScoutStatus }),
       pipeline_stage: "qualify",
       score: analysis.scores.overall,
       why_interesting: analysis.why_interesting,
@@ -168,13 +175,16 @@ export async function runLeadPipeline(leadId: string) {
     });
 
     await upsertDraft(record.id, { subject: analysis.draftSubject, message: analysis.draftMessage });
-    await updateLead(record.id, { status: "concept_klaar", pipeline_stage: "draft" });
+    await updateLead(record.id, {
+      ...(keepOutreach ? {} : { status: "concept_klaar" as ScoutStatus }),
+      pipeline_stage: "draft",
+    });
     await appendEvent({ lead_id: record.id, event_type: "draft_generated", actor_type: "agent", metadata: {} });
     await syncProspectFromScout(record.id);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Scan mislukt.";
     await updateLead(record.id, {
-      status: "scan_mislukt",
+      ...(keepOutreach ? {} : { status: "scan_mislukt" as ScoutStatus }),
       pipeline_stage: "scan",
       last_error: message.slice(0, 400),
       last_scan_at: nowIso(),

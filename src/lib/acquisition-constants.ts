@@ -83,6 +83,7 @@ export const prospectStatuses = [
   { value: "PRIORITY", label: "Priority" },
   { value: "REJECTED", label: "Afgewezen" },
   { value: "PREVIEW_READY", label: "Preview klaar" },
+  { value: "CONTACTED", label: "Benaderd" },
   { value: "ARCHIVED", label: "Gearchiveerd" },
   { value: "CONVERTED", label: "Lead" },
 ] as const;
@@ -96,7 +97,7 @@ export const acquisitionFilters = [
   { value: "scan", label: "Scan gereed" },
   { value: "sales", label: "Sales ready" },
   { value: "concept", label: "Concept klaar" },
-  { value: "verzonden", label: "Verzonden" },
+  { value: "verzonden", label: "Benaderd" },
   { value: "reactie", label: "Reactie" },
   { value: "geconverteerd", label: "Geconverteerd" },
   { value: "geblokkeerd", label: "Geblokkeerd" },
@@ -241,6 +242,34 @@ export function statusFromScore(score: number, thresholds: ScoreThresholds = DEF
 /** Score remains a ranking signal for later automation. Human admin work never treats a low score as "don't contact". */
 export function adminStatusFromScore(status: RefreshStatus): RefreshStatus {
   return status === "REJECTED" ? "WATCHLIST" : status;
+}
+
+export const SENT_MAIL_STATUSES = ["queued", "sent", "delivered"] as const;
+export const LOCKED_OUTREACH_STATUSES = ["CONTACTED", "CONVERTED", "ARCHIVED"] as const;
+
+export function isSentMailStatus(status: string | null | undefined) {
+  return SENT_MAIL_STATUSES.includes(status as (typeof SENT_MAIL_STATUSES)[number]);
+}
+
+export function preservesOutreachStatus(status: string | null | undefined) {
+  return LOCKED_OUTREACH_STATUSES.includes(status as (typeof LOCKED_OUTREACH_STATUSES)[number]);
+}
+
+export function nextStatusAfterLiveMail(status: string | null | undefined): ProspectStatus | null {
+  if (status === "CONVERTED" || status === "ARCHIVED") return null;
+  return "CONTACTED";
+}
+
+export function acquisitionPhase(input: {
+  status: string;
+  mail_status?: string | null;
+  response_status?: string | null;
+}) {
+  if (input.status === "CONVERTED") return "Gewonnen";
+  if (input.status === "CONTACTED") return "Benaderd";
+  if (["POSITIVE", "QUESTION", "MEETING"].includes(input.response_status ?? "")) return "Reactie";
+  if (isSentMailStatus(input.mail_status)) return "Benaderd";
+  return labelForStatus(input.status);
 }
 
 export function labelForStatus(status: string) {

@@ -14,6 +14,7 @@ import {
 import { scoutPublicBase, withBase } from "@/lib/scout/base-path";
 import { pushScoutLead, rescanScoutLead } from "@/lib/scout/capture";
 import { interpretScoutPhoto } from "@/lib/scout/camera";
+import { loadProspectDetail } from "@/lib/acquisition";
 import { ensureUnreachableSiteMail, sendProspectLiveMail } from "@/lib/acquisition-send";
 import { approveDraft, getLead, saveDraft, updateScoutLeadEmail } from "@/lib/scout/leads";
 import { syncProspectFromScout } from "@/lib/scout/crm";
@@ -127,12 +128,19 @@ export async function sendScoutMailAction(formData: FormData) {
     message: String(formData.get("message") ?? ""),
   }).catch(() => undefined);
   await syncProspectFromScout(leadId);
-  if (!lead.prospect_id) redirect(errorPath("Deze lead staat nog niet in Acquisitie."));
-  const ensured = await ensureUnreachableSiteMail(lead.prospect_id, user.email);
-  if (!ensured.ok) redirect(errorPath(ensured.message));
+  const synced = await getLead(user.id, leadId);
+  const prospectId = synced?.prospect_id ?? lead.prospect_id;
+  if (!prospectId) redirect(errorPath("Deze lead staat nog niet in Acquisitie."));
+  const detail = await loadProspectDetail(prospectId);
+  let mailId = detail?.mail?.id ?? null;
+  if (!mailId) {
+    const ensured = await ensureUnreachableSiteMail(prospectId, user.email);
+    if (!ensured.ok) redirect(errorPath(ensured.message));
+    mailId = ensured.mailId;
+  }
   const sent = await sendProspectLiveMail({
-    prospectId: lead.prospect_id,
-    mailId: ensured.mailId,
+    prospectId,
+    mailId,
     actorEmail: user.email,
   });
   if (!sent.ok) redirect(errorPath("message" in sent ? sent.message : "Versturen is mislukt."));
