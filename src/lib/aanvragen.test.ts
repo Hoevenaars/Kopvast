@@ -5,6 +5,8 @@ import {
   domainFromWebsite,
   existingDraftProposal,
   inferredProductFit,
+  isDueRequestAction,
+  mapLiveProposalStatus,
   matchesAanvraagFilter,
   matchesAanvraagSearch,
   proposalLinesForFit,
@@ -133,6 +135,27 @@ test("admin toont domein, bod en website-interesse uit de payload", () => {
   assert.equal(fields.find((item) => item[0] === "Aanvraag")?.[1], "Bod");
   assert.equal(fields.find((item) => item[0] === "Website interesse")?.[1], "Ja");
   assert.equal(domainAanvraagFields({ ...fluweel, notes: null, request_detail: null, functionality: null, scale: null }), null);
+});
+
+test("mapt live voorstelstatus naar de aanvraagweergave", () => {
+  assert.equal(mapLiveProposalStatus("READY"), "DRAFT");
+  assert.equal(mapLiveProposalStatus("VIEWED"), "SENT");
+  assert.equal(mapLiveProposalStatus("QUESTION"), "SENT");
+  assert.equal(mapLiveProposalStatus("ACCEPTED"), "ACCEPTED");
+  assert.equal(mapLiveProposalStatus("DECLINED"), "REJECTED");
+  assert.equal(mapLiveProposalStatus("onbekend"), null);
+});
+
+test("toont alleen vervallen aanvraagacties die nog openstaan", () => {
+  const due = {
+    next_action: "Voorstel maken",
+    next_action_at: "2026-09-19T10:00:00.000Z",
+    status: "QUALIFIED",
+  };
+  assert.equal(isDueRequestAction(due, Date.parse("2026-09-20T10:00:00.000Z")), true);
+  assert.equal(isDueRequestAction({ ...due, status: "OMGEZET" }, Date.parse("2026-09-20T10:00:00.000Z")), false);
+  assert.equal(isDueRequestAction({ ...due, next_action: "" }, Date.parse("2026-09-20T10:00:00.000Z")), false);
+  assert.equal(isDueRequestAction({ ...due, next_action_at: "2026-09-21T10:00:00.000Z" }, Date.parse("2026-09-20T10:00:00.000Z")), false);
 });
 
 test("een tweede draft voor dezelfde aanvraag wordt hergebruikt", () => {

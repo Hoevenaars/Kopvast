@@ -550,6 +550,93 @@ function emptyProposal(input: {
   };
 }
 
+export type ProposalRequestRef = {
+  id: string;
+  requestId: string;
+  status: string;
+  title: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function preferProposalRef<T extends { status: string }>(items: T[]): T | undefined {
+  return items.find((item) => item.status === "DRAFT" || item.status === "READY") ?? items[0];
+}
+
+function refFromLive(row: LiveProposal): ProposalRequestRef | null {
+  if (!row.request_id) return null;
+  return {
+    id: row.id,
+    requestId: row.request_id,
+    status: row.status,
+    title: row.title ?? "",
+    notes: row.scope_summary || row.aanleiding || row.intro || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function refFromLocal(row: ProposalRow): ProposalRequestRef | null {
+  if (!row.inbound_lead_id) return null;
+  return {
+    id: row.id,
+    requestId: row.inbound_lead_id,
+    status: row.status,
+    title: row.title,
+    notes: row.scope_summary || row.aanleiding || row.intro || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function findLatestProposalsForRequests(leadIds: string[]): Promise<Map<string, ProposalRequestRef>> {
+  const refs = new Map<string, ProposalRequestRef>();
+  const ids = [...new Set(leadIds.filter(Boolean))];
+  if (!ids.length) return refs;
+
+  const supabase = refreshClient();
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("proposals")
+      .select("id, request_id, status, title, scope_summary, aanleiding, intro, created_at, updated_at")
+      .in("request_id", ids)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("[kopvast] Voorstellen bij aanvragen laden mislukt", error.message);
+      return refs;
+    }
+    const grouped = new Map<string, LiveProposal[]>();
+    for (const row of (data ?? []) as LiveProposal[]) {
+      if (!row.request_id) continue;
+      const current = grouped.get(row.request_id) ?? [];
+      current.push(row);
+      grouped.set(row.request_id, current);
+    }
+    for (const [requestId, rows] of grouped) {
+      const preferred = preferProposalRef(rows);
+      const ref = preferred ? refFromLive(preferred) : null;
+      if (ref) refs.set(requestId, ref);
+    }
+    return refs;
+  }
+
+  const store = await readStore();
+  const grouped = new Map<string, ProposalRow[]>();
+  for (const row of store.voorstellen) {
+    if (!row.inbound_lead_id || !ids.includes(row.inbound_lead_id)) continue;
+    const current = grouped.get(row.inbound_lead_id) ?? [];
+    current.push(row);
+    grouped.set(row.inbound_lead_id, current);
+  }
+  for (const [requestId, rows] of grouped) {
+    const preferred = preferProposalRef(rows);
+    const ref = preferred ? refFromLocal(preferred) : null;
+    if (ref) refs.set(requestId, ref);
+  }
+  return refs;
+}
+
 export async function findActiveProposalForRequest(leadId: string): Promise<string | null> {
   const supabase = refreshClient();
   if (supabase) {
