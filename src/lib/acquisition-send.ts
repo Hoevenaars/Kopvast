@@ -4,7 +4,7 @@ import { fromAddress } from "./email";
 import { refreshClient } from "./refresh";
 import { addSuppression } from "./suppression";
 import { getEmailMode, getTestEmail, recipientForMode, resolveEmailSettings } from "./email-mode";
-import { prepareAcquisitionEmail } from "./acquisition-render";
+import { prepareTrackedAcquisitionEmail } from "./acquisition-clicks";
 import { generateAcquisitionMail, fallbackAcquisitionMail, type MailFinding } from "./acquisition-mail";
 import { DUPLICATE_EMAIL_CONTENT_ERROR, findDuplicatedAcquisitionContent } from "@/emails/acquisition-outreach-copy";
 import { logProspectActivity, refreshProspectCosts } from "./acquisition-activity";
@@ -141,9 +141,17 @@ export async function storeGeneratedMail(
     place,
   });
   let html: string;
+  let body = generated.body;
   try {
-    const prepared = await prepareAcquisitionEmail(generated.emailProps);
+    const prepared = await prepareTrackedAcquisitionEmail({
+      prospectId: input.prospectId,
+      domain: input.domain,
+      companyName: input.companyName,
+      subject: generated.subject,
+      body: generated.body,
+    });
     html = prepared.html;
+    body = prepared.text;
   } catch (error) {
     console.error("[kopvast] Acquisitiemail renderen mislukt", error instanceof Error ? error.message : error);
     return null;
@@ -170,7 +178,7 @@ export async function storeGeneratedMail(
       to_email: to || `draft@${input.domain}`,
       intended_to_email: to || null,
       subject: generated.subject,
-      body_text: generated.body,
+      body_text: body,
       body_html: html,
       status: "draft",
       email_mode: await getEmailMode(),
@@ -185,6 +193,14 @@ export async function storeGeneratedMail(
     console.error("[kopvast] Acquisitiemail opslaan mislukt", error.message);
     return null;
   }
+  await prepareTrackedAcquisitionEmail({
+    prospectId: input.prospectId,
+    mailId: created.id,
+    domain: input.domain,
+    companyName: input.companyName,
+    subject: generated.subject,
+    body,
+  }).catch(() => null);
 
   await supabase
     .from("prospects")
@@ -217,15 +233,17 @@ export async function storeUnreachableSiteMail(
     companyName: input.companyName,
   });
   let html: string;
+  let body = generated.body;
   try {
-    html = (
-      await prepareAcquisitionEmail({
-        subject: generated.subject,
-        body: generated.body,
-        companyName: input.companyName,
-        domain: input.domain,
-      })
-    ).html;
+    const prepared = await prepareTrackedAcquisitionEmail({
+      prospectId: input.prospectId,
+      domain: input.domain,
+      companyName: input.companyName,
+      subject: generated.subject,
+      body: generated.body,
+    });
+    html = prepared.html;
+    body = prepared.text;
   } catch (error) {
     console.error("[kopvast] Onbereikbare-site-mail renderen mislukt", error instanceof Error ? error.message : error);
     return null;
@@ -252,7 +270,7 @@ export async function storeUnreachableSiteMail(
       to_email: to,
       intended_to_email: contact?.email ?? null,
       subject: generated.subject,
-      body_text: generated.body,
+      body_text: body,
       body_html: html,
       status: "draft",
       email_mode: await getEmailMode(),
@@ -606,13 +624,18 @@ export async function saveProspectMailDraft(input: {
   const detail = await loadProspectDetail(input.prospectId);
   if (!detail) return { ok: false as const, message: "Prospect niet gevonden." };
   let html: string;
+  let text = body;
   try {
-    html = (await prepareAcquisitionEmail({
+    const prepared = await prepareTrackedAcquisitionEmail({
+      prospectId: input.prospectId,
+      mailId: input.mailId,
+      domain: detail.domain,
+      companyName: detail.company_name,
       subject,
       body,
-      companyName: detail.company_name ?? undefined,
-      domain: detail.domain,
-    })).html;
+    });
+    html = prepared.html;
+    text = prepared.text;
   } catch (error) {
     return renderFailure(error);
   }
@@ -620,7 +643,7 @@ export async function saveProspectMailDraft(input: {
     .from("email_messages")
     .update({
       subject,
-      body_text: body,
+      body_text: text,
       body_html: html,
       updated_at: new Date().toISOString(),
     })
@@ -692,11 +715,13 @@ export async function sendProspectTestMail(input: { prospectId: string; mailId: 
   let html: string;
   let text: string;
   try {
-    const prepared = await prepareAcquisitionEmail({
+    const prepared = await prepareTrackedAcquisitionEmail({
+      prospectId: detail.id,
+      mailId: mail!.id,
+      domain: detail.domain,
+      companyName: detail.company_name,
       subject,
       body,
-      companyName: detail.company_name ?? undefined,
-      domain: detail.domain,
     });
     html = prepared.html;
     text = prepared.text;
@@ -795,11 +820,13 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
   let html: string;
   let text: string;
   try {
-    const prepared = await prepareAcquisitionEmail({
+    const prepared = await prepareTrackedAcquisitionEmail({
+      prospectId: detail.id,
+      mailId: mail!.id,
+      domain: detail.domain,
+      companyName: detail.company_name,
       subject,
       body,
-      companyName: detail.company_name ?? undefined,
-      domain: detail.domain,
     });
     html = prepared.html;
     text = prepared.text;
@@ -859,6 +886,8 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
       resend_id: sent.id ?? null,
       last_error: null,
       attempt_count: 1,
+      body_text: text,
+      body_html: html,
       updated_at: new Date().toISOString(),
     })
     .eq("id", mail!.id);
