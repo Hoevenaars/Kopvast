@@ -4,6 +4,7 @@ import { PageIntro } from "@/components/workspace/page-frame";
 import { PasswordForm } from "@/components/workspace/password-form";
 import { MailTemplatesForm } from "@/app/(workspace)/admin/instellingen/mail-templates-form";
 import { AcquisitionOpsForm } from "@/app/(workspace)/admin/instellingen/acquisition-ops-form";
+import { OutreachRulesCard } from "@/app/(workspace)/admin/instellingen/outreach-rules-card";
 import { hasPassword, requireSession } from "@/lib/auth";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { loadMailTemplates } from "@/lib/mail-templates";
@@ -22,9 +23,10 @@ export default async function AdminSettingsPage() {
       <PageIntro
         eyebrow="Instellingen"
         title="Instellingen"
-        text="Beheer acquisitie LIVE/TEST, het wachtwoord voor de Admin Console en de standaardteksten van Kopvast-mails."
+        text="Beheer acquisitie LIVE/TEST, de spelregels voor persoonlijke benadering, het wachtwoord en de standaardteksten van Kopvast-mails."
       />
       <AcquisitionOpsForm mode={settings.mode} storedMode={settings.storedMode} testTo={settings.testEmail} />
+      <OutreachRulesCard />
       <PasswordForm hasPassword={await hasPassword(session.email)} />
       <MailTemplatesForm templates={await loadMailTemplates()} />
     </div>

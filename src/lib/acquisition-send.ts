@@ -368,6 +368,7 @@ export async function regenerateProspectMail(prospectId: string, actorEmail: str
     domain: detail.domain,
     fit: detail.product_fit ?? "REVIEW_REQUIRED",
     findings: detail.findings,
+    place: detail.city,
     actorType: "human",
     actorId: actorEmail,
   });

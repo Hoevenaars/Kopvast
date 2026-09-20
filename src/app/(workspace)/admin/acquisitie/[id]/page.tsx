@@ -25,8 +25,8 @@ import {
   responseStatuses,
   type ProductFit,
 } from "@/lib/acquisition-constants";
+import { explainOutreachOffer } from "@/lib/acquisition/outreach-policy";
 import { workspaceRoutes } from "@/lib/product";
-import { products } from "@/lib/site";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { ProspectContactEmailForm } from "../contact-email-form";
 import { MailEditor } from "../mail-editor";
@@ -83,6 +83,7 @@ export default async function ProspectDetailPage({
         <Stat label="Contactstatus" value={labelForContact(prospect.contact_status)} />
         <Stat label="Mailstatus" value={labelForMail(prospect.mail_status)} />
         <Stat label="Laatste activiteit" value={formatNlDate(prospect.last_activity_at)} />
+        <Stat label="Plaats" value={prospect.city || "—"} />
         <Stat label="Kosten" value={`€ ${prospect.total_cost.toFixed(4)}`} />
       </section>
       <p className="text-sm text-ink/55">
@@ -123,7 +124,7 @@ export default async function ProspectDetailPage({
         )}
       </section>
 
-      <OfferCard fit={prospect.product_fit} />
+      <OfferCard fit={prospect.product_fit} city={prospect.city} />
 
       {mailError ? (
         <p className="rounded-2xl border border-destructive/30 bg-white px-4 py-3 text-sm text-destructive">{mailError}</p>
@@ -262,39 +263,22 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OfferCard({ fit }: { fit: ProductFit | null }) {
+function OfferCard({ fit, city }: { fit: ProductFit | null; city: string | null }) {
   if (!fit) return null;
 
-  const copy =
-    fit === "CUSTOM_FIT"
-      ? {
-          title: "Kopvast Maatwerk",
-          text: "De website lijkt commercieel interessant, maar de benodigde functionaliteit valt waarschijnlijk buiten het vaste websitepakket.",
-          price: "Op aanvraag",
-        }
-      : fit === "NOT_FIT"
-        ? {
-            title: "Geen standaard fit",
-            text: "Deze website lijkt niet bij het Kopvast-aanbod te passen. Er wordt geen automatische prijs of standaardpakket voorgesteld.",
-            price: null,
-          }
-        : fit === "REVIEW_REQUIRED"
-          ? {
-              title: "Beoordeling nodig",
-              text: "Er is nog te weinig zekerheid voor een automatisch aanbod. Jij mag alsnog mailen: een website kan altijd scherper.",
-              price: null,
-            }
-          : {
-              title: "Kopvast Website",
-              text: "Een professionele website met een duidelijke structuur, sterke presentatie en heldere route naar contact.",
-              price: `Vanaf ${products.website.price} excl. btw`,
-            };
+  const copy = explainOutreachOffer({ fit, place: city });
 
   return (
     <section className="rounded-2xl border border-ink/10 bg-white p-5">
       <h2 className="text-2xl font-semibold">{copy.title}</h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-ink/60">{copy.text}</p>
       {copy.price ? <p className="mt-4 text-sm font-semibold">{copy.price}</p> : null}
+      {copy.reasonLabels.length ? (
+        <p className="mt-2 text-xs text-ink/45">Reden: {copy.reasonLabels.join(" · ")}</p>
+      ) : null}
+      {city && !copy.eligible && fit === "STANDARD_FIT" ? (
+        <p className="mt-2 text-xs text-ink/45">Plaats {city} geeft geen automatische korting.</p>
+      ) : null}
     </section>
   );
 }

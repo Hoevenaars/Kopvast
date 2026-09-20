@@ -59,17 +59,10 @@ function notifyFields() {
 
 function acquisitionFields() {
   return [
-    { id: "subjectDomain", label: "Onderwerp (domein)" },
-    { id: "subjectCompany", label: "Onderwerp (bedrijfsnaam)" },
-    { id: "subjectPoints", label: "Onderwerp (meerdere punten)" },
     { id: "greeting", label: "Aanhef" },
-    { id: "opening", label: "Standaard opening", multiline: true },
-    { id: "pitch", label: "Kopvast-alinea", multiline: true },
-    { id: "offerStandard", label: "Aanbod standaardwebsite", multiline: true },
-    { id: "offerCustom", label: "Aanbod maatwerk", multiline: true },
-    { id: "closing", label: "Afsluiting" },
     { id: "signatureName", label: "Ondertekening" },
     { id: "signatureTagline", label: "Ondertitel" },
+    { id: "offerCustom", label: "Aanbod maatwerk", multiline: true },
   ];
 }
 
@@ -145,7 +138,7 @@ export const MAIL_TEMPLATE_META: Array<Omit<MailTemplateRecord, "values">> = [
   {
     key: "acquisition",
     title: "Acquisitie-outreach",
-    help: "Standaardopbouw van de persoonlijke acquisitiemail. Punten uit de scan blijven uniek per prospect.",
+    help: "Aanhef, ondertekening en maatwerkaanbod. Opening, bevindingen, prijs en korting volgen de spelregels persoonlijke benadering hierboven.",
     placeholders: "{{domain}} {{company}} {{price}}",
     fields: acquisitionFields(),
   },
