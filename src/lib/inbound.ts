@@ -106,12 +106,32 @@ export async function persistInboundLead(lead: InboundLeadInput): Promise<string
 
   const row = mapInboundLead(lead);
   const first = await supabase.from("inbound_leads").insert(row).select("id").single();
-  if (!first.error && first.data) return first.data.id as string;
+  if (!first.error && first.data) {
+    const { attachInboundLeadToProspect } = await import("@/lib/commercial-handoffs");
+    await attachInboundLeadToProspect({
+      requestId: first.data.id as string,
+      email: lead.email,
+      website: lead.website,
+      organization: lead.company,
+      prospectId: typeof lead.details.prospect_id === "string" ? lead.details.prospect_id : null,
+    });
+    return first.data.id as string;
+  }
 
   const { product_fit, ...legacy } = row;
   void product_fit;
   const retry = await supabase.from("inbound_leads").insert(legacy).select("id").single();
-  if (!retry.error && retry.data) return retry.data.id as string;
+  if (!retry.error && retry.data) {
+    const { attachInboundLeadToProspect } = await import("@/lib/commercial-handoffs");
+    await attachInboundLeadToProspect({
+      requestId: retry.data.id as string,
+      email: lead.email,
+      website: lead.website,
+      organization: lead.company,
+      prospectId: typeof lead.details.prospect_id === "string" ? lead.details.prospect_id : null,
+    });
+    return retry.data.id as string;
+  }
 
   console.error("[kopvast] Inbound lead opslaan mislukt", first.error?.message || retry.error?.message);
   return null;

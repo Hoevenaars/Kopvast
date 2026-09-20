@@ -456,6 +456,11 @@ async function saveAanvraagPatch(
 }
 
 export async function createDraftProposal(input: { leadId: string; actorEmail: string }) {
+  const { createProposalFromRequest } = await import("@/lib/commercial-handoffs");
+  return createProposalFromRequest(input.leadId, input.actorEmail);
+}
+
+export async function createLegacyDraftProposal(input: { leadId: string; actorEmail: string }) {
   const detail = await loadAanvraag(input.leadId);
   if (!detail) return { ok: false as const, message: "Aanvraag niet gevonden." };
   if (detail.proposal?.status === "DRAFT") {

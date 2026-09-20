@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
 import { sanitizeAcquisitionSearch } from "./mail-body";
 import { refreshClient } from "./refresh";
+import { clickActivityLabel, loadRecentAcquisitionClicks } from "./acquisition-clicks";
 import { scoutProspectIds } from "./scout/crm";
 import { assertPublicHostname } from "./ssrf";
 import { parseManualEmail } from "./contact-email";
@@ -1134,6 +1135,16 @@ export async function loadAcquisitionDashboard() {
       });
     }
   };
+  const clicks = await loadRecentAcquisitionClicks(8);
+  for (const click of clicks) {
+    actions.unshift({
+      title: clickActivityLabel(click.choice),
+      company: click.company,
+      status: "Opvolgen",
+      age: ageLabel(click.clickedAt),
+      href: `/admin/acquisitie/${click.prospectId}`,
+    });
+  }
   push(failedScans.data as never, "Website scan mislukt", "Actie nodig");
   push(reviewRequired.data as never, "Review required", "Beoordelen");
   push(customFit.data as never, "Maatwerk prospect", "Beoordelen");

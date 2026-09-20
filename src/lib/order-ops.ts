@@ -416,6 +416,14 @@ async function persistMaterialized(
 ) {
   if (supabase) {
     await supabase.from("kopvast_proposals").update(materialized.proposalPatch).eq("id", proposal.id);
+    await supabase
+      .from("proposals")
+      .update({
+        updated_at: materialized.proposalPatch.updated_at,
+        customer_id: materialized.proposalPatch.organization_id,
+        status: "ACCEPTED",
+      })
+      .eq("id", proposal.id);
     if (!materialized.already) {
       const { error } = await supabase.from("kopvast_orders").insert(materialized.order);
       if (error) {
@@ -469,6 +477,12 @@ export async function createOrderFromAcceptedProposal(
   if (supabase) {
     const { data } = await supabase.from("kopvast_proposals").select("*").eq("id", proposalId).maybeSingle();
     proposal = data ? mapProposal(data as Record<string, unknown>) : null;
+    if (!proposal) {
+      const { loadProposal } = await import("@/lib/proposal-ops");
+      const { liveProposalToOrderProposal } = await import("@/lib/commercial-handoffs");
+      const live = await loadProposal(proposalId);
+      if (live?.proposal) proposal = liveProposalToOrderProposal(live.proposal);
+    }
     const { data: orderRow } = await supabase.from("kopvast_orders").select("*").eq("proposal_id", proposalId).maybeSingle();
     existingOrder = orderRow ? mapOrder(orderRow as Record<string, unknown>) : null;
     if (existingOrder) {

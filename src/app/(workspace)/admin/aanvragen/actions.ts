@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import {
-  createDraftProposal,
   createManualAanvraag,
   saveAanvraagCallNote,
   saveAanvraagNextAction,
   saveProposalDraft,
   updateAanvraagQualification,
 } from "@/lib/aanvragen";
+import { createProposalFromRequest } from "@/lib/commercial-handoffs";
 import { workspaceRoutes } from "@/lib/product";
 import { convertLead } from "@/lib/workspace";
 
@@ -83,7 +83,7 @@ export async function saveNextActionForm(formData: FormData) {
 export async function createProposalAction(formData: FormData) {
   const session = await requireAdmin();
   const id = String(formData.get("id") ?? "");
-  const result = await createDraftProposal({ leadId: id, actorEmail: session.email });
+  const result = await createProposalFromRequest(id, session.email);
   revalidateAanvraag(id);
   if (result.ok) {
     revalidatePath(`${workspaceRoutes.adminVoorstellen}/${result.id}`);

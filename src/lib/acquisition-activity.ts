@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ACTIVITY } from "./acquisition-constants";
 
-export type ActivityActorType = "system" | "agent" | "human" | "webhook";
+export type ActivityActorType = "system" | "agent" | "human" | "webhook" | "user";
 
 export async function logProspectActivity(
   supabase: SupabaseClient,
