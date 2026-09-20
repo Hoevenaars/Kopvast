@@ -133,6 +133,9 @@ test("acquisitiemail gebruikt findings en vermijdt verboden claims", () => {
   assert.match(mail.body, /Wat heeft jullie voorkeur/);
   assert.match(mail.body, /Ja, doe me een voorstel/);
   assert.match(mail.body, /Stuur me eerst meer info/);
+  assert.match(mail.body, /\/start\?keuze=voorstel/);
+  assert.match(mail.body, /\/start\?keuze=info/);
+  assert.match(mail.body, /website=nova-advies.nl/);
   assert.doesNotMatch(mail.body, /A — Laat zien hoe jullie dit zouden aanpakken/);
   assert.doesNotMatch(mail.body, /Wat wil je eerst zien/);
   assert.match(mail.body, /meer karakter dan er nu online uitkomt/);
@@ -521,8 +524,11 @@ test("acquisitiemail voor Persingen is persoonlijk en minimaal", async () => {
   assert.match(html, /Stuur me eerst meer info/);
   assert.doesNotMatch(html, /A — Laat zien hoe jullie dit zouden aanpakken/);
   assert.doesNotMatch(html, /Wat wil je eerst zien/);
-  assert.match(html, /werkwijze/);
-  assert.match(html, /websites/);
+  assert.match(html, /\/start\?keuze=voorstel/);
+  assert.match(html, /\/start\?keuze=info/);
+  assert.match(html, /website=kerkjepersingen.nl/);
+  assert.match(html, /prijs=995/);
+  assert.doesNotMatch(html, /\/werkwijze/);
   assert.match(html, /#ffffff|rgb\(255,\s*255,\s*255\)/i);
   assert.doesNotMatch(html, /Bekijk het websitepakket/);
   assert.doesNotMatch(html, /bg-ivory|#f3f0e8/i);

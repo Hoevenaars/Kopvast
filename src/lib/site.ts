@@ -18,6 +18,7 @@ export const routes = {
   werkwijze: "/werkwijze",
   check: "/websitecheck",
   aanvraag: "/aanvraag",
+  start: "/start",
   maatwerk: "/maatwerk",
   contact: "/contact",
   privacy: "/privacy",

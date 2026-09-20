@@ -2,8 +2,6 @@ import { Body, Button, Container, Head, Html, Link, Preview, Section, Text } fro
 import { site } from "@/lib/site";
 import {
   CHOICE_INTRO,
-  DEFAULT_CHOICE_A_URL,
-  DEFAULT_CHOICE_B_URL,
   MORE_INFO_CTA_LABEL,
   PROPOSAL_CTA_LABEL,
   REPLY_HINT,
@@ -281,8 +279,6 @@ AcquisitionOutreachEmail.PreviewProps = {
   },
   specialOfferParagraph:
     "Een complete Kopvast Website kost normaal €1.495 excl. btw. Voor jullie maak ik daar €995 excl. btw. van. Als Groesbekers onder elkaar doe je dat voor elkaar.",
-  choiceAUrl: DEFAULT_CHOICE_A_URL,
-  choiceBUrl: DEFAULT_CHOICE_B_URL,
 } satisfies AcquisitionOutreachEmailProps;
 
 export default AcquisitionOutreachEmail;

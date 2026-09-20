@@ -15,6 +15,8 @@ test("onbereikbare-site-mail beweert niet dat we de website hebben bekeken", () 
   assert.match(mail.body, /niet bereikbaar/);
   assert.match(mail.body, /op te zetten/);
   assert.match(mail.body, /€1.495|1.495/);
+  assert.match(mail.body, /\/start\?keuze=voorstel/);
+  assert.match(mail.body, /website=atelierlint.nl/);
   assert.doesNotMatch(mail.body, /kort bekeken/);
   assert.doesNotMatch(mail.body, /Twee dingen vielen direct op/);
   assert.equal(isUnreachableSiteMail(mail.body), true);

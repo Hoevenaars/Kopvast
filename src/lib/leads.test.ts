@@ -29,6 +29,29 @@ test("vertaalt Resend-webhooks naar verzendstatus", () => {
   assert.equal(webhookTypeToStatus("email.opened"), null);
 });
 
+test("zet acquisitie-start om naar een website-aanvraag", () => {
+  const row = mapInboundLead({
+    id: "lead-acq",
+    name: "Eva",
+    email: "eva@example.com",
+    company: "Fluweel Events",
+    website: "fluweelevents.nl",
+    message: "Klaar om te starten",
+    source: "acquisitie-voorstel",
+    phone: "06",
+    details: {
+      Keuze: "Voorstel",
+      Prijs: "€995 excl. btw",
+      Startbevestiging: "Ik wil starten met Kopvast Website voor €995 excl. btw.",
+    },
+  });
+  assert.equal(row.type, "website");
+  assert.equal(row.status, "NIEUW");
+  assert.equal(row.product_fit, "STANDARD_FIT");
+  assert.equal(row.source, "acquisitie-voorstel");
+  assert.equal(row.company_name, "Fluweel Events");
+});
+
 test("zet website-aanvraag om naar Website Refresh inbound lead", () => {
   const row = mapInboundLead({
     id: "lead-1",
@@ -103,6 +126,12 @@ test("toont formulierkeuzes in leesbare labels", () => {
     },
   });
   assert.equal(fields.find((field) => field.label === "Bron")?.value, "Kopvast Website");
+  assert.equal(
+    notificationFields({ name: "Eva", email: "eva@example.com", source: "acquisitie-voorstel" }).find(
+      (field) => field.label === "Bron"
+    )?.value,
+    "Acquisitie · voorstel"
+  );
   assert.equal(
     fields.find((field) => field.label === "Merkstatus")?.value,
     "De uitstraling is verouderd of versnipperd"

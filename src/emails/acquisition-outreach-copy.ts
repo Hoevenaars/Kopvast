@@ -1,3 +1,9 @@
+import {
+  DEFAULT_CHOICE_A_URL,
+  DEFAULT_CHOICE_B_URL,
+  acquisitionChoiceUrls,
+  offerPriceFromParagraph,
+} from "@/lib/acquisition-start";
 import { site } from "@/lib/site";
 
 export type AcquisitionOutreachFinding = {
@@ -24,8 +30,7 @@ export type AcquisitionOutreachEmailProps = {
   ctaHref?: string;
 };
 
-export const DEFAULT_CHOICE_A_URL = `${site.url}/werkwijze`;
-export const DEFAULT_CHOICE_B_URL = `${site.url}/websites`;
+export { DEFAULT_CHOICE_A_URL, DEFAULT_CHOICE_B_URL };
 
 export const PROPOSAL_CTA_LABEL = "Ja, doe me een voorstel";
 export const MORE_INFO_CTA_LABEL = "Stuur me eerst meer info";
@@ -229,8 +234,13 @@ export function resolveAcquisitionOutreachProps(
 
   validateOfferParagraph(specialOfferParagraph);
 
-  const choiceAUrl = input.choiceAUrl || parsed.choiceAUrl || DEFAULT_CHOICE_A_URL;
-  const choiceBUrl = input.choiceBUrl || parsed.choiceBUrl || input.ctaHref || DEFAULT_CHOICE_B_URL;
+  const defaults = acquisitionChoiceUrls({
+    domain: input.domain,
+    companyName: input.companyName,
+    offerPrice: offerPriceFromParagraph(specialOfferParagraph),
+  });
+  const choiceAUrl = input.choiceAUrl || parsed.choiceAUrl || defaults.choiceAUrl;
+  const choiceBUrl = input.choiceBUrl || parsed.choiceBUrl || input.ctaHref || defaults.choiceBUrl;
   if (!choiceAUrl || !choiceBUrl) {
     throw new Error("Acquisition CTAs require a real href.");
   }

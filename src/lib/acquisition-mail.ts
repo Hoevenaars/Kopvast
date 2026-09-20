@@ -1,12 +1,11 @@
 import {
   buildAcquisitionPlainText,
   buildAcquisitionSubject,
-  DEFAULT_CHOICE_A_URL,
-  DEFAULT_CHOICE_B_URL,
   validateOfferParagraph,
   type AcquisitionOutreachEmailProps,
   type AcquisitionOutreachFinding,
 } from "@/emails/acquisition-outreach";
+import { acquisitionChoiceUrls, offerPriceFromParagraph } from "./acquisition-start";
 import { FORBIDDEN_MAIL_CLAIMS, MAIL_PROMPT_VERSION, MAIL_TEMPLATE_VERSION, type ProductFit } from "./acquisition-constants";
 import { OUTREACH_COPY_RULES, SPECIAL_OFFER_CLASSIFICATION_PROMPT } from "./acquisition/outreach-copy-rules";
 import {
@@ -292,6 +291,12 @@ export function buildOutreachEmailProps(input: {
   );
   validateOfferParagraph(specialOfferParagraph);
 
+  const defaults = acquisitionChoiceUrls({
+    domain: input.domain,
+    companyName: input.companyName,
+    offerPrice: offerPriceFromParagraph(specialOfferParagraph),
+  });
+
   return {
     companyName: input.companyName,
     domain: input.domain,
@@ -302,8 +307,8 @@ export function buildOutreachEmailProps(input: {
     finding1,
     finding2,
     specialOfferParagraph,
-    choiceAUrl: input.choiceAUrl || DEFAULT_CHOICE_A_URL,
-    choiceBUrl: input.choiceBUrl || DEFAULT_CHOICE_B_URL,
+    choiceAUrl: input.choiceAUrl || defaults.choiceAUrl,
+    choiceBUrl: input.choiceBUrl || defaults.choiceBUrl,
     unsubscribeUrl: input.unsubscribeUrl,
   };
 }

@@ -1,12 +1,11 @@
 import {
   CHOICE_INTRO,
-  DEFAULT_CHOICE_A_URL,
-  DEFAULT_CHOICE_B_URL,
   MORE_INFO_CTA_LABEL,
   PROPOSAL_CTA_LABEL,
   REPLY_HINT,
   STANDARD_PRICE_PARAGRAPH,
 } from "@/emails/acquisition-outreach-copy";
+import { acquisitionChoiceUrls } from "@/lib/acquisition-start";
 import { site } from "@/lib/site";
 
 export const UNREACHABLE_SITE_PROMPT_VERSION = "kopvast-unreachable-site-v1";
@@ -24,6 +23,11 @@ export function buildUnreachableSiteMail(input: { domain: string; companyName?: 
   const who = input.companyName?.trim() || input.domain;
   const subject = `De website van ${input.domain} is nu niet bereikbaar`;
   const opening = `Als klanten ${who} nu zoeken, komen ze nergens terecht. Ik help ondernemers om zo'n site weer op te zetten: helder, bereikbaar en klaar voor contact.`;
+  const urls = acquisitionChoiceUrls({
+    domain: input.domain,
+    companyName: input.companyName,
+    offerPrice: 1495,
+  });
   const body = [
     "Goedendag,",
     "",
@@ -36,10 +40,10 @@ export function buildUnreachableSiteMail(input: { domain: string; companyName?: 
     CHOICE_INTRO,
     "",
     `${PROPOSAL_CTA_LABEL}:`,
-    DEFAULT_CHOICE_A_URL,
+    urls.choiceAUrl,
     "",
     `${MORE_INFO_CTA_LABEL}:`,
-    DEFAULT_CHOICE_B_URL,
+    urls.choiceBUrl,
     "",
     REPLY_HINT,
     "",

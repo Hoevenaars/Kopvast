@@ -26,8 +26,9 @@ export function MailPreview({
 }) {
   if (isUnreachableSiteMail(body)) {
     const blocks = splitMailParagraphs(body);
-    const proposalUrl = blocks.find((item) => item.startsWith("http") && item.includes("werkwijze")) || DEFAULT_CHOICE_A_URL;
-    const moreInfoUrl = blocks.find((item) => item.startsWith("http") && item.includes("websites")) || DEFAULT_CHOICE_B_URL;
+    const proposalUrl =
+      blocks.find((item) => item.startsWith("http") && item.includes("keuze=voorstel")) || DEFAULT_CHOICE_A_URL;
+    const moreInfoUrl = blocks.find((item) => item.startsWith("http") && item.includes("keuze=info")) || DEFAULT_CHOICE_B_URL;
     return (
       <div className="overflow-hidden rounded-xl border border-ink/10 bg-white">
         <div className="px-6 pt-7 pb-8 text-[15px] leading-6 text-ink">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ArrowRight } from "lucide-react";
+import { AcquisitionStartBlock } from "@/components/acquisition-start-block";
 import { ButtonLink } from "@/components/button-link";
 import { CtaBand } from "@/components/cta-band";
 import { PageHero } from "@/components/page-hero";
@@ -17,6 +18,9 @@ export default function ProcessPage() {
         eyebrow="Werkwijze"
         title="Van inzicht naar resultaat."
         text="Eerst scherp krijgen wat klopt. Daarna bouwen. Je ziet op elk moment wat klaar is, wat jij moet doen en wat buiten de vaste prijs valt."
+      />
+      <AcquisitionStartBlock
+        params={{ choice: "voorstel", website: "", company: "", offerPrice: 1495 }}
       />
       <section className="container-page grid gap-6 py-16 md:grid-cols-2">
         {processSteps.map((step) => (
