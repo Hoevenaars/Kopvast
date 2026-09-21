@@ -67,7 +67,7 @@ test("zaait facturen niet opnieuw voor hetzelfde project", () => {
   assert.equal(filtered.recurring[0]?.project_id, "p2");
 });
 
-test("maatwerk krijgt geen automatisch bedrag", () => {
+test("maatwerk krijgt geen automatisch catalogusbedrag", () => {
   const drafts = billingDraftsForProjects([
     { id: "p3", organization_id: "o2", type: "maatwerk", title: "Maatwerk" },
   ]);

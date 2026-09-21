@@ -180,6 +180,31 @@ export async function loadOrganizationBilling(organizationId: string) {
   };
 }
 
+export async function seedBillingForAcceptedOrder(input: {
+  organizationId: string;
+  projectId?: string | null;
+  description: string;
+  amount: number | null;
+}) {
+  if (input.amount == null || input.amount <= 0) return;
+  const description = input.description.trim() || "Opdracht";
+  const existing = await loadInvoices();
+  const open = existing.filter((item) => item.status !== "CANCELLED");
+  if (input.projectId && open.some((item) => item.project_id === input.projectId)) return;
+  if (
+    !input.projectId &&
+    open.some((item) => item.organization_id === input.organizationId && item.description === description)
+  ) {
+    return;
+  }
+  await createInvoice({
+    organizationId: input.organizationId,
+    projectId: input.projectId ?? undefined,
+    description,
+    amount: String(input.amount),
+  });
+}
+
 export async function seedBillingForProjects(
   projects: Array<{ id: string; organization_id: string; type: string; title: string }>
 ) {
