@@ -232,6 +232,26 @@ export async function writeStore(store: Store) {
   await writeFile(file, JSON.stringify(store, null, 2));
 }
 
+export async function withIsolatedStore<T>(run: () => Promise<T>): Promise<T> {
+  let snapshot: string | null = null;
+  try {
+    snapshot = await readFile(file, "utf8");
+  } catch {
+    snapshot = null;
+  }
+  await writeStore(empty());
+  try {
+    return await run();
+  } finally {
+    if (snapshot) {
+      await mkdir(path.dirname(file), { recursive: true });
+      await writeFile(file, snapshot);
+    } else {
+      await writeStore(empty());
+    }
+  }
+}
+
 export async function mutateStore<T>(fn: (store: Store) => T | Promise<T>) {
   const store = await readStore();
   const result = await fn(store);

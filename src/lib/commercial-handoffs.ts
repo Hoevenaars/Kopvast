@@ -322,6 +322,16 @@ export async function afterProposalAccepted(
         actor_id: "kopvast.nl",
         metadata: { message: order.message, organizationId: handoff.organizationId },
       });
+    } else {
+      const { appendOrgActivity } = await import("@/lib/workspace");
+      await appendOrgActivity({
+        organizationId: handoff.organizationId,
+        source: "order",
+        eventType: "ORDER_HANDOFF_FAILED",
+        title: "Opdracht maken mislukt",
+        detail: order.message,
+        relatedId: proposalId,
+      });
     }
     await seedDeliveryAfterAccept({
       organizationId: handoff.organizationId,
