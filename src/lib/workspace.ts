@@ -1,4 +1,6 @@
 import { seedBillingForProjects } from "@/lib/billing";
+import { COMMERCIAL_EVENTS } from "@/lib/commercial";
+import type { ActivitySource } from "@/lib/customers";
 import { billingDraftsForProjects } from "@/lib/invoices";
 import { refreshClient } from "@/lib/refresh";
 import {
@@ -320,6 +322,14 @@ export async function createCustomerRequest(input: {
       console.error("[kopvast] Verzoek opslaan mislukt", error.message);
       return { ok: false as const, message: "Verzoek opslaan is tijdelijk niet beschikbaar." };
     }
+    await appendOrgActivity({
+      organizationId: input.organizationId,
+      source: "support",
+      eventType: COMMERCIAL_EVENTS.SUPPORT_CREATED,
+      title: parsed.title,
+      detail: parsed.body,
+      actorEmail: input.email,
+    });
     return { ok: true as const };
   }
   await mutateStore((store) => {
@@ -330,7 +340,44 @@ export async function createCustomerRequest(input: {
       updated_at: nowIso(),
     });
   });
+  await appendOrgActivity({
+    organizationId: input.organizationId,
+    source: "support",
+    eventType: COMMERCIAL_EVENTS.SUPPORT_CREATED,
+    title: parsed.title,
+    detail: parsed.body,
+    actorEmail: input.email,
+  });
   return { ok: true as const };
+}
+
+export async function appendOrgActivity(input: {
+  organizationId: string;
+  source: ActivitySource;
+  eventType: string;
+  title: string;
+  detail?: string | null;
+  actorEmail?: string | null;
+  relatedId?: string | null;
+}) {
+  const row = {
+    organization_id: input.organizationId,
+    source: input.source,
+    event_type: input.eventType,
+    title: input.title,
+    detail: input.detail ?? null,
+    actor_email: input.actorEmail ?? null,
+    related_id: input.relatedId ?? null,
+  };
+  const supabase = refreshClient();
+  if (supabase) {
+    const { error } = await supabase.from("kopvast_activity").insert(row);
+    if (error) console.error("[kopvast] Activiteit opslaan mislukt", error.message);
+    return;
+  }
+  await mutateStore((store) => {
+    store.activity.unshift({ ...row, id: newId(), created_at: nowIso() });
+  });
 }
 
 export async function loadAdminOverview() {
@@ -710,10 +757,24 @@ export async function addAsset(input: {
   if (supabase) {
     const { error } = await supabase.from("kopvast_assets").insert(row);
     if (error) return { ok: false as const, message: error.message };
+    await appendOrgActivity({
+      organizationId: input.organizationId,
+      source: "onboarding",
+      eventType: COMMERCIAL_EVENTS.ASSET_RECEIVED,
+      title: name,
+      detail: input.note?.trim() || input.kind,
+    });
     return { ok: true as const };
   }
   await mutateStore((store) => {
     store.assets.push({ ...row, id: newId(), created_at: nowIso() });
+  });
+  await appendOrgActivity({
+    organizationId: input.organizationId,
+    source: "onboarding",
+    eventType: COMMERCIAL_EVENTS.ASSET_RECEIVED,
+    title: name,
+    detail: input.note?.trim() || input.kind,
   });
   return { ok: true as const };
 }

@@ -30,7 +30,9 @@ import {
 } from "@/lib/production";
 import { normalizeEmail, workspaceRoutes, type ProjectType } from "@/lib/product";
 import { domainFromWebsite } from "@/lib/sites";
-import { loadOrganizations, updateOrganization, updateProject, updateProjectStatus, type OrganizationRow, type ProjectRow } from "@/lib/workspace";
+import { COMMERCIAL_EVENTS, nextActionAfterLive } from "@/lib/commercial";
+import { defaultBeheerAmount } from "@/lib/sites";
+import { appendOrgActivity, loadOrganizations, updateOrganization, updateProject, updateProjectStatus, type OrganizationRow, type ProjectRow } from "@/lib/workspace";
 import { mutateStore, newId, nowIso, readStore } from "@/lib/workspace-store";
 
 export type ActionErr = { ok: false; message: string };
@@ -332,7 +334,7 @@ async function syncDeliveryOrder(organizationId: string, status: string, actorEm
       actorEmail,
     }).catch(() => null);
     if (!isOrderStatus(status)) continue;
-    const next = defaultNextAction(status);
+    const next = status === "LIVE" ? { text: nextActionAfterLive(), at: nowIso().slice(0, 10) } : defaultNextAction(status);
     await updateOrderNextAction({
       orderId: order.id,
       text: next.text,
@@ -680,7 +682,7 @@ export async function markProductionLive(id: string, actorEmail: string) {
   if (!result.ok) return result;
   await syncProject({ ...detail.production, preview_url: detail.production.preview_url }, "live");
   await updateOrganization(detail.organization.id, { status: "active", notes: detail.organization.notes ?? undefined });
-  if (detail.production.beheer_sold) await activateBeheer(detail.organization.id, liveAt);
+  const beheerActive = await ensureBeheerAfterLive(detail.organization.id, liveAt, actorEmail);
   await syncDeliveryOrder(detail.organization.id, orderStatusForProduction("live"), actorEmail);
   await seedLiveBilling(detail.organization.id);
   await logActivity({
@@ -689,17 +691,50 @@ export async function markProductionLive(id: string, actorEmail: string) {
     eventType: "marked_live",
     actorEmail,
     detail: "Website live gezet",
-    metadata: { live_at: liveAt, beheer: detail.production.beheer_sold },
+    metadata: { live_at: liveAt, beheer: beheerActive },
+  });
+  await appendOrgActivity({
+    organizationId: detail.organization.id,
+    source: "website",
+    eventType: COMMERCIAL_EVENTS.WEBSITE_LIVE,
+    title: "Website live",
+    detail: detail.project.title,
+    actorEmail,
+    relatedId: id,
   });
   return { ok: true as const, liveAt };
 }
 
+async function ensureBeheerAfterLive(organizationId: string, liveAt: string, actorEmail: string) {
+  const { ensureProjectsForOrder, loadOrdersForOrganization } = await import("@/lib/order-ops");
+  const orders = await loadOrdersForOrganization(organizationId);
+  for (const order of orders) {
+    if (order.include_recurring_beheer) await ensureProjectsForOrder(organizationId, order);
+  }
+  const sold = orders.some((order) => order.include_recurring_beheer);
+  const hasBeheer = (await loadProjects()).some((item) => item.organization_id === organizationId && item.type === "beheer");
+  if (!sold && !hasBeheer) return false;
+  if (!hasBeheer) return false;
+  await activateBeheer(organizationId, liveAt);
+  await appendOrgActivity({
+    organizationId,
+    source: "website",
+    eventType: COMMERCIAL_EVENTS.MANAGEMENT_STARTED,
+    title: "Beheer actief",
+    detail: "Terugkerend beheer gestart bij livegang",
+    actorEmail,
+  });
+  return true;
+}
+
 async function activateBeheer(organizationId: string, liveAt: string) {
+  const date = liveAt.slice(0, 10);
+  const monthly = defaultBeheerAmount();
   const supabase = refreshClient();
   if (supabase) {
     await supabase
       .from("kopvast_projects")
-      .update({ status: "live", live_at: liveAt.slice(0, 10) })
+      .update({ status: "live", live_at: date, started_at: date, monthly_amount: monthly })
       .eq("organization_id", organizationId)
       .eq("type", "beheer");
     return;
@@ -708,7 +743,9 @@ async function activateBeheer(organizationId: string, liveAt: string) {
     for (const project of store.projects) {
       if (project.organization_id === organizationId && project.type === "beheer") {
         project.status = "live";
-        project.live_at = liveAt.slice(0, 10);
+        project.live_at = date;
+        project.started_at = project.started_at || date;
+        project.monthly_amount = project.monthly_amount ?? monthly;
       }
     }
   });

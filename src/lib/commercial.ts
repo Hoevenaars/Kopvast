@@ -143,6 +143,10 @@ export function nextActionAfterLive() {
   return NEXT_ACTIONS.SEND_INVOICE;
 }
 
+export function nextActionAfterInvoice(status: "INVOICED" | "PAID") {
+  return status === "PAID" ? "Beheercheck" : "Wachten op betaling";
+}
+
 export function serviceBoundaries() {
   return {
     prospect: "src/lib/acquisition.ts + src/lib/acquire.ts",

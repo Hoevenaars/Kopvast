@@ -1,3 +1,4 @@
+import { COMMERCIAL_EVENTS, nextActionAfterInvoice } from "@/lib/commercial";
 import {
   billingDraftsForProjects,
   filterNewBillingDrafts,
@@ -281,14 +282,57 @@ export async function markInvoiceInvoiced(id: string, input?: { invoiceDate?: st
   const invoice = (await loadInvoices()).find((item) => item.id === id);
   if (!invoice) return { ok: false as const, message: "Factuur niet gevonden." };
   if (!canMarkInvoiced(invoice.status)) return { ok: false as const, message: "Deze factuur is al verwerkt." };
-  return patchInvoice(id, { ...fieldsForInvoiced({ invoiceDate: input?.invoiceDate ?? invoice.invoice_date, dueDate: input?.dueDate ?? invoice.due_date }), updated_at: nowIso() });
+  const result = await patchInvoice(id, { ...fieldsForInvoiced({ invoiceDate: input?.invoiceDate ?? invoice.invoice_date, dueDate: input?.dueDate ?? invoice.due_date }), updated_at: nowIso() });
+  if (result.ok) await afterInvoiceStatusChange(invoice, "INVOICED");
+  return result;
 }
 
 export async function markInvoicePaid(id: string) {
   const invoice = (await loadInvoices()).find((item) => item.id === id);
   if (!invoice) return { ok: false as const, message: "Factuur niet gevonden." };
   if (!canMarkPaid(invoice.status)) return { ok: false as const, message: "Markeer eerst als gefactureerd." };
-  return patchInvoice(id, { status: "PAID" satisfies StoredInvoiceStatus, paid_at: nowIso(), updated_at: nowIso() });
+  const result = await patchInvoice(id, { status: "PAID" satisfies StoredInvoiceStatus, paid_at: nowIso(), updated_at: nowIso() });
+  if (result.ok) await afterInvoiceStatusChange(invoice, "PAID");
+  return result;
+}
+
+async function afterInvoiceStatusChange(invoice: InvoiceRow, status: "INVOICED" | "PAID") {
+  const { appendOrgActivity } = await import("@/lib/workspace");
+  await appendOrgActivity({
+    organizationId: invoice.organization_id,
+    source: "invoice",
+    eventType: COMMERCIAL_EVENTS.INVOICE_STATUS_CHANGED,
+    title: status === "PAID" ? "Factuur betaald" : "Factuur verstuurd",
+    detail: invoice.description,
+    relatedId: invoice.id,
+  });
+  const { loadOrdersForOrganization, updateOrderNextAction } = await import("@/lib/order-ops");
+  const next = nextActionAfterInvoice(status);
+  const today = nowIso().slice(0, 10);
+  for (const order of await loadOrdersForOrganization(invoice.organization_id)) {
+    if (order.status !== "LIVE" && order.status !== "COMPLETED") continue;
+    await updateOrderNextAction({
+      orderId: order.id,
+      text: next,
+      at: today,
+      actorEmail: "kopvast.nl",
+    }).catch(() => null);
+  }
+}
+
+export async function loadDueInvoiceActions() {
+  const overview = await loadBillingOverview();
+  const { workspaceRoutes } = await import("@/lib/product");
+  return overview.invoices
+    .filter((item) => item.display_status === "NOT_INVOICED" || item.display_status === "OVERDUE")
+    .slice(0, 6)
+    .map((item) => ({
+      title: item.display_status === "OVERDUE" ? "Factuur te laat" : "Factuur sturen",
+      company: item.customer,
+      status: "Actie nodig",
+      age: item.due_date || item.invoice_date || "nu",
+      href: `${workspaceRoutes.adminInvoices}/${item.id}`,
+    }));
 }
 
 export async function cancelInvoice(id: string) {

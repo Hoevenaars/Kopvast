@@ -7,6 +7,7 @@ import { loadAcquisitionDashboard } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
 import { listAdminScoutCaptures } from "@/lib/scout/crm";
 import { SCOUT_STATUS_LABELS } from "@/lib/scout/types";
+import { loadDueInvoiceActions } from "@/lib/billing";
 import { loadDeliveryTodayActions } from "@/lib/production-board";
 import { loadProposalTodayActions } from "@/lib/proposal-ops";
 import { formatEuro } from "@/lib/sites";
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminDashboard() {
-  const [data, proposalActions, requestActions, supportActions, beheer, scoutCaptures, deliveryActions] = await Promise.all([
+  const [data, proposalActions, requestActions, supportActions, beheer, scoutCaptures, deliveryActions, invoiceActions] = await Promise.all([
     loadAcquisitionDashboard(),
     loadProposalTodayActions(),
     loadDueRequestActions(),
@@ -27,6 +28,7 @@ export default async function AdminDashboard() {
     loadBeheerOverview(),
     listAdminScoutCaptures(8),
     loadDeliveryTodayActions(),
+    loadDueInvoiceActions(),
   ]);
   const scoutActions = scoutCaptures.map((item) => ({
     title: "Scout-push",
@@ -35,7 +37,7 @@ export default async function AdminDashboard() {
     age: scoutAge(item.created_at),
     href: item.prospect_id ? `${workspaceRoutes.adminAcquisition}/${item.prospect_id}` : workspaceRoutes.adminScout,
   }));
-  const actions = [...scoutActions, ...proposalActions, ...requestActions, ...supportActions, ...deliveryActions, ...data.actions];
+  const actions = [...scoutActions, ...proposalActions, ...requestActions, ...supportActions, ...deliveryActions, ...invoiceActions, ...data.actions];
   const metrics = [
     { key: "prospects" as const, label: "Nieuwe prospects", value: String(data.metrics.prospects), icon: ScanSearch },
     { key: "scans" as const, label: "Scans", value: String(data.metrics.scans), icon: CheckCircle2 },

@@ -344,7 +344,7 @@ function projectSpec(type: ProjectType, order: OrderRow) {
   };
 }
 
-async function ensureProjects(organizationId: string, order: OrderRow) {
+export async function ensureProjectsForOrder(organizationId: string, order: OrderRow) {
   const selected = neededProjectTypes(order).map((type) => projectSpec(type, order));
   const supabase = refreshClient();
   if (supabase) {
@@ -560,7 +560,7 @@ export async function createOrderFromAcceptedProposal(
 
   const persisted = await persistMaterialized(supabase, proposal, materialized);
   if (!persisted.ok) return persisted;
-  await ensureProjects(customer.organizationId, materialized.order);
+  await ensureProjectsForOrder(customer.organizationId, materialized.order);
   return { ok: true, orderId: persisted.orderId, already: persisted.already };
 }
 
