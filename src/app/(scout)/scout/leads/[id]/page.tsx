@@ -13,6 +13,7 @@ import {
 } from "@/app/(scout)/scout/actions";
 import { ManualReasonsForm } from "@/components/acquisition/manual-reasons-form";
 import { ScoutContactEmailForm } from "@/components/scout/contact-email-form";
+import { ScoutCompanyNameForm } from "@/components/scout/company-name-form";
 import { LeadDraftTools } from "@/components/scout/draft-tools";
 import { buildUnreachableSiteMail, isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
 import { resolveEmailSettings } from "@/lib/email-mode";
@@ -99,6 +100,7 @@ export default async function ScoutLeadDetailPage({
 
       <section className="space-y-4">
         <h2 className="text-xs tracking-[0.18em] text-olive uppercase">Contactgegevens</h2>
+        <ScoutCompanyNameForm leadId={lead.id} companyName={lead.company_name} />
         <ScoutContactEmailForm
           leadId={lead.id}
           email={lead.email || enrichment?.email?.value || null}

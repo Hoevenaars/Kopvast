@@ -17,6 +17,7 @@ import { ACTIVITY, adminStatusFromScore, emptyScanProgress, SCANNER_VERSION, SCO
 import { NEXT_ACTIONS, shouldFinishAnalysisManually } from "./commercial";
 import { logProspectActivity, refreshProspectCosts } from "./acquisition-activity";
 import { upsertContact } from "./acquisition";
+import { preferredCompanyName, pickStoredCompanyName } from "./company-name";
 import { storeGeneratedMail, storeUnreachableSiteMail } from "./acquisition-send";
 import type { MailFinding } from "./acquisition-mail";
 
@@ -140,7 +141,7 @@ export async function acquireAdminScan(input: {
     title: result.title,
     findings: result.findings,
     fetchedUrl: result.fetchedUrl,
-    company: prospect.company_name ?? result.title ?? undefined,
+    company: prospect.company_name ?? undefined,
     prospectId: input.prospectId,
     scanId: input.scanId,
     force: input.force ?? true,
@@ -211,7 +212,10 @@ async function acquireWebsite(input: {
     const { data: created, error } = await supabase
       .from("prospects")
       .insert({
-        company_name: input.company || input.lead?.company || input.title || null,
+        company_name: pickStoredCompanyName(
+          preferredCompanyName({ title: input.title, domain })?.value,
+          input.company || input.lead?.company
+        ),
         domain,
         website_url: websiteUrl,
         source_type: "kopvast",
@@ -236,7 +240,10 @@ async function acquireWebsite(input: {
     await supabase
       .from("prospects")
       .update({
-        company_name: input.company || input.lead.company || prospect.company_name,
+        company_name: pickStoredCompanyName(
+          preferredCompanyName({ title: input.title, domain })?.value,
+          input.company || input.lead.company || prospect.company_name
+        ),
         notes: [prospect.notes, note].filter(Boolean).join("\n\n"),
         needs_review: true,
         needs_review_reasons: ["inbound_lead"],
@@ -550,7 +557,10 @@ async function acquireWebsite(input: {
       product_fit: fit.fit,
       last_scan_at: now,
       last_activity_at: now,
-      company_name: input.company || input.lead?.company || input.title || prospect.company_name,
+      company_name: pickStoredCompanyName(
+        preferredCompanyName({ title: input.title, domain })?.value,
+        input.company || input.lead?.company || prospect.company_name
+      ),
       needs_review: input.source === "aanvraag" || fit.fit === "REVIEW_REQUIRED" || finalStatus === "WATCHLIST" || finalStatus === "NEW" || finishAnalysisManually,
       needs_review_reasons: input.source === "aanvraag" ? ["inbound_lead"] : fit.fit === "REVIEW_REQUIRED" ? ["review_required"] : finalStatus === "WATCHLIST" ? ["ai_watchlist"] : finishAnalysisManually ? ["analysis_manual"] : [],
       ...(finishAnalysisManually

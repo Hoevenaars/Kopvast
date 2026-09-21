@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
+import { pickStoredCompanyName, replaceCompanyNameInText, withManualCompanyEnrichment } from "@/lib/company-name";
 import { logProspectActivity } from "@/lib/acquisition-activity";
-import { MAIL_TEMPLATE_VERSION } from "@/lib/acquisition-constants";
+import { MAIL_TEMPLATE_VERSION, SCOUT_MAIL_PROMPT_VERSION, SCOUT_MAIL_TEMPLATE_VERSION } from "@/lib/acquisition-constants";
 import { MANUAL_REASONS_PROMPT_VERSION } from "@/lib/acquisition/manual-reasons";
 import { UNREACHABLE_SITE_PROMPT_VERSION, UNREACHABLE_SITE_TEMPLATE_VERSION } from "@/lib/acquisition/unreachable-site-mail";
 import { withManualEmailEnrichment } from "@/lib/contact-email";
@@ -8,7 +9,7 @@ import { isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
 import { nowIso } from "@/lib/workspace-store";
 import { scoutServiceClient } from "./auth";
 import { mergeScoutNote, prospectStatusFromScout } from "./crm-map";
-import { getDraft, getLeadById, mapLead } from "./leads";
+import { getDraft, getLeadById, mapLead, upsertDraft } from "./leads";
 import { mutateLocalScout } from "./store";
 import {
   SCOUT_STATUS_LABELS,
@@ -157,7 +158,7 @@ export async function syncProspectFromScout(leadId: string): Promise<string | nu
   const nextStatus = prospectStatusFromScout(lead.status, lead.score);
   const draft = await getDraft(lead.id);
   const patch: Record<string, unknown> = {
-    company_name: lead.company_name || prospect.company_name,
+    company_name: pickStoredCompanyName(lead.company_name, prospect.company_name as string | null),
     notes: mergeScoutNote(prospect.notes as string | null, lead.note),
     opportunity_score: lead.score,
     last_scan_at: lead.last_scan_at ?? nowIso(),
@@ -246,6 +247,56 @@ export async function syncScoutEmailFromProspect(prospectId: string, email: stri
   });
 }
 
+export async function syncScoutCompanyFromProspect(prospectId: string, company: string, previous?: string | null) {
+  const supabase = scoutServiceClient();
+  const updatedAt = nowIso();
+  async function rewriteDraft(leadId: string) {
+    if (!previous || previous === company) return;
+    const draft = await getDraft(leadId);
+    if (!draft) return;
+    const subject = replaceCompanyNameInText(draft.subject, previous, company);
+    const message = replaceCompanyNameInText(draft.message, previous, company);
+    if (subject === draft.subject && message === draft.message) return;
+    await upsertDraft(leadId, { subject, message });
+  }
+  if (supabase) {
+    const { data } = await supabase.from("scout_leads").select("id, enrichment").eq("prospect_id", prospectId);
+    for (const row of data ?? []) {
+      await supabase
+        .from("scout_leads")
+        .update({
+          company_name: company,
+          enrichment: withManualCompanyEnrichment(row.enrichment as Record<string, unknown>, company),
+          updated_at: updatedAt,
+        })
+        .eq("id", row.id);
+      await rewriteDraft(String(row.id));
+    }
+    revalidateAdminSurfaces(prospectId);
+    return;
+  }
+  await mutateLocalScout((store) => {
+    for (const lead of store.leads) {
+      if (lead.prospect_id === prospectId) {
+        lead.company_name = company;
+        lead.enrichment = withManualCompanyEnrichment(lead.enrichment, company);
+        lead.updated_at = updatedAt;
+      }
+    }
+    if (previous && previous !== company) {
+      for (const lead of store.leads) {
+        if (lead.prospect_id !== prospectId) continue;
+        for (const draft of store.drafts) {
+          if (draft.lead_id !== lead.id || draft.status !== "draft") continue;
+          draft.subject = replaceCompanyNameInText(draft.subject, previous, company);
+          draft.message = replaceCompanyNameInText(draft.message, previous, company);
+          draft.updated_at = updatedAt;
+        }
+      }
+    }
+  });
+}
+
 async function upsertScoutOutreachDraft(prospectId: string, draft: ScoutDraft) {
   const supabase = scoutServiceClient();
   if (!supabase) return;
@@ -259,7 +310,7 @@ async function upsertScoutOutreachDraft(prospectId: string, draft: ScoutDraft) {
     .maybeSingle();
   if (existing && existing.status !== "draft") return;
   const editableVersions = new Set([
-    "kopvast-scout",
+    SCOUT_MAIL_PROMPT_VERSION,
     UNREACHABLE_SITE_PROMPT_VERSION,
     MANUAL_REASONS_PROMPT_VERSION,
     null,
@@ -285,12 +336,12 @@ async function upsertScoutOutreachDraft(prospectId: string, draft: ScoutDraft) {
       ? UNREACHABLE_SITE_PROMPT_VERSION
       : manual
         ? MANUAL_REASONS_PROMPT_VERSION
-        : "kopvast-scout",
+        : SCOUT_MAIL_PROMPT_VERSION,
     template_version: unreachable
       ? UNREACHABLE_SITE_TEMPLATE_VERSION
       : manual
         ? MAIL_TEMPLATE_VERSION
-        : "scout-capture",
+        : SCOUT_MAIL_TEMPLATE_VERSION,
     intended_to_email: contact?.email ?? null,
     to_email: to,
     contact_id: contact?.id ?? null,

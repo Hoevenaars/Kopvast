@@ -31,6 +31,7 @@ import { explainOutreachOffer } from "@/lib/acquisition/outreach-policy";
 import { workspaceRoutes } from "@/lib/product";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { ProspectContactEmailForm } from "../contact-email-form";
+import { ProspectCompanyNameForm } from "../company-name-form";
 import { MailEditor } from "../mail-editor";
 import { ScanProgress } from "../scan-progress";
 import { EmailModeBanner } from "../email-mode-banner";
@@ -93,6 +94,8 @@ export default async function ProspectDetailPage({
         <p className="rounded-2xl border border-destructive/30 bg-white px-4 py-3 text-sm text-destructive">{prospect.scan.error_message}</p>
       ) : null}
 
+      <ProspectCompanyNameForm prospectId={prospect.id} companyName={prospect.company_name} />
+
       <ProspectContactEmailForm
         prospectId={prospect.id}
         email={prospect.contact?.email ?? null}
@@ -142,7 +145,7 @@ export default async function ProspectDetailPage({
 
       {prospect.mail ? (
         <MailEditor
-          key={prospect.mail.id}
+          key={`${prospect.mail.id}-${prospect.company_name ?? ""}`}
           prospectId={prospect.id}
           mailId={prospect.mail.id}
           subject={prospect.mail.subject ?? ""}
@@ -260,7 +263,9 @@ export default async function ProspectDetailPage({
                       ? "Wil een voorstel"
                       : item.event_type === "OUTREACH_MORE_INFO"
                         ? "Wil meer info"
-                        : item.event_type}
+                        : item.event_type === "COMPANY_UPDATED"
+                          ? "Bedrijfsnaam gewijzigd"
+                          : item.event_type}
               </span>
               <span className="text-xs text-ink/40">
                 {item.actor_type} · {new Date(item.created_at).toLocaleString("nl-NL")}

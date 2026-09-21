@@ -6,6 +6,8 @@ import { clickActivityLabel, loadRecentAcquisitionClicks } from "./acquisition-c
 import { scoutProspectIds } from "./scout/crm";
 import { assertPublicHostname } from "./ssrf";
 import { parseManualEmail } from "./contact-email";
+import { parseManualCompanyName, replaceCompanyNameInText } from "./company-name";
+import { prepareTrackedAcquisitionEmail } from "./acquisition-clicks";
 import { isEmail, normalizeEmail } from "./product";
 import { canonicalDomainFromInput } from "./acquire-score";
 import { addSuppression, findSuppression, type SuppressionHit } from "./suppression";
@@ -193,6 +195,8 @@ export type UpdateContactEmailResult =
   | { ok: true; email: string }
   | { ok: false; message: string }
   | { ok: false; emailConflict: true; existing: DuplicateProspect };
+
+export type UpdateCompanyNameResult = { ok: true; company: string } | { ok: false; message: string };
 
 export type ImportProspectItemResult = {
   website: string;
@@ -779,6 +783,88 @@ export async function updateProspectContactEmail(input: {
   await syncScoutEmailFromProspect(prospect.id, email);
 
   return { ok: true, email };
+}
+
+export async function updateProspectCompanyName(input: {
+  prospectId: string;
+  company: string;
+  actorEmail: string;
+}): Promise<UpdateCompanyNameResult> {
+  const parsed = parseManualCompanyName(input.company);
+  if (!parsed.ok) return parsed;
+  const company = parsed.company;
+
+  const supabase = refreshClient();
+  if (!supabase) return { ok: false, message: "Website Refresh is niet geconfigureerd." };
+
+  const { data: prospect } = await supabase
+    .from("prospects")
+    .select("id, domain, company_name")
+    .eq("id", input.prospectId)
+    .maybeSingle();
+  if (!prospect) return { ok: false, message: "Prospect niet gevonden." };
+
+  const previous = typeof prospect.company_name === "string" ? prospect.company_name.trim() : "";
+  await supabase
+    .from("prospects")
+    .update({
+      company_name: company,
+      last_activity_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", prospect.id);
+
+  if (previous && previous !== company) {
+    const { data: drafts } = await supabase
+      .from("email_messages")
+      .select("id, subject, body_text")
+      .eq("prospect_id", prospect.id)
+      .eq("kind", "acquisition_outreach")
+      .eq("status", "draft");
+    for (const draft of drafts ?? []) {
+      const subject = replaceCompanyNameInText(String(draft.subject ?? ""), previous, company);
+      const body = replaceCompanyNameInText(String(draft.body_text ?? ""), previous, company);
+      if (subject === draft.subject && body === draft.body_text) continue;
+      let html: string | undefined;
+      let text = body;
+      try {
+        const prepared = await prepareTrackedAcquisitionEmail({
+          prospectId: prospect.id,
+          mailId: String(draft.id),
+          domain: String(prospect.domain),
+          companyName: company,
+          subject,
+          body,
+        });
+        html = prepared.html;
+        text = prepared.text;
+      } catch (error) {
+        console.error("[kopvast] Conceptmail bij naamwijziging renderen mislukt", error instanceof Error ? error.message : error);
+      }
+      await supabase
+        .from("email_messages")
+        .update({
+          subject,
+          body_text: text,
+          ...(html ? { body_html: html } : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", draft.id);
+    }
+  }
+
+  await logProspectActivity(supabase, {
+    prospectId: prospect.id,
+    eventType: ACTIVITY.COMPANY_UPDATED,
+    actorType: "human",
+    actorId: input.actorEmail,
+    metadata: { from: previous || null, to: company },
+  });
+
+  const { syncScoutCompanyFromProspect } = await import("./scout/crm");
+  await syncScoutCompanyFromProspect(prospect.id, company, previous || null);
+
+  return { ok: true, company };
 }
 
 export const loadProspectDetail = cache(async (id: string): Promise<ProspectDetail | null> => {

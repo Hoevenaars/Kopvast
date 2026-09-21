@@ -11,10 +11,12 @@ import {
   createAcquisitionProspect,
   importAcquisitionProspects,
   reuseProspectScan,
+  updateProspectCompanyName,
   updateProspectContactEmail,
   updateProspectFollowUp,
   type CreateProspectResult,
   type ImportProspectsResult,
+  type UpdateCompanyNameResult,
   type UpdateContactEmailResult,
 } from "@/lib/acquisition";
 import {
@@ -193,6 +195,21 @@ export async function updateContactEmailAction(
     email: String(formData.get("email") ?? ""),
     actorEmail: session.email,
     source: "admin",
+  });
+  revalidateAcquisition(prospectId);
+  return result;
+}
+
+export async function updateCompanyNameAction(
+  _previous: UpdateCompanyNameResult | null,
+  formData: FormData
+): Promise<UpdateCompanyNameResult> {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const result = await updateProspectCompanyName({
+    prospectId,
+    company: String(formData.get("company") ?? ""),
+    actorEmail: session.email,
   });
   revalidateAcquisition(prospectId);
   return result;

@@ -55,6 +55,7 @@ export const SCOUT_EVENTS = [
   "email_sent",
   "rescan_requested",
   "contact_updated",
+  "company_updated",
 ] as const;
 
 export type ScoutEventType = (typeof SCOUT_EVENTS)[number];
