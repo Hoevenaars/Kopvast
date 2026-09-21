@@ -29,6 +29,7 @@ function refreshCustomer(organizationId?: string) {
   revalidatePath(workspaceRoutes.adminWebsites);
   revalidatePath(workspaceRoutes.adminBeheer);
   revalidatePath(workspaceRoutes.adminSupport);
+  revalidatePath(workspaceRoutes.adminInvoices);
   if (organizationId) revalidatePath(`${workspaceRoutes.adminCustomers}/${organizationId}`);
 }
 
