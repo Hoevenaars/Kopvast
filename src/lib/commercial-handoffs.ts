@@ -7,6 +7,7 @@ import {
   COMMERCIAL_EVENTS,
   NEXT_ACTIONS,
   intentFromAcquisitionChoice,
+  nextActionAfterAccept,
   nextActionForHandoff,
   requestStatusForIntent,
   type CommercialIntent,
@@ -256,6 +257,46 @@ export function liveProposalToOrderProposal(proposal: ProposalRow): OrderProposa
   };
 }
 
+async function seedDeliveryAfterAccept(input: {
+  organizationId: string;
+  requestId?: string | null;
+  prospectId?: string | null;
+  orderCreated: boolean;
+}) {
+  const { loadProjects } = await import("@/lib/workspace");
+  const { ensureOnboardingsForProjects } = await import("@/lib/onboarding-store");
+  const { ensureProductions } = await import("@/lib/production-board");
+  const projects = (await loadProjects()).filter((item) => item.organization_id === input.organizationId);
+  if (projects.length) await ensureOnboardingsForProjects(projects);
+  await ensureProductions();
+
+  const nextAction = nextActionAfterAccept(input.orderCreated);
+  if (input.requestId) {
+    await saveAanvraagNextAction({
+      id: input.requestId,
+      nextAction,
+      nextActionAt: new Date().toISOString(),
+      actorEmail: "kopvast.nl",
+    }).catch(() => null);
+  }
+
+  const supabase = refreshClient();
+  if (supabase && input.prospectId) {
+    const now = new Date().toISOString();
+    await supabase
+      .from("prospects")
+      .update({
+        commercial_stage: input.orderCreated ? "CUSTOMER" : "WON",
+        commercial_intent: "PROPOSAL",
+        next_action: nextAction,
+        next_action_at: now,
+        last_activity_at: now,
+        updated_at: now,
+      })
+      .eq("id", input.prospectId);
+  }
+}
+
 export async function afterProposalAccepted(
   proposalId: string
 ): Promise<HandoffResult<{ organizationId: string; orderId?: string; already?: boolean }>> {
@@ -278,8 +319,21 @@ export async function afterProposalAccepted(
         metadata: { message: order.message, organizationId: handoff.organizationId },
       });
     }
+    await seedDeliveryAfterAccept({
+      organizationId: handoff.organizationId,
+      requestId: detail.proposal.inbound_lead_id,
+      prospectId: detail.proposal.prospect_id,
+      orderCreated: false,
+    });
     return { ok: true, organizationId: handoff.organizationId, already: handoff.already };
   }
+
+  await seedDeliveryAfterAccept({
+    organizationId: handoff.organizationId,
+    requestId: detail.proposal.inbound_lead_id,
+    prospectId: detail.proposal.prospect_id,
+    orderCreated: true,
+  });
   return {
     ok: true,
     organizationId: handoff.organizationId,

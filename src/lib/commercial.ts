@@ -59,6 +59,8 @@ export const NEXT_ACTIONS = {
   MAKE_PROPOSAL: "Voorstel maken",
   FINISH_ANALYSIS: "Analyse handmatig afronden",
   CALL_CLIENT: "Klant bellen",
+  WAIT_ACCEPT: "Wachten op akkoord",
+  MAKE_ORDER: "Opdracht maken",
   WAIT_PHOTOS: "Wachten op foto's",
   SEND_CONCEPT: "Concept sturen",
   PROCESS_CHANGES: "Wijzigingen verwerken",
@@ -131,6 +133,10 @@ export function nextActionForHandoff(input: {
 
 export function shouldFinishAnalysisManually(input: { hasAnalysis: boolean; existingNextAction?: string | null }) {
   return !input.hasAnalysis && !input.existingNextAction?.trim();
+}
+
+export function nextActionAfterAccept(orderCreated: boolean) {
+  return orderCreated ? NEXT_ACTIONS.START_ONBOARDING : NEXT_ACTIONS.MAKE_ORDER;
 }
 
 export function serviceBoundaries() {

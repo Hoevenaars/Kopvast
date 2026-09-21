@@ -18,6 +18,7 @@ import {
   type InvoiceRow,
   type NoteRow,
   type ProposalRow,
+  type ProposalStatus,
   type SupportRow,
 } from "@/lib/customers";
 import {
@@ -100,11 +101,106 @@ async function loadMatchOrgs(): Promise<CustomerMatchOrg[]> {
   }));
 }
 
+function mapLiveToDossierProposal(row: Record<string, unknown>): ProposalRow {
+  const status = String(row.status ?? "");
+  const mappedStatus: ProposalStatus =
+    status === "ACCEPTED"
+      ? "geaccepteerd"
+      : status === "SENT" || status === "VIEWED" || status === "QUESTION"
+        ? "verstuurd"
+        : status === "DECLINED" || status === "EXPIRED"
+          ? "afgewezen"
+          : "concept";
+  return asProposal({
+    id: String(row.id),
+    organization_id: row.customer_id ? String(row.customer_id) : null,
+    inbound_lead_id: row.request_id ? String(row.request_id) : null,
+    prospect_id: row.prospect_id ? String(row.prospect_id) : null,
+    title: String(row.title ?? ""),
+    body: row.scope_summary ? String(row.scope_summary) : row.aanleiding ? String(row.aanleiding) : null,
+    status: mappedStatus,
+    product_type: String(row.type ?? "maatwerk"),
+    amount_label: row.subtotal_ex_vat != null ? `€${row.subtotal_ex_vat}` : null,
+    contact_name: row.recipient_name ? String(row.recipient_name) : null,
+    contact_email: row.recipient_email ? String(row.recipient_email) : null,
+    company_name: row.recipient_organization ? String(row.recipient_organization) : null,
+    website: null,
+    accepted_at: row.accepted_at ? String(row.accepted_at) : null,
+    created_at: String(row.created_at ?? nowIso()),
+    updated_at: String(row.updated_at ?? row.created_at ?? nowIso()),
+  });
+}
+
+async function loadWrProposals(organizationId?: string, inboundLeadId?: string | null): Promise<ProposalRow[]> {
+  const supabase = refreshClient();
+  if (!supabase) {
+    const store = await readStore();
+    return store.voorstellen
+      .filter((item) => {
+        if (organizationId && item.organization_id === organizationId) return true;
+        if (inboundLeadId && item.inbound_lead_id === inboundLeadId) return true;
+        return !organizationId && !inboundLeadId;
+      })
+      .map((item) =>
+        mapLiveToDossierProposal({
+          id: item.id,
+          customer_id: item.organization_id,
+          request_id: item.inbound_lead_id,
+          prospect_id: item.prospect_id,
+          title: item.title,
+          scope_summary: item.scope_summary,
+          aanleiding: item.aanleiding,
+          status: item.status,
+          type: item.type,
+          subtotal_ex_vat: item.subtotal_cents / 100,
+          recipient_name: item.recipient_name,
+          recipient_email: item.recipient_email,
+          recipient_organization: item.recipient_organization,
+          accepted_at: item.accepted_at,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+        })
+      );
+  }
+
+  let query = supabase.from("proposals").select("*").order("created_at", { ascending: false });
+  if (organizationId && inboundLeadId) {
+    query = query.or(`customer_id.eq.${organizationId},request_id.eq.${inboundLeadId}`);
+  } else if (organizationId) {
+    query = query.eq("customer_id", organizationId);
+  } else if (inboundLeadId) {
+    query = query.eq("request_id", inboundLeadId);
+  }
+  const { data } = await query;
+  return ((data ?? []) as Array<Record<string, unknown>>).map(mapLiveToDossierProposal);
+}
+
 async function loadProposal(id: string) {
   const supabase = refreshClient();
   if (supabase) {
-    const { data } = await supabase.from("kopvast_proposals").select("*").eq("id", id).maybeSingle();
-    return data ? asProposal(data as ProposalRow) : null;
+    const { data } = await supabase.from("proposals").select("*").eq("id", id).maybeSingle();
+    return data ? mapLiveToDossierProposal(data as Record<string, unknown>) : null;
+  }
+  const live = (await readStore()).voorstellen.find((item) => item.id === id);
+  if (live) {
+    return mapLiveToDossierProposal({
+      id: live.id,
+      customer_id: live.organization_id,
+      request_id: live.inbound_lead_id,
+      prospect_id: live.prospect_id,
+      title: live.title,
+      scope_summary: live.scope_summary,
+      aanleiding: live.aanleiding,
+      status: live.status,
+      type: live.type,
+      subtotal_ex_vat: live.subtotal_cents / 100,
+      recipient_name: live.recipient_name,
+      recipient_email: live.recipient_email,
+      recipient_organization: live.recipient_organization,
+      accepted_at: live.accepted_at,
+      created_at: live.created_at,
+      updated_at: live.updated_at,
+    });
   }
   const row = (await readStore()).customerProposals.find((item) => item.id === id);
   return row ? asProposal(row) : null;
@@ -113,10 +209,13 @@ async function loadProposal(id: string) {
 async function saveProposalPatch(id: string, patch: Partial<ProposalRow>) {
   const supabase = refreshClient();
   if (supabase) {
-    const { error } = await supabase
-      .from("kopvast_proposals")
-      .update({ ...patch, updated_at: nowIso() })
-      .eq("id", id);
+    const livePatch: Record<string, unknown> = { updated_at: nowIso() };
+    if (patch.organization_id !== undefined) livePatch.customer_id = patch.organization_id;
+    if (patch.status === "geaccepteerd") {
+      livePatch.status = "ACCEPTED";
+      livePatch.accepted_at = patch.accepted_at ?? nowIso();
+    }
+    const { error } = await supabase.from("proposals").update(livePatch).eq("id", id);
     if (error) return fail(error.message);
     return { ok: true as const };
   }
@@ -131,9 +230,20 @@ async function saveProposalPatch(id: string, patch: Partial<ProposalRow>) {
 async function insertProposal(input: Omit<ProposalRow, "id" | "created_at" | "updated_at">) {
   const supabase = refreshClient();
   if (supabase) {
-    const { data, error } = await supabase.from("kopvast_proposals").insert(input).select("*").single();
-    if (error || !data) return { ok: false as const, message: error?.message ?? "Voorstel opslaan mislukt." };
-    return { ok: true as const, proposal: asProposal(data as ProposalRow) };
+    const { createProposal } = await import("@/lib/proposal-ops");
+    const created = await createProposal({
+      type: input.product_type === "website" ? "website" : "maatwerk",
+      recipientName: input.contact_name || input.company_name || "Contact",
+      recipientEmail: input.contact_email || "onbekend@kopvast.nl",
+      recipientOrganization: input.company_name || input.contact_name || "Klant",
+      leadId: input.inbound_lead_id,
+      organizationId: input.organization_id,
+      createdBy: "kopvast.nl",
+    });
+    if (!created.ok) return { ok: false as const, message: created.message };
+    const proposal = await loadProposal(created.id);
+    if (!proposal) return { ok: false as const, message: "Voorstel opslaan mislukt." };
+    return { ok: true as const, proposal };
   }
   const proposal: ProposalRow = { ...input, id: newId(), created_at: nowIso(), updated_at: nowIso() };
   await mutateStore((store) => {
@@ -405,11 +515,10 @@ export async function getOrCreateCustomerFromAcceptedProposal(
 }
 
 async function proposalForLead(lead: LeadRow, organizationId: string | null) {
+  const existing = (await loadWrProposals(organizationId ?? undefined, lead.id))[0];
+  if (existing) return existing;
   const supabase = refreshClient();
-  if (supabase) {
-    const { data } = await supabase.from("kopvast_proposals").select("*").eq("inbound_lead_id", lead.id).maybeSingle();
-    if (data) return asProposal(data as ProposalRow);
-  } else {
+  if (!supabase) {
     const existing = (await readStore()).customerProposals.find((item) => item.inbound_lead_id === lead.id);
     if (existing) return asProposal(existing);
   }
@@ -533,6 +642,9 @@ export async function createProposalForCustomer(input: {
 }
 
 export async function acceptProposal(proposalId: string, actorEmail?: string) {
+  const { afterProposalAccepted } = await import("@/lib/commercial-handoffs");
+  const handed = await afterProposalAccepted(proposalId);
+  if (handed.ok) return { ok: true as const, organizationId: handed.organizationId, already: handed.already };
   const proposal = await loadProposal(proposalId);
   if (!proposal) return fail("Voorstel niet gevonden.");
   await saveProposalPatch(proposalId, { status: "geaccepteerd", accepted_at: nowIso() });
@@ -753,7 +865,7 @@ async function loadOpenTodos(organizationId?: string) {
 export async function loadOpenCustomerReviews(): Promise<OpenCustomerReview[]> {
   const [reviews, proposals, organizations] = await Promise.all([
     loadTable<CustomerReviewRow>("kopvast_customer_reviews"),
-    loadTable<ProposalRow>("kopvast_proposals"),
+    loadWrProposals(),
     loadOrganizations(),
   ]);
   const open = reviews.filter((item) => item.status === "open");
@@ -797,7 +909,7 @@ export async function loadCustomerList(input: { filter: CustomerFilter; q?: stri
     loadMembers(),
     loadAllProjects(),
     loadAllRequests(),
-    loadTable<ProposalRow>("kopvast_proposals"),
+    loadWrProposals(),
     loadTable<InvoiceRow>("kopvast_invoices"),
     loadTable<SupportRow>("kopvast_support"),
     loadOpenCustomerReviews(),
@@ -835,7 +947,7 @@ export async function loadCustomerDossier(organizationId: string): Promise<Custo
   if (!workspace) return null;
   const [leads, proposals, invoices, notes, support, activity, reviews, brandRows, todos] = await Promise.all([
     loadLeads(),
-    loadTable<ProposalRow>("kopvast_proposals"),
+    loadWrProposals(organizationId, workspace.organization.inbound_lead_id),
     loadTable<InvoiceRow>("kopvast_invoices", organizationId),
     loadTable<NoteRow>("kopvast_notes", organizationId),
     loadTable<SupportRow>("kopvast_support", organizationId),

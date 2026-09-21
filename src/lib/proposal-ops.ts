@@ -1022,6 +1022,16 @@ export async function sendProposal(
     url,
     amount: formatEuro(proposal.subtotal_cents),
   });
+  if (proposal.inbound_lead_id) {
+    const { saveAanvraagNextAction } = await import("@/lib/aanvragen");
+    const { NEXT_ACTIONS } = await import("@/lib/commercial");
+    await saveAanvraagNextAction({
+      id: proposal.inbound_lead_id,
+      nextAction: NEXT_ACTIONS.WAIT_ACCEPT,
+      nextActionAt: new Date().toISOString(),
+      actorEmail: actorEmail ?? "kopvast.nl",
+    }).catch(() => null);
+  }
   return { ok: true, id, url, mailed: mailed.mailed, message: mailed.message };
 }
 
