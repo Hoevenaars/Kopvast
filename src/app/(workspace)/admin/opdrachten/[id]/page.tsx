@@ -213,7 +213,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           </Link>
           {invoices.length === 0 ? (
             <div className="mt-4">
-              <EmptyState title="Geen facturen" text="Bij akkoord ontstaan conceptfacturen vanuit de afgesproken prijs." />
+              <EmptyState title="Geen facturen" text="Bij akkoord ontstaat een factuur vanuit de afgesproken prijs. Die staat ook onder Facturatie en op Vandaag." />
             </div>
           ) : (
             <ul className="mt-4 divide-y divide-ink/8">
@@ -222,6 +222,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                   <div>
                     <p className="font-medium">{invoice.label}</p>
                     <p className="text-ink/45">{invoice.kind} · {invoice.status}</p>
+                    <Link href={`${workspaceRoutes.adminInvoices}/${invoice.id}`} className="mt-1 inline-block text-sm underline underline-offset-4">
+                      Open factuur
+                    </Link>
                   </div>
                   <p>{formatEuro(invoice.amount)}</p>
                 </li>

@@ -7,6 +7,7 @@ import {
   loadLead,
   loadOrganization,
   loadOrganizations,
+  loadProjects,
   type LeadRow,
   type OrganizationRow,
 } from "@/lib/workspace";
@@ -152,17 +153,36 @@ function mapWebsite(row: Record<string, unknown>): OrderWebsiteRow {
   };
 }
 
-function mapInvoice(row: Record<string, unknown>): InvoiceRow {
+function mapBillingInvoiceForOrder(
+  row: {
+    id: string;
+    organization_id: string;
+    description: string;
+    amount_ex_vat: number;
+    status: string;
+    created_at: string;
+  },
+  orderId: string
+): InvoiceRow {
+  const status: InvoiceRow["status"] =
+    row.status === "PAID" ? "paid" : row.status === "CANCELLED" ? "cancelled" : row.status === "NOT_INVOICED" ? "draft" : "sent";
   return {
-    id: String(row.id),
-    order_id: String(row.order_id),
-    organization_id: String(row.organization_id),
-    kind: (row.kind as InvoiceRow["kind"]) ?? "deposit",
-    amount: asNumber(row.amount),
-    label: row.label ? String(row.label) : null,
-    status: (row.status as InvoiceRow["status"]) ?? "draft",
-    created_at: String(row.created_at),
+    id: row.id,
+    order_id: orderId,
+    organization_id: row.organization_id,
+    kind: "final",
+    amount: row.amount_ex_vat,
+    label: row.description,
+    status,
+    created_at: row.created_at,
   };
+}
+
+async function billingInvoicesForOrder(order: OrderRow): Promise<InvoiceRow[]> {
+  const { loadInvoices } = await import("@/lib/billing");
+  return (await loadInvoices())
+    .filter((item) => item.organization_id === order.organization_id && item.status !== "CANCELLED")
+    .map((item) => mapBillingInvoiceForOrder(item, order.id));
 }
 
 function mapActivity(row: Record<string, unknown>): OrderActivityRow {
@@ -297,7 +317,7 @@ export async function loadOrderDetail(id: string): Promise<OrderDetail | null> {
       loadOrganization(order.organization_id),
       loadOrderOnboarding(supabase, order.id),
       supabase.from("kopvast_websites").select("*").eq("order_id", order.id).maybeSingle(),
-      supabase.from("kopvast_invoices").select("*").eq("order_id", order.id).order("created_at"),
+      billingInvoicesForOrder(order),
       supabase.from("kopvast_order_activities").select("*").eq("order_id", order.id).order("created_at", { ascending: false }),
       deliveryLinks(order.organization_id),
     ]);
@@ -307,12 +327,13 @@ export async function loadOrderDetail(id: string): Promise<OrderDetail | null> {
       organization,
       onboarding,
       website: website.data ? mapWebsite(website.data as Record<string, unknown>) : null,
-      invoices: ((invoices.data ?? []) as Record<string, unknown>[]).map(mapInvoice),
+      invoices,
       activities: ((activities.data ?? []) as Record<string, unknown>[]).map(mapActivity),
       ...links,
     };
   }
   const store = await readStore();
+  const billingInvoices = await billingInvoicesForOrder(order);
   return {
     order,
     proposal:
@@ -320,7 +341,7 @@ export async function loadOrderDetail(id: string): Promise<OrderDetail | null> {
     organization: store.organizations.find((item) => item.id === order.organization_id) ?? null,
     onboarding: store.onboardings.find((item) => item.order_id === order.id) ?? null,
     website: store.orderWebsites.find((item) => item.order_id === order.id) ?? null,
-    invoices: store.invoices.filter((item) => item.order_id === order.id),
+    invoices: billingInvoices.length ? billingInvoices : store.invoices.filter((item) => item.order_id === order.id),
     activities: store.orderActivities
       .filter((item) => item.order_id === order.id)
       .sort((a, b) => b.created_at.localeCompare(a.created_at)),
@@ -370,6 +391,21 @@ export async function ensureProjectsForOrder(organizationId: string, order: Orde
         created_at: nowIso(),
       });
     }
+  });
+}
+
+async function seedBillingFromOrder(order: OrderRow) {
+  const projects = (await loadProjects()).filter((item) => item.organization_id === order.organization_id);
+  const delivery =
+    projects.find((item) => item.type === order.product_type) ??
+    projects.find((item) => item.type !== "beheer") ??
+    null;
+  const { seedBillingForAcceptedOrder } = await import("@/lib/billing");
+  await seedBillingForAcceptedOrder({
+    organizationId: order.organization_id,
+    projectId: delivery?.id ?? null,
+    description: order.product_label || order.proposal_snapshot.productLabel || `Opdracht ${order.order_number}`,
+    amount: order.agreed_price_amount,
   });
 }
 
@@ -479,8 +515,6 @@ async function persistMaterialized(
     }
     const { data: website } = await supabase.from("kopvast_websites").select("id").eq("order_id", materialized.order.id).maybeSingle();
     if (!website) await supabase.from("kopvast_websites").insert(materialized.website);
-    const { data: invoices } = await supabase.from("kopvast_invoices").select("id").eq("order_id", materialized.order.id);
-    if (!invoices?.length) await supabase.from("kopvast_invoices").insert(materialized.invoices);
     if (materialized.activity) await supabase.from("kopvast_order_activities").insert(materialized.activity);
     return { ok: true as const, orderId: materialized.order.id, already: materialized.already };
   }
@@ -493,7 +527,6 @@ async function persistMaterialized(
     }
     if (!store.onboardings.some((item) => item.order_id === materialized.order.id)) store.onboardings.push(materialized.onboarding);
     if (!store.orderWebsites.some((item) => item.order_id === materialized.order.id)) store.orderWebsites.push(materialized.website);
-    if (!store.invoices.some((item) => item.order_id === materialized.order.id)) store.invoices.push(...materialized.invoices);
     if (materialized.activity && !store.orderActivities.some((item) => item.id === materialized.activity?.id)) {
       store.orderActivities.unshift(materialized.activity);
     }
@@ -519,14 +552,12 @@ export async function createOrderFromAcceptedProposal(
     const { data: orderRow } = await supabase.from("kopvast_orders").select("*").eq("proposal_id", proposalId).maybeSingle();
     existingOrder = orderRow ? mapOrder(orderRow as Record<string, unknown>) : null;
     if (existingOrder) {
-      const [onboarding, website, invoices] = await Promise.all([
+      const [onboarding, website] = await Promise.all([
         supabase.from("kopvast_onboardings").select("*").eq("order_id", existingOrder.id).maybeSingle(),
         supabase.from("kopvast_websites").select("*").eq("order_id", existingOrder.id).maybeSingle(),
-        supabase.from("kopvast_invoices").select("*").eq("order_id", existingOrder.id),
       ]);
       existingOnboarding = onboarding.data ? mapOnboarding(onboarding.data as Record<string, unknown>) : null;
       existingWebsite = website.data ? mapWebsite(website.data as Record<string, unknown>) : null;
-      existingInvoices = ((invoices.data ?? []) as Record<string, unknown>[]).map(mapInvoice);
     }
     const { data: numbers } = await supabase.from("kopvast_orders").select("order_number");
     orderNumbers = (numbers ?? []).map((item) => String(item.order_number));
@@ -560,6 +591,7 @@ export async function createOrderFromAcceptedProposal(
   const persisted = await persistMaterialized(supabase, proposal, materialized);
   if (!persisted.ok) return persisted;
   await ensureProjectsForOrder(customer.organizationId, materialized.order);
+  await seedBillingFromOrder(materialized.order);
   return { ok: true, orderId: persisted.orderId, already: persisted.already };
 }
 

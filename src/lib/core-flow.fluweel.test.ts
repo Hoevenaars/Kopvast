@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createInvoice, markInvoiceInvoiced } from "./billing";
+import { loadDueInvoiceActions, markInvoiceInvoiced } from "./billing";
 import { afterProposalAccepted } from "./commercial-handoffs";
 import { overrideOnboardingReady } from "./onboarding-store";
 import { launchCheckItems } from "./production";
@@ -109,6 +109,17 @@ test("Fluweel-keten: akkoord tot factuur, beheer en support", async () => {
     assert.ok(afterAccept.projects.some((item) => item.type === "beheer"));
     assert.ok(afterAccept.onboardingChecklists.length >= 1);
     assert.ok(afterAccept.productions.length >= 1);
+    assert.equal(afterAccept.billingInvoices.length, 1);
+    assert.equal(afterAccept.billingInvoices[0]?.status, "NOT_INVOICED");
+    assert.equal(afterAccept.billingInvoices[0]?.amount_ex_vat, 1495);
+    assert.equal(afterAccept.invoices.length, 0);
+
+    const due = await loadDueInvoiceActions();
+    assert.ok(due.some((item) => item.title === "Factuur sturen" && item.company === "Fluweel Events"));
+
+    const againHandoff = await afterProposalAccepted(created.id);
+    mustOk(againHandoff, "tweede handoff");
+    assert.equal((await readStore()).billingInvoices.length, 1);
 
     const production =
       afterAccept.productions.find((item) => item.project_id === deliveryProject.id) ?? afterAccept.productions[0];
@@ -177,18 +188,8 @@ test("Fluweel-keten: akkoord tot factuur, beheer en support", async () => {
     assert.ok(afterLive.activity.some((item) => item.event_type === "WEBSITE_LIVE"));
     assert.ok(afterLive.activity.some((item) => item.event_type === "MANAGEMENT_STARTED"));
 
-    let invoice = afterLive.billingInvoices[0];
-    if (!invoice) {
-      const createdInvoice = await createInvoice({
-        organizationId,
-        projectId: production.project_id,
-        description: "Website Fluweel Events",
-        amount: "1495",
-      });
-      mustOk(createdInvoice, "factuur aanmaken");
-      invoice = { id: createdInvoice.id } as typeof afterLive.billingInvoices[0];
-    }
-    assert.ok(invoice);
+    const invoice = afterLive.billingInvoices[0];
+    assert.ok(invoice, "akkoord zaait een billing-factuur");
     const invoiced = await markInvoiceInvoiced(invoice.id);
     mustOk(invoiced, "factuur markeren als verstuurd");
 

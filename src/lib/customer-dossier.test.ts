@@ -71,12 +71,21 @@ test("dossier-voorstel schrijft WR-voorstel en akkoord maakt opdracht", async ()
     const again = await acceptProposal(created.proposalId, "contact@kopvast.nl");
     assert.equal(again.ok, true);
     if (again.ok) assert.equal(again.already, true);
-    assert.equal((await readStore()).orders.length, 1);
+    const afterAgain = await readStore();
+    assert.equal(afterAgain.orders.length, 1);
+    assert.equal(afterAgain.billingInvoices.length, 1);
+    assert.equal(afterAgain.billingInvoices[0]?.amount_ex_vat, 1495);
+    assert.equal(afterAgain.billingInvoices[0]?.status, "NOT_INVOICED");
+    assert.equal(afterAgain.invoices.length, 0);
+    const due = await loadDueInvoiceActions();
+    assert.ok(due.some((item) => item.title === "Factuur sturen" && item.company === "Fluweel Events"));
 
     const dossier = await loadCustomerDossier(orgId);
     assert.ok(dossier);
     assert.equal(dossier.proposals.length, 1);
     assert.equal(dossier.proposals[0]?.status, "geaccepteerd");
+    assert.equal(dossier.invoices.length, 1);
+    assert.equal(dossier.invoices[0]?.status, "concept");
   });
 });
 
