@@ -225,14 +225,19 @@ export function ProposalsPanel({ dossier }: { dossier: CustomerDossier }) {
                     {proposal.amount_label ? ` · ${proposal.amount_label}` : ""}
                   </p>
                 </div>
-                {proposal.status === "concept" || proposal.status === "verstuurd" ? (
-                  <form action={acceptProposalAction} className="relative">
-                    <FormBusyOverlay label="Voorstel accepteren…" />
-                    <input type="hidden" name="id" value={proposal.id} />
-                    <input type="hidden" name="organizationId" value={dossier.organization.id} />
-                    <SubmitButton className="text-sm font-semibold underline underline-offset-4">Markeer als akkoord</SubmitButton>
-                  </form>
-                ) : null}
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link href={`${workspaceRoutes.adminVoorstellen}/${proposal.id}`} className="text-sm underline underline-offset-4">
+                    Open voorstel
+                  </Link>
+                  {proposal.status === "concept" || proposal.status === "verstuurd" ? (
+                    <form action={acceptProposalAction} className="relative">
+                      <FormBusyOverlay label="Voorstel accepteren…" />
+                      <input type="hidden" name="id" value={proposal.id} />
+                      <input type="hidden" name="organizationId" value={dossier.organization.id} />
+                      <SubmitButton className="text-sm font-semibold underline underline-offset-4">Markeer als akkoord</SubmitButton>
+                    </form>
+                  ) : null}
+                </div>
               </div>
               {proposal.body ? <p className="mt-3 text-sm leading-6 text-ink/60">{proposal.body}</p> : null}
             </li>
