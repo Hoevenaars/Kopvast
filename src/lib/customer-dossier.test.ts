@@ -35,8 +35,7 @@ test("dossier-voorstel schrijft WR-voorstel en akkoord maakt opdracht", async ()
       amountLabel: "€1.495",
       actorEmail: "contact@kopvast.nl",
     });
-    assert.equal(created.ok, true);
-    if (!created.ok) return;
+    if (!created.ok) throw new Error(`voorstel aanmaken faalde: ${created.message}`);
 
     const afterCreate = await readStore();
     assert.equal(afterCreate.voorstellen.length, 1);
