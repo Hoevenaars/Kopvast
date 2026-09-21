@@ -11,6 +11,7 @@ import {
   type LeadRow,
   type OrganizationRow,
 } from "@/lib/workspace";
+import { installmentKindFromDescription } from "@/lib/invoices";
 import { itemSatisfiesReady, onboardingProgress, type OnboardingItemStatus } from "@/lib/onboarding";
 import type { OnboardingWorkspace } from "@/lib/onboarding-store";
 import { isEmail, normalizeEmail, workspaceRoutes, type ProjectType } from "@/lib/product";
@@ -172,7 +173,7 @@ function mapBillingInvoiceForOrder(
     id: row.id,
     order_id: orderId,
     organization_id: row.organization_id,
-    kind: "final",
+    kind: installmentKindFromDescription(row.description) ?? "final",
     amount: row.amount_ex_vat,
     label: row.description,
     status,
@@ -186,9 +187,10 @@ async function billingInvoicesForOrder(order: OrderRow): Promise<InvoiceRow[]> {
   return (await loadInvoices())
     .filter((item) => item.organization_id === order.organization_id && item.status !== "CANCELLED")
     .filter((item) => {
-      if (!project) return item.description === (order.product_label || order.proposal_snapshot.productLabel);
-      if (item.project_id) return item.project_id === project.id;
-      return item.description === (order.product_label || order.proposal_snapshot.productLabel);
+      if (project && item.project_id) return item.project_id === project.id;
+      const label = order.product_label || order.proposal_snapshot.productLabel || "";
+      if (!label) return false;
+      return item.description === label || item.description.startsWith(`${label} — `);
     })
     .map((item) => mapBillingInvoiceForOrder(item, order.id));
 }
@@ -434,19 +436,24 @@ export async function ensureProjectsForOrder(organizationId: string, order: Orde
   });
 }
 
-async function seedBillingFromOrder(order: OrderRow) {
-  const projects = (await loadProjects()).filter((item) => item.organization_id === order.organization_id);
-  const delivery =
-    projects.find((item) => item.type === order.product_type) ??
-    projects.find((item) => item.type !== "beheer") ??
-    null;
-  const { seedBillingForAcceptedOrder } = await import("@/lib/billing");
-  await seedBillingForAcceptedOrder({
+async function seedBillingFromOrder(order: OrderRow, kind: "deposit" | "final" = "deposit") {
+  const delivery = await deliveryProjectForOrder(order);
+  const { seedBillingInstallment } = await import("@/lib/billing");
+  await seedBillingInstallment({
+    kind,
     organizationId: order.organization_id,
     projectId: delivery?.id ?? null,
     description: order.product_label || order.proposal_snapshot.productLabel || `Opdracht ${order.order_number}`,
     amount: order.agreed_price_amount,
   });
+}
+
+export async function seedFinalBillingForOrganization(organizationId: string) {
+  const orders = await loadOrdersForOrganization(organizationId);
+  for (const order of orders) {
+    if (order.status === "COMPLETED" || order.status === "ON_HOLD") continue;
+    await seedBillingFromOrder(order, "final");
+  }
 }
 
 async function resolveCustomerFromProposal(proposal: ProposalRow): Promise<ActionResult<{ organizationId: string }>> {
@@ -827,6 +834,9 @@ export async function updateOrderStatus(input: {
       : `Status gewijzigd naar ${labelForOrderStatus(evaluated.status)}.`,
     metadata: { skipped: evaluated.skipped },
   });
+  if (evaluated.status === "READY_TO_LAUNCH" || evaluated.status === "LIVE") {
+    await seedBillingFromOrder(detail.order, "final");
+  }
   return { ok: true, skipped: evaluated.skipped };
 }
 

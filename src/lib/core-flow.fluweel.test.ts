@@ -118,17 +118,20 @@ test("Fluweel-keten: akkoord tot factuur, beheer en support", async () => {
     assert.ok(afterAccept.productions.length >= 1);
     assert.equal(afterAccept.billingInvoices.length, 1);
     assert.equal(afterAccept.billingInvoices[0]?.status, "NOT_INVOICED");
-    assert.equal(afterAccept.billingInvoices[0]?.amount_ex_vat, 1495);
+    assert.equal(afterAccept.billingInvoices[0]?.amount_ex_vat, 747.5);
+    assert.match(afterAccept.billingInvoices[0]?.description ?? "", /50% bij opdrachtbevestiging/);
     assert.equal(afterAccept.invoices.length, 0);
 
     const due = await loadDueInvoiceActions();
+    assert.equal(due.length, 1);
     assert.ok(due.some((item) => item.title === "Factuur sturen" && item.company === "Fluweel Events"));
 
     const orderDetail = await loadOrderDetail(handoff.orderId ?? afterAccept.orders[0]!.id);
     assert.ok(orderDetail, "opdracht mag na akkoord worden geopend");
     assert.ok((orderDetail.onboarding?.progress.length ?? 0) > 5, "opdracht toont de projectchecklist, niet de oude orderstappen");
     assert.equal(orderDetail.invoices.length, 1);
-    assert.equal(orderDetail.invoices[0]?.amount, 1495);
+    assert.equal(orderDetail.invoices[0]?.amount, 747.5);
+    assert.equal(orderDetail.invoices[0]?.kind, "deposit");
     assert.ok(orderDetail.deliveryOnboardingHref?.includes("/onboarding"));
     assert.equal(afterAccept.onboardings.length, 0);
 
@@ -177,6 +180,7 @@ test("Fluweel-keten: akkoord tot factuur, beheer en support", async () => {
       email: "eva@fluweel.nl",
     });
     mustOk(concept, "conceptakkoord");
+    assert.equal((await readStore()).billingInvoices.length, 1, "conceptakkoord zaait nog geen slotfactuur");
 
     for (const item of launchCheckItems) {
       if (item.key === "final_approval") continue;
@@ -192,6 +196,13 @@ test("Fluweel-keten: akkoord tot factuur, beheer en support", async () => {
       email: "eva@fluweel.nl",
     });
     mustOk(finalOk, "definitief akkoord");
+    const afterFinal = await readStore();
+    assert.equal(afterFinal.billingInvoices.length, 2);
+    assert.equal(
+      afterFinal.billingInvoices.reduce((sum, item) => sum + item.amount_ex_vat, 0),
+      1495
+    );
+    assert.ok(afterFinal.billingInvoices.some((item) => item.description.includes("50% na goedkeuring")));
 
     const live = await markProductionLive(production.id, "contact@kopvast.nl");
     mustOk(live, "markeer live");
@@ -203,8 +214,11 @@ test("Fluweel-keten: akkoord tot factuur, beheer en support", async () => {
     assert.ok(afterLive.activity.some((item) => item.event_type === "WEBSITE_LIVE"));
     assert.ok(afterLive.activity.some((item) => item.event_type === "MANAGEMENT_STARTED"));
 
-    const invoice = afterLive.billingInvoices[0];
-    assert.ok(invoice, "akkoord zaait een billing-factuur");
+    assert.equal(afterLive.billingInvoices.length, 2);
+    const invoice =
+      afterLive.billingInvoices.find((item) => item.description.includes("50% na goedkeuring")) ??
+      afterLive.billingInvoices[0];
+    assert.ok(invoice, "goedkeuring zaait de slotfactuur");
     const invoiced = await markInvoiceInvoiced(invoice.id);
     mustOk(invoiced, "factuur markeren als verstuurd");
 

@@ -74,10 +74,12 @@ test("dossier-voorstel schrijft WR-voorstel en akkoord maakt opdracht", async ()
     const afterAgain = await readStore();
     assert.equal(afterAgain.orders.length, 1);
     assert.equal(afterAgain.billingInvoices.length, 1);
-    assert.equal(afterAgain.billingInvoices[0]?.amount_ex_vat, 1495);
+    assert.equal(afterAgain.billingInvoices[0]?.amount_ex_vat, 747.5);
     assert.equal(afterAgain.billingInvoices[0]?.status, "NOT_INVOICED");
+    assert.match(afterAgain.billingInvoices[0]?.description ?? "", /50% bij opdrachtbevestiging/);
     assert.equal(afterAgain.invoices.length, 0);
     const due = await loadDueInvoiceActions();
+    assert.equal(due.length, 1);
     assert.ok(due.some((item) => item.title === "Factuur sturen" && item.company === "Fluweel Events"));
 
     const dossier = await loadCustomerDossier(orgId);

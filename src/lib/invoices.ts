@@ -78,6 +78,56 @@ export function roundAmount(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+export const DEPOSIT_INVOICE_LABEL = "50% bij opdrachtbevestiging";
+export const FINAL_INVOICE_LABEL = "50% na goedkeuring";
+
+export type BillingInstallment = "deposit" | "final";
+
+export function splitInstallments(amount: number) {
+  const deposit = roundAmount(amount / 2);
+  return { deposit, final: roundAmount(amount - deposit) };
+}
+
+export function installmentDescription(productLabel: string, kind: BillingInstallment) {
+  const base = productLabel.trim() || "Opdracht";
+  return `${base} — ${kind === "deposit" ? DEPOSIT_INVOICE_LABEL : FINAL_INVOICE_LABEL}`;
+}
+
+export function installmentKindFromDescription(description: string): BillingInstallment | null {
+  if (description.includes(DEPOSIT_INVOICE_LABEL)) return "deposit";
+  if (description.includes(FINAL_INVOICE_LABEL)) return "final";
+  return null;
+}
+
+export function billingKindLabel(description: string) {
+  const kind = installmentKindFromDescription(description);
+  if (kind === "deposit") return "Aanbetaling";
+  if (kind === "final") return "Slotfactuur";
+  return "Factuur";
+}
+
+export function matchesInstallment(
+  invoice: { project_id?: string | null; organization_id: string; description: string },
+  input: { projectId?: string | null; organizationId: string; description: string; kind: BillingInstallment }
+) {
+  if (installmentKindFromDescription(invoice.description) !== input.kind) return false;
+  if (input.projectId) return invoice.project_id === input.projectId;
+  const expected = installmentDescription(input.description, input.kind);
+  return invoice.organization_id === input.organizationId && invoice.description === expected;
+}
+
+export function hasUnsplitProjectInvoice(
+  invoices: Array<{ project_id?: string | null; organization_id: string; description: string }>,
+  input: { projectId?: string | null; organizationId: string; description: string }
+) {
+  const productLabel = input.description.trim() || "Opdracht";
+  return invoices.some((item) => {
+    if (installmentKindFromDescription(item.description)) return false;
+    if (input.projectId) return item.project_id === input.projectId;
+    return item.organization_id === input.organizationId && item.description === productLabel;
+  });
+}
+
 export function parseAmountInput(value: string) {
   const trimmed = value.trim().replace(/\s/g, "").replace("€", "");
   if (!trimmed) return null;

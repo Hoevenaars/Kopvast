@@ -1,3 +1,4 @@
+import { DEPOSIT_INVOICE_LABEL, FINAL_INVOICE_LABEL, splitInstallments } from "@/lib/invoices";
 import { products } from "@/lib/site";
 import type { ProjectType } from "@/lib/product";
 
@@ -482,9 +483,9 @@ export function parseAmount(value: string) {
 export function invoicePlan(snapshot: ProposalSnapshot) {
   const invoices: Array<{ kind: InvoiceRow["kind"]; amount: number | null; label: string }> = [];
   if (snapshot.amount != null && snapshot.amount > 0) {
-    const half = Math.round(snapshot.amount * 50) / 100;
-    invoices.push({ kind: "deposit", amount: half, label: "50% bij opdrachtbevestiging" });
-    invoices.push({ kind: "final", amount: snapshot.amount - half, label: "50% na goedkeuring" });
+    const halves = splitInstallments(snapshot.amount);
+    invoices.push({ kind: "deposit", amount: halves.deposit, label: DEPOSIT_INVOICE_LABEL });
+    invoices.push({ kind: "final", amount: halves.final, label: FINAL_INVOICE_LABEL });
   }
   if (snapshot.includeRecurringBeheer && snapshot.recurringAmount != null) {
     invoices.push({

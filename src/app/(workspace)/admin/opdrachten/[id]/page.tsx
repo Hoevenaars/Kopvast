@@ -9,6 +9,7 @@ import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge"
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { Field, areaClass, fieldClass } from "@/components/form-fields";
 import { formatNlDate } from "@/lib/acquisition-constants";
+import { billingKindLabel } from "@/lib/invoices";
 import {
   formatEuro,
   labelForOrderStatus,
@@ -209,7 +210,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           </Link>
           {invoices.length === 0 ? (
             <div className="mt-4">
-              <EmptyState title="Geen facturen" text="Bij akkoord ontstaat een factuur vanuit de afgesproken prijs. Die staat ook onder Facturatie en op Vandaag." />
+              <EmptyState title="Geen facturen" text="Bij akkoord ontstaat de aanbetaling van 50%. De tweede helft volgt na goedkeuring, voor publicatie." />
             </div>
           ) : (
             <ul className="mt-4 divide-y divide-ink/8">
@@ -217,7 +218,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                 <li key={invoice.id} className="flex items-center justify-between py-3 text-sm">
                   <div>
                     <p className="font-medium">{invoice.label}</p>
-                    <p className="text-ink/45">{invoice.kind} · {invoice.status}</p>
+                    <p className="text-ink/45">
+                      {billingKindLabel(invoice.label ?? "")} · {invoice.status}
+                    </p>
                     <Link href={`${workspaceRoutes.adminInvoices}/${invoice.id}`} className="mt-1 inline-block text-sm underline underline-offset-4">
                       Open factuur
                     </Link>
