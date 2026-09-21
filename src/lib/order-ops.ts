@@ -214,10 +214,9 @@ async function deliveryLinks(organizationId: string): Promise<{
 }
 
 function neededProjectTypes(order: OrderRow): ProjectType[] {
-  if (order.product_type === "website") {
-    return order.include_recurring_beheer ? ["website", "beheer"] : ["website"];
-  }
-  return [order.product_type];
+  const types: ProjectType[] = [order.product_type === "website" ? "website" : order.product_type];
+  if (order.include_recurring_beheer && !types.includes("beheer")) types.push("beheer");
+  return types;
 }
 
 function attachCustomerName(orders: OrderRow[], organizations: OrganizationRow[]): OrderListItem[] {
