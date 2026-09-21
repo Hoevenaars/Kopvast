@@ -611,6 +611,8 @@ export async function recordApproval(input: {
     });
     await syncProject(detail.production, next);
     await syncDeliveryOrder(input.organizationId, orderStatusForProduction(next), parsed.email);
+    const { seedFinalBillingForOrganization } = await import("@/lib/order-ops");
+    await seedFinalBillingForOrganization(input.organizationId);
   }
   await logActivity({
     productionId: input.productionId,
@@ -684,6 +686,8 @@ export async function markProductionLive(id: string, actorEmail: string) {
   await updateOrganization(detail.organization.id, { status: "active", notes: detail.organization.notes ?? undefined });
   const beheerActive = await ensureBeheerAfterLive(detail.organization.id, liveAt, actorEmail);
   await syncDeliveryOrder(detail.organization.id, orderStatusForProduction("live"), actorEmail);
+  const { seedFinalBillingForOrganization } = await import("@/lib/order-ops");
+  await seedFinalBillingForOrganization(detail.organization.id);
   await seedLiveBilling(detail.organization.id);
   await logActivity({
     productionId: id,

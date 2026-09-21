@@ -11,12 +11,18 @@ import {
   fieldsForInvoiced,
   formatEuro,
   parseAmountInput,
+  hasUnsplitProjectInvoice,
+  installmentDescription,
+  installmentKindFromDescription,
+  matchesInstallment,
   parseInvoiceInput,
   parseRecurringInput,
   paymentStatusForProject,
   recurringSummary,
   sortInvoices,
+  splitInstallments,
 } from "./invoices";
+
 
 test("leidt OVERDUE af van gefactureerd + verstreken vervaldatum", () => {
   assert.equal(displayInvoiceStatus({ status: "INVOICED", due_date: "2026-09-01" }, "2026-09-16"), "OVERDUE");
@@ -157,6 +163,48 @@ test("telt actieve recurring omzet en beheerklanten", () => {
   assert.equal(summary.monthlyTotal, 199);
   assert.equal(summary.customerCount, 1);
   assert.equal(summary.notes.length, 1);
+});
+
+test("splitst de afgesproken prijs 50/50 zonder afrondingsrest", () => {
+  assert.deepEqual(splitInstallments(1495), { deposit: 747.5, final: 747.5 });
+  assert.deepEqual(splitInstallments(995), { deposit: 497.5, final: 497.5 });
+  assert.equal(splitInstallments(199).deposit + splitInstallments(199).final, 199);
+  assert.equal(
+    installmentDescription("Kopvast Website", "deposit"),
+    "Kopvast Website — 50% bij opdrachtbevestiging"
+  );
+  assert.equal(installmentKindFromDescription("Kopvast Website — 50% na goedkeuring"), "final");
+  assert.equal(
+    matchesInstallment(
+      {
+        organization_id: "o1",
+        project_id: "p1",
+        description: "Kopvast Website — 50% bij opdrachtbevestiging",
+      },
+      { organizationId: "o1", projectId: "p1", description: "Kopvast Website", kind: "deposit" }
+    ),
+    true
+  );
+  assert.equal(
+    hasUnsplitProjectInvoice(
+      [{ organization_id: "o1", project_id: "p1", description: "Kopvast Website" }],
+      { organizationId: "o1", projectId: "p1", description: "Kopvast Website" }
+    ),
+    true
+  );
+  assert.equal(
+    hasUnsplitProjectInvoice(
+      [
+        {
+          organization_id: "o1",
+          project_id: "p1",
+          description: "Kopvast Website — 50% bij opdrachtbevestiging",
+        },
+      ],
+      { organizationId: "o1", projectId: "p1", description: "Kopvast Website" }
+    ),
+    false
+  );
 });
 
 test("valideert factuur- en recurringinvoer", () => {

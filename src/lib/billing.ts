@@ -7,12 +7,17 @@ import {
   canMarkPaid,
   displayInvoiceStatus,
   fieldsForInvoiced,
+  hasUnsplitProjectInvoice,
+  installmentDescription,
   isStoredInvoiceStatus,
+  matchesInstallment,
   parseInvoiceInput,
   parseRecurringInput,
   recurringSummary,
   sortInvoices,
+  splitInstallments,
   toAmount,
+  type BillingInstallment,
   type InvoiceRow,
   type RecurringRow,
   type StoredInvoiceStatus,
@@ -180,29 +185,45 @@ export async function loadOrganizationBilling(organizationId: string) {
   };
 }
 
-export async function seedBillingForAcceptedOrder(input: {
+export async function seedBillingInstallment(input: {
+  kind: BillingInstallment;
   organizationId: string;
   projectId?: string | null;
   description: string;
   amount: number | null;
 }) {
   if (input.amount == null || input.amount <= 0) return;
-  const description = input.description.trim() || "Opdracht";
-  const existing = await loadInvoices();
-  const open = existing.filter((item) => item.status !== "CANCELLED");
-  if (input.projectId && open.some((item) => item.project_id === input.projectId)) return;
-  if (
-    !input.projectId &&
-    open.some((item) => item.organization_id === input.organizationId && item.description === description)
-  ) {
-    return;
-  }
+  const halves = splitInstallments(input.amount);
+  const amount = input.kind === "deposit" ? halves.deposit : halves.final;
+  if (amount <= 0) return;
+  const description = installmentDescription(input.description, input.kind);
+  const open = (await loadInvoices()).filter((item) => item.status !== "CANCELLED");
+  if (hasUnsplitProjectInvoice(open, input)) return;
+  if (open.some((item) => matchesInstallment(item, input))) return;
   await createInvoice({
     organizationId: input.organizationId,
     projectId: input.projectId ?? undefined,
     description,
-    amount: String(input.amount),
+    amount: String(amount),
   });
+}
+
+export async function seedBillingForAcceptedOrder(input: {
+  organizationId: string;
+  projectId?: string | null;
+  description: string;
+  amount: number | null;
+}) {
+  await seedBillingInstallment({ ...input, kind: "deposit" });
+}
+
+export async function seedBillingForApprovedOrder(input: {
+  organizationId: string;
+  projectId?: string | null;
+  description: string;
+  amount: number | null;
+}) {
+  await seedBillingInstallment({ ...input, kind: "final" });
 }
 
 export async function seedBillingForProjects(
