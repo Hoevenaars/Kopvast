@@ -1334,7 +1334,7 @@ export async function acceptProposalAsAdmin(
 export async function acceptProposal(
   token: string,
   input: { name: string; email: string; acceptedTerms: boolean }
-): Promise<ProposalResult<{ id: string; already?: boolean }>> {
+): Promise<ProposalResult<{ id: string; already?: boolean; organizationId?: string }>> {
   const name = input.name.trim();
   const email = normalizeEmail(input.email);
   if (name.length < 2) return fail("Vul je naam in.");
@@ -1344,7 +1344,8 @@ export async function acceptProposal(
   if (!publicProposal) return fail("Voorstel niet gevonden.");
   const allowed = canAcceptProposal(publicProposal);
   if (!allowed.ok) return fail(allowed.message);
-  if (allowed.already) return { ok: true, id: publicProposal.proposal.id, already: true };
+  if (allowed.already) return finishPublicAccept(publicProposal.proposal.id, true);
+
   const now = nowIso();
   const patch = {
     updated_at: now,
@@ -1361,7 +1362,7 @@ export async function acceptProposal(
       .select("status")
       .eq("id", publicProposal.proposal.id)
       .maybeSingle();
-    if (current?.status === "ACCEPTED") return { ok: true, id: publicProposal.proposal.id, already: true };
+    if (current?.status === "ACCEPTED") return finishPublicAccept(publicProposal.proposal.id, true);
     await supabase.from("proposals").update(patch).eq("id", publicProposal.proposal.id);
   } else {
     const already = await mutateStore((store) => {
@@ -1371,15 +1372,23 @@ export async function acceptProposal(
       Object.assign(proposal, patch);
       return false;
     });
-    if (already) return { ok: true, id: publicProposal.proposal.id, already: true };
+    if (already) return finishPublicAccept(publicProposal.proposal.id, true);
   }
   await logActivity(publicProposal.proposal.id, PROPOSAL_ACTIVITY.ACCEPTED, email, {
     version: publicProposal.version.version,
     amount: publicProposal.snapshot.totals.subtotalCents,
   }, "customer");
+  return finishPublicAccept(publicProposal.proposal.id, false);
+}
+
+async function finishPublicAccept(
+  proposalId: string,
+  already: boolean
+): Promise<ProposalResult<{ id: string; already?: boolean; organizationId?: string }>> {
   const { afterProposalAccepted } = await import("@/lib/commercial-handoffs");
-  await afterProposalAccepted(publicProposal.proposal.id);
-  return { ok: true, id: publicProposal.proposal.id };
+  const handed = await afterProposalAccepted(proposalId);
+  if (!handed.ok) return { ok: true, id: proposalId, already };
+  return { ok: true, id: proposalId, already, organizationId: handed.organizationId };
 }
 
 export async function loadProposalTodayActions(): Promise<ProposalTodayAction[]> {

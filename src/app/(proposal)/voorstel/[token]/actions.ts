@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { openCustomerOnboardingAfterPublicAccept } from "@/lib/auth";
 import { acceptProposal, askProposalQuestion } from "@/lib/proposal-ops";
 import { proposalPublicPath } from "@/lib/proposals";
 
-export type ProposalResponseState = { ok: boolean; message: string } | null;
+export type ProposalResponseState = { ok: boolean; message: string; next?: string | null } | null;
 
 export async function askQuestionAction(
   _previous: ProposalResponseState,
@@ -30,6 +32,16 @@ export async function acceptProposalAction(
   });
   revalidatePath(proposalPublicPath(token));
   if (!result.ok) return { ok: false, message: result.message };
-  if (result.already) return { ok: true, message: "Dit voorstel was al geaccepteerd." };
-  return { ok: true, message: "Akkoord ontvangen. We zetten de volgende stap in gang." };
+  const portal = await openCustomerOnboardingAfterPublicAccept({
+    email: String(formData.get("email") ?? ""),
+    organizationId: result.organizationId,
+  });
+  if (portal.destination) redirect(portal.destination);
+  return {
+    ok: true,
+    message: result.already
+      ? "Dit voorstel was al geaccepteerd."
+      : "Akkoord ontvangen. We zetten de volgende stap in gang.",
+    next: portal.destination,
+  };
 }

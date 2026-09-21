@@ -226,3 +226,25 @@ export function memberHasAccess(member: { access_enabled?: boolean | null } | nu
 export function destinationForRole(role: "admin" | "customer") {
   return role === "admin" ? workspaceRoutes.admin : workspaceRoutes.console;
 }
+
+export function customerOnboardingLoginPath() {
+  return `${workspaceRoutes.login}?next=${workspaceRoutes.consoleOnboarding}`;
+}
+
+export function customerPortalAfterPublicAccept(input: {
+  currentRole?: "admin" | "customer" | null;
+  organizationId?: string | null;
+  member: { organization_id: string; access_enabled?: boolean | null } | null;
+}): { createSession: boolean; destination: string | null } {
+  if (input.currentRole === "admin") {
+    return { createSession: false, destination: null };
+  }
+  if (
+    input.organizationId &&
+    memberHasAccess(input.member) &&
+    input.member?.organization_id === input.organizationId
+  ) {
+    return { createSession: true, destination: workspaceRoutes.consoleOnboarding };
+  }
+  return { createSession: false, destination: customerOnboardingLoginPath() };
+}

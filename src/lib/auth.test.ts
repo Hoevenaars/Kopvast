@@ -11,6 +11,8 @@ import {
   parseRequestInput,
 } from "./workspace";
 import {
+  customerOnboardingLoginPath,
+  customerPortalAfterPublicAccept,
   destinationForRole,
   isAdminEmail,
   memberHasAccess,
@@ -19,6 +21,7 @@ import {
   leadStatuses,
   normalizeEmail,
   projectStatuses,
+  workspaceRoutes,
 } from "./product";
 
 test("normaliseert e-mail en herkent admin-domein", () => {
@@ -32,6 +35,39 @@ test("normaliseert e-mail en herkent admin-domein", () => {
   assert.equal(memberHasAccess({}), true);
   assert.equal(destinationForRole("admin"), "/admin");
   assert.equal(destinationForRole("customer"), "/klant");
+});
+
+test("publiek akkoord opent klant-onboarding, niet de admin-sessie", () => {
+  const member = { organization_id: "org-1", access_enabled: true };
+  assert.deepEqual(
+    customerPortalAfterPublicAccept({ currentRole: null, organizationId: "org-1", member }),
+    { createSession: true, destination: workspaceRoutes.consoleOnboarding }
+  );
+  assert.deepEqual(
+    customerPortalAfterPublicAccept({ currentRole: "customer", organizationId: "org-1", member }),
+    { createSession: true, destination: workspaceRoutes.consoleOnboarding }
+  );
+  assert.deepEqual(
+    customerPortalAfterPublicAccept({ currentRole: "admin", organizationId: "org-1", member }),
+    { createSession: false, destination: null }
+  );
+  assert.deepEqual(
+    customerPortalAfterPublicAccept({
+      currentRole: null,
+      organizationId: "org-1",
+      member: { organization_id: "andere-org", access_enabled: true },
+    }),
+    { createSession: false, destination: customerOnboardingLoginPath() }
+  );
+  assert.deepEqual(
+    customerPortalAfterPublicAccept({
+      currentRole: null,
+      organizationId: "org-1",
+      member: { organization_id: "org-1", access_enabled: false },
+    }),
+    { createSession: false, destination: customerOnboardingLoginPath() }
+  );
+  assert.equal(customerOnboardingLoginPath(), "/inloggen?next=/klant/onboarding");
 });
 
 test("hash van login-token is deterministisch en niet de token zelf", () => {

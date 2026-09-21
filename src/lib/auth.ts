@@ -8,7 +8,14 @@ import {
   saveCredential,
 } from "@/lib/credentials";
 import { hashPassword, validatePassword, verifyPassword } from "@/lib/passwords";
-import { destinationForRole, isAdminEmail, isEmail, memberHasAccess, normalizeEmail } from "@/lib/product";
+import {
+  customerPortalAfterPublicAccept,
+  destinationForRole,
+  isAdminEmail,
+  isEmail,
+  memberHasAccess,
+  normalizeEmail,
+} from "@/lib/product";
 import {
   LOGIN_CODE_MAX_ATTEMPTS,
   SESSION_COOKIE,
@@ -83,7 +90,7 @@ export async function startLogin(emailInput: string): Promise<LoginIntent> {
   if (!role) {
     return {
       ok: false,
-      message: "Dit adres heeft geen toegang. Klanten ontvangen een uitnodiging van Kopvast.",
+      message: "Dit adres heeft geen toegang. Na akkoord op een voorstel kun je hier inloggen.",
     };
   }
 
@@ -204,6 +211,27 @@ export async function createSession(input: {
   });
 
   return { token, role: input.role, email: normalizeEmail(input.email) };
+}
+
+export async function openCustomerOnboardingAfterPublicAccept(input: {
+  email: string;
+  organizationId?: string | null;
+}) {
+  const session = await readSession();
+  const member = await findMember(input.email);
+  const portal = customerPortalAfterPublicAccept({
+    currentRole: session?.role ?? null,
+    organizationId: input.organizationId,
+    member,
+  });
+  if (portal.createSession && input.organizationId) {
+    await createSession({
+      email: input.email,
+      role: "customer",
+      organizationId: input.organizationId,
+    });
+  }
+  return portal;
 }
 
 export async function readSession(): Promise<WorkspaceSession | null> {

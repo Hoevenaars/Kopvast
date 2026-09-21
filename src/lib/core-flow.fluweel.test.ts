@@ -85,6 +85,7 @@ test("Fluweel-keten: akkoord tot factuur, beheer en support", async () => {
       acceptedTerms: true,
     });
     mustOk(accepted, "voorstel accepteren");
+    assert.ok(accepted.organizationId, "publiek akkoord geeft de klant-org terug");
 
     const again = await acceptProposal(token, {
       name: "Eva Linden",
@@ -93,6 +94,7 @@ test("Fluweel-keten: akkoord tot factuur, beheer en support", async () => {
     });
     mustOk(again, "tweede acceptatie");
     assert.equal(again.already, true);
+    assert.equal(again.organizationId, accepted.organizationId);
 
     const handoff = await afterProposalAccepted(created.id);
     mustOk(handoff, "handoff na akkoord");
@@ -101,6 +103,10 @@ test("Fluweel-keten: akkoord tot factuur, beheer en support", async () => {
     const afterAccept = await readStore();
     assert.equal(afterAccept.organizations.length, 1);
     assert.equal(afterAccept.organizations[0]?.name, "Fluweel Events");
+    assert.equal(afterAccept.organizations[0]?.id, accepted.organizationId);
+    const member = afterAccept.members.find((item) => item.email === "eva@fluweel.nl");
+    assert.equal(member?.organization_id, accepted.organizationId);
+    assert.equal(member?.access_enabled, true);
     assert.equal(afterAccept.orders.length, 1);
     assert.equal(afterAccept.orders[0]?.include_recurring_beheer, true);
 
