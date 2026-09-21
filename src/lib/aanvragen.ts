@@ -18,7 +18,6 @@ import {
   type AanvraagFilter,
   type AanvraagRecord,
   type ProposalRecord,
-  type ProposalStatus,
 } from "@/lib/aanvragen-model";
 import { isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
 import { findLatestProposalsForRequests, type ProposalRequestRef } from "@/lib/proposal-ops";
@@ -508,6 +507,9 @@ export async function createDraftProposal(input: { leadId: string; actorEmail: s
 }
 
 export async function createLegacyDraftProposal(input: { leadId: string; actorEmail: string }) {
+  const supabase = refreshClient();
+  if (supabase) return createDraftProposal(input);
+
   const detail = await loadAanvraag(input.leadId);
   if (!detail) return { ok: false as const, message: "Aanvraag niet gevonden." };
   if (detail.proposal?.status === "DRAFT") {
@@ -525,56 +527,6 @@ export async function createLegacyDraftProposal(input: { leadId: string; actorEm
   ]
     .filter(Boolean)
     .join("\n");
-
-  const supabase = refreshClient();
-  if (supabase) {
-    const { data: existing } = await supabase
-      .from("kopvast_proposals")
-      .select("id")
-      .eq("inbound_lead_id", detail.id)
-      .eq("status", "DRAFT")
-      .maybeSingle();
-    if (existing) return { ok: true as const, id: existing.id as string, already: true as const };
-
-    const { data: created, error } = await supabase
-      .from("kopvast_proposals")
-      .insert({
-        inbound_lead_id: detail.id,
-        status: "DRAFT",
-        product_fit: fit,
-        title,
-        notes,
-      })
-      .select("id")
-      .single();
-    if (error || !created) {
-      const { data: race } = await supabase
-        .from("kopvast_proposals")
-        .select("id")
-        .eq("inbound_lead_id", detail.id)
-        .eq("status", "DRAFT")
-        .maybeSingle();
-      if (race) return { ok: true as const, id: race.id as string, already: true as const };
-      console.error("[kopvast] Voorstel aanmaken mislukt", error?.message);
-      return { ok: false as const, message: "Voorstel aanmaken is mislukt." };
-    }
-
-    if (lines.length) {
-      await supabase.from("kopvast_proposal_lines").insert(
-        lines.map((line) => ({
-          proposal_id: created.id,
-          ...line,
-        }))
-      );
-    }
-    await logActivity({
-      leadId: detail.id,
-      eventType: AANVRAAG_ACTIVITY.PROPOSAL_CREATED,
-      actorEmail: input.actorEmail,
-      metadata: { proposal_id: created.id, product_fit: fit },
-    });
-    return { ok: true as const, id: created.id as string };
-  }
 
   const created = await mutateStore((store) => {
     const existing = existingDraftProposal(store.aanvraagProposals, detail.id);
@@ -615,42 +567,13 @@ export async function createLegacyDraftProposal(input: { leadId: string; actorEm
 
 export async function loadProposal(id: string): Promise<(ProposalRecord & { aanvraag: AanvraagRecord | null }) | null> {
   const supabase = refreshClient();
-  if (!supabase) {
-    const store = await readStore();
-    const proposal = store.aanvraagProposals.find((item) => item.id === id);
-    if (!proposal) return null;
-    const lines = store.proposalLines.filter((item) => item.proposal_id === id).sort((a, b) => a.sort_order - b.sort_order);
-    const aanvraag = (await localFromFormLeads()).find((item) => item.id === proposal.inbound_lead_id) ?? null;
-    return { ...proposal, lines, aanvraag };
-  }
-
-  const { data } = await supabase.from("kopvast_proposals").select("*").eq("id", id).maybeSingle();
-  if (!data) return null;
-  const { data: lines } = await supabase.from("kopvast_proposal_lines").select("*").eq("proposal_id", id).order("sort_order");
-  const leadId = String((data as { inbound_lead_id: string }).inbound_lead_id);
-  const { data: lead } = await supabase.from("inbound_leads").select("*").eq("id", leadId).maybeSingle();
-  return {
-    id,
-    inbound_lead_id: leadId,
-    status: (data as { status: ProposalStatus }).status,
-    product_fit: isProductFit(String((data as { product_fit?: string }).product_fit ?? ""))
-      ? ((data as { product_fit: ProductFit }).product_fit)
-      : null,
-    title: String((data as { title: string }).title),
-    notes: asString((data as { notes?: string }).notes) || null,
-    created_at: String((data as { created_at: string }).created_at),
-    updated_at: String((data as { updated_at: string }).updated_at),
-    lines: ((lines ?? []) as Array<Record<string, unknown>>).map((line) => ({
-      id: String(line.id),
-      proposal_id: id,
-      title: String(line.title ?? ""),
-      description: asString(line.description),
-      amount_label: asString(line.amount_label),
-      cadence: asString(line.cadence),
-      sort_order: Number(line.sort_order ?? 0),
-    })),
-    aanvraag: lead ? mapLeadRow(lead as Record<string, unknown>, { id, status: String((data as { status: string }).status) }) : null,
-  };
+  if (supabase) return null;
+  const store = await readStore();
+  const proposal = store.aanvraagProposals.find((item) => item.id === id);
+  if (!proposal) return null;
+  const lines = store.proposalLines.filter((item) => item.proposal_id === id).sort((a, b) => a.sort_order - b.sort_order);
+  const aanvraag = (await localFromFormLeads()).find((item) => item.id === proposal.inbound_lead_id) ?? null;
+  return { ...proposal, lines, aanvraag };
 }
 
 export async function saveProposalDraft(input: {
@@ -676,19 +599,7 @@ export async function saveProposalDraft(input: {
 
   const supabase = refreshClient();
   if (supabase) {
-    const { error } = await supabase
-      .from("kopvast_proposals")
-      .update({
-        title: input.title.trim() || proposal.title,
-        notes: input.notes.trim() || null,
-        updated_at: nowIso(),
-      })
-      .eq("id", proposal.id);
-    if (error) return { ok: false as const, message: error.message };
-    await supabase.from("kopvast_proposal_lines").delete().eq("proposal_id", proposal.id);
-    if (cleaned.length) {
-      await supabase.from("kopvast_proposal_lines").insert(cleaned.map((line) => ({ ...line, proposal_id: proposal.id })));
-    }
+    return { ok: false as const, message: "Bewerk dit voorstel in Voorstellen." };
   } else {
     await mutateStore((store) => {
       const row = store.aanvraagProposals.find((item) => item.id === proposal.id);

@@ -341,6 +341,15 @@ export async function saveProductionMeta(id: string, input: { scope?: string; du
   });
 }
 
+export async function markOnboardingCompleteForProject(projectId: string, actorEmail: string) {
+  await ensureProductions();
+  const productions = await loadProductionRows();
+  const row = productions.find((item) => item.project_id === projectId);
+  if (!row) return { ok: true as const };
+  if (row.onboarding_complete) return { ok: true as const };
+  return markOnboardingComplete(row.id, actorEmail);
+}
+
 export async function markOnboardingComplete(id: string, actorEmail: string) {
   const detail = await loadProductionDetail(id);
   if (!detail) return fail("Productie niet gevonden.");

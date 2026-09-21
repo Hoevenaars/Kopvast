@@ -177,15 +177,19 @@ async function refreshDerivedStatus(onboardingId: string) {
       .from("kopvast_onboardings")
       .update({ status: derived.status, ready_at: derived.ready_at, updated_at: nowIso() })
       .eq("id", onboardingId);
-    return;
+  } else {
+    await mutateStore((store) => {
+      const row = store.onboardingChecklists.find((item) => item.id === onboardingId);
+      if (!row) return;
+      row.status = derived.status;
+      row.ready_at = derived.ready_at;
+      row.updated_at = nowIso();
+    });
   }
-  await mutateStore((store) => {
-    const row = store.onboardingChecklists.find((item) => item.id === onboardingId);
-    if (!row) return;
-    row.status = derived.status;
-    row.ready_at = derived.ready_at;
-    row.updated_at = nowIso();
-  });
+  if (derived.status === "ready" && bundle.onboarding.project_id) {
+    const { markOnboardingCompleteForProject } = await import("@/lib/production-board");
+    await markOnboardingCompleteForProject(bundle.onboarding.project_id, "kopvast.nl");
+  }
 }
 
 async function loadOnboardingRecord(id: string) {

@@ -101,6 +101,19 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               ? `${onboardingDone}/${onboardingTotal} · ${onboardingStatusFromProgress(onboarding.progress) === "DONE" ? "Afgerond" : "In uitvoering"}`
               : "Nog niet gekoppeld"}
           </p>
+          {detail.deliveryOnboardingHref ? (
+            <Link
+              href={detail.deliveryOnboardingHref}
+              className="mt-4 inline-flex h-11 items-center rounded-md bg-ink px-4 text-sm font-semibold text-ivory"
+            >
+              Open projectonboarding
+            </Link>
+          ) : null}
+          {detail.productionHref ? (
+            <Link href={detail.productionHref} className="mt-3 inline-block text-sm underline underline-offset-4">
+              Open productie
+            </Link>
+          ) : null}
           {onboarding ? (
             <form action={saveOnboarding} className="relative mt-4 space-y-3">
               <FormBusyOverlay label="Onboarding opslaan…" />

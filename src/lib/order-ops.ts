@@ -10,7 +10,7 @@ import {
   type LeadRow,
   type OrganizationRow,
 } from "@/lib/workspace";
-import { isEmail, normalizeEmail, type ProjectType } from "@/lib/product";
+import { isEmail, normalizeEmail, workspaceRoutes, type ProjectType } from "@/lib/product";
 import { mutateStore, newId, nowIso, readStore, type MemberRow } from "@/lib/workspace-store";
 import {
   evaluateStatusChange,
@@ -57,6 +57,8 @@ export type OrderDetail = {
   website: OrderWebsiteRow | null;
   invoices: InvoiceRow[];
   activities: OrderActivityRow[];
+  deliveryOnboardingHref: string | null;
+  productionHref: string | null;
 };
 
 function fail(message: string): ActionErr {
@@ -178,6 +180,35 @@ function mapActivity(row: Record<string, unknown>): OrderActivityRow {
   };
 }
 
+async function loadLiveOrderProposal(proposalId: string): Promise<ProposalRow | null> {
+  const { loadProposal } = await import("@/lib/proposal-ops");
+  const { liveProposalToOrderProposal } = await import("@/lib/commercial-handoffs");
+  const live = await loadProposal(proposalId);
+  return live?.proposal ? liveProposalToOrderProposal(live.proposal) : null;
+}
+
+async function loadOrderOnboarding(supabase: SupabaseClient, orderId: string): Promise<OnboardingRow | null> {
+  const { data, error } = await supabase.from("kopvast_onboardings").select("*").eq("order_id", orderId).maybeSingle();
+  if (error || !data) return null;
+  return mapOnboarding(data as Record<string, unknown>);
+}
+
+async function deliveryLinks(organizationId: string): Promise<{
+  deliveryOnboardingHref: string | null;
+  productionHref: string | null;
+}> {
+  const { loadProjects } = await import("@/lib/workspace");
+  const { isDeliveryProject } = await import("@/lib/production");
+  const project = (await loadProjects()).find(
+    (item) => item.organization_id === organizationId && isDeliveryProject(item.type)
+  );
+  if (!project) return { deliveryOnboardingHref: null, productionHref: null };
+  return {
+    deliveryOnboardingHref: `${workspaceRoutes.adminOrders}/${project.id}/onboarding`,
+    productionHref: workspaceRoutes.adminProductie,
+  };
+}
+
 function neededProjectTypes(order: OrderRow): ProjectType[] {
   if (order.product_type === "website") {
     return order.include_recurring_beheer ? ["website", "beheer"] : ["website"];
@@ -258,28 +289,31 @@ export async function loadOrderDetail(id: string): Promise<OrderDetail | null> {
   if (!order) return null;
   const supabase = refreshClient();
   if (supabase) {
-    const [proposal, organization, onboarding, website, invoices, activities] = await Promise.all([
-      supabase.from("kopvast_proposals").select("*").eq("id", order.proposal_id).maybeSingle(),
+    const [proposal, organization, onboarding, website, invoices, activities, links] = await Promise.all([
+      loadLiveOrderProposal(order.proposal_id),
       loadOrganization(order.organization_id),
-      supabase.from("kopvast_onboardings").select("*").eq("order_id", order.id).maybeSingle(),
+      loadOrderOnboarding(supabase, order.id),
       supabase.from("kopvast_websites").select("*").eq("order_id", order.id).maybeSingle(),
       supabase.from("kopvast_invoices").select("*").eq("order_id", order.id).order("created_at"),
       supabase.from("kopvast_order_activities").select("*").eq("order_id", order.id).order("created_at", { ascending: false }),
+      deliveryLinks(order.organization_id),
     ]);
     return {
       order,
-      proposal: proposal.data ? mapProposal(proposal.data as Record<string, unknown>) : null,
+      proposal,
       organization,
-      onboarding: onboarding.data ? mapOnboarding(onboarding.data as Record<string, unknown>) : null,
+      onboarding,
       website: website.data ? mapWebsite(website.data as Record<string, unknown>) : null,
       invoices: ((invoices.data ?? []) as Record<string, unknown>[]).map(mapInvoice),
       activities: ((activities.data ?? []) as Record<string, unknown>[]).map(mapActivity),
+      ...links,
     };
   }
   const store = await readStore();
   return {
     order,
-    proposal: store.proposals.find((item) => item.id === order.proposal_id) ?? null,
+    proposal:
+      store.proposals.find((item) => item.id === order.proposal_id) ?? (await loadLiveOrderProposal(order.proposal_id)),
     organization: store.organizations.find((item) => item.id === order.organization_id) ?? null,
     onboarding: store.onboardings.find((item) => item.order_id === order.id) ?? null,
     website: store.orderWebsites.find((item) => item.order_id === order.id) ?? null,
@@ -287,6 +321,7 @@ export async function loadOrderDetail(id: string): Promise<OrderDetail | null> {
     activities: store.orderActivities
       .filter((item) => item.order_id === order.id)
       .sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    ...(await deliveryLinks(order.organization_id)),
   };
 }
 
@@ -415,7 +450,6 @@ async function persistMaterialized(
   materialized: ReturnType<typeof materializeAcceptedProposal>
 ) {
   if (supabase) {
-    await supabase.from("kopvast_proposals").update(materialized.proposalPatch).eq("id", proposal.id);
     await supabase
       .from("proposals")
       .update({
@@ -436,7 +470,10 @@ async function persistMaterialized(
       }
     }
     const { data: onboarding } = await supabase.from("kopvast_onboardings").select("id").eq("order_id", materialized.order.id).maybeSingle();
-    if (!onboarding) await supabase.from("kopvast_onboardings").insert(materialized.onboarding);
+    if (!onboarding) {
+      const { error } = await supabase.from("kopvast_onboardings").insert(materialized.onboarding);
+      if (error) console.info("[kopvast] Order-onboarding overgeslagen", error.message);
+    }
     const { data: website } = await supabase.from("kopvast_websites").select("id").eq("order_id", materialized.order.id).maybeSingle();
     if (!website) await supabase.from("kopvast_websites").insert(materialized.website);
     const { data: invoices } = await supabase.from("kopvast_invoices").select("id").eq("order_id", materialized.order.id);
@@ -475,14 +512,7 @@ export async function createOrderFromAcceptedProposal(
   let orderNumbers: string[] = [];
 
   if (supabase) {
-    const { data } = await supabase.from("kopvast_proposals").select("*").eq("id", proposalId).maybeSingle();
-    proposal = data ? mapProposal(data as Record<string, unknown>) : null;
-    if (!proposal) {
-      const { loadProposal } = await import("@/lib/proposal-ops");
-      const { liveProposalToOrderProposal } = await import("@/lib/commercial-handoffs");
-      const live = await loadProposal(proposalId);
-      if (live?.proposal) proposal = liveProposalToOrderProposal(live.proposal);
-    }
+    proposal = await loadLiveOrderProposal(proposalId);
     const { data: orderRow } = await supabase.from("kopvast_orders").select("*").eq("proposal_id", proposalId).maybeSingle();
     existingOrder = orderRow ? mapOrder(orderRow as Record<string, unknown>) : null;
     if (existingOrder) {
@@ -499,7 +529,7 @@ export async function createOrderFromAcceptedProposal(
     orderNumbers = (numbers ?? []).map((item) => String(item.order_number));
   } else {
     const store = await readStore();
-    proposal = store.proposals.find((item) => item.id === proposalId) ?? null;
+    proposal = store.proposals.find((item) => item.id === proposalId) ?? (await loadLiveOrderProposal(proposalId));
     existingOrder = store.orders.find((item) => item.proposal_id === proposalId) ?? null;
     if (existingOrder) {
       existingOnboarding = store.onboardings.find((item) => item.order_id === existingOrder?.id) ?? null;
@@ -616,12 +646,29 @@ export async function createOrderFromAgreement(input: CreateAgreementInput): Pro
   };
 
   if (supabase) {
-    const { data, error } = await supabase.from("kopvast_proposals").insert(proposal).select("id").single();
-    if (error || !data) {
-      console.error("[kopvast] Voorstel opslaan mislukt", error?.message);
-      return fail("Voorstel opslaan is mislukt.");
-    }
-    proposal.id = data.id as string;
+    const { createProposal } = await import("@/lib/proposal-ops");
+    const created = await createProposal({
+      type: productType === "website" ? "website" : "maatwerk",
+      recipientName: customerName,
+      recipientEmail: customerEmail || "onbekend@kopvast.nl",
+      recipientOrganization: companyName || customerName,
+      leadId: lead?.id,
+      organizationId: organization?.id,
+      createdBy: input.actorEmail,
+    });
+    if (!created.ok) return created;
+    proposal.id = created.id;
+    await supabase
+      .from("proposals")
+      .update({
+        status: "ACCEPTED",
+        accepted_at: now,
+        accepted_by_name: customerName,
+        accepted_by_email: customerEmail || null,
+        customer_id: organization?.id ?? null,
+        updated_at: now,
+      })
+      .eq("id", created.id);
   } else {
     await mutateStore((store) => {
       store.proposals.unshift(proposal);
