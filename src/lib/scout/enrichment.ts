@@ -1,3 +1,4 @@
+import { preferredCompanyName } from "@/lib/company-name";
 import { canonicalRegistrableDomain } from "@/lib/ssrf";
 import { emptyEnrichment, type ScoutEnrichment } from "./types";
 import type { PageFacts } from "./scanner";
@@ -39,9 +40,15 @@ export function enrichFromFacts(facts: PageFacts): ScoutEnrichment {
     return /organization|localbusiness|corporation/i.test(value);
   });
 
-  const orgName = asString(org?.name) || facts.ogTitle || facts.title;
-  if (orgName) {
-    enrichment.company_name = { value: orgName.replace(/\s*[|\-–].*$/, "").trim(), kind: org?.name ? "found" : "inferred" };
+  const company = preferredCompanyName({
+    jsonLdName: asString(org?.name),
+    ogTitle: facts.ogTitle,
+    title: facts.title,
+    h1: facts.h1,
+    domain,
+  });
+  if (company) {
+    enrichment.company_name = { value: company.value, kind: company.kind };
   }
 
   const address = org?.address;

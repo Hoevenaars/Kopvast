@@ -327,6 +327,33 @@ test("pre-send checks blokkeren suppression en ontbrekende mail", () => {
   assert.ok(autoWithoutFindings.some((item) => item.code === "missing_findings"));
 });
 
+test("Scout-conceptmail mag LIVE zonder scan-id", () => {
+  const issues = evaluatePreSend({
+    prospect: {
+      contact: { email: "stanni67@gmail.com", do_not_contact: false },
+      do_not_contact: false,
+      contact_status: "UNKNOWN",
+      suppression: null,
+      auto_outreach_blocked: false,
+      scan: null,
+    } as never,
+    mail: {
+      subject: "Korte observatie over Bouwkabouter",
+      body_text: "Goedendag,\n\nIk kwam bouwkabouter.nl tegen.",
+      scan_id: null,
+      status: "draft",
+      findings_used: [],
+      prompt_version: "kopvast-scout",
+      template_version: "scout-capture",
+    } as never,
+    live: true,
+  });
+  assert.equal(
+    issues.some((item) => item.code === "missing_scan"),
+    false
+  );
+});
+
 const persingenFindings = [
   {
     finding_type: "OBSERVATION",

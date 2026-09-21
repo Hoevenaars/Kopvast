@@ -1,4 +1,5 @@
 import { pickLeadEmail, withManualEmailEnrichment } from "@/lib/contact-email";
+import { pickStoredCompanyName } from "@/lib/company-name";
 import { newId, nowIso } from "@/lib/workspace-store";
 import { allowExpensiveSideEffects } from "./config";
 import { analyseScoutLead } from "./ai";
@@ -88,8 +89,8 @@ export async function runLeadPipeline(leadId: string) {
     const enrichment = enrichFromFacts(facts);
     const email = pickLeadEmail(record.email, enrichment.email.value);
     if (email) Object.assign(enrichment, withManualEmailEnrichment(enrichment, email));
-    const companyName =
-      enrichment.company_name.value || record.company_name || facts.title || record.domain;
+    const inferredName = enrichment.company_name.value || facts.title || record.domain;
+    const companyName = pickStoredCompanyName(inferredName, record.company_name) || record.domain;
     await updateLead(record.id, {
       pipeline_stage: "enrich",
       company_name: companyName,

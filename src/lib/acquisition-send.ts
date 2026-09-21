@@ -15,6 +15,8 @@ import {
   CONTACT_STATUSES_ALLOWED_TO_SEND,
   MAIL_PROMPT_VERSION,
   MAIL_TEMPLATE_VERSION,
+  SCOUT_MAIL_PROMPT_VERSION,
+  SCOUT_MAIL_TEMPLATE_VERSION,
   type ProductFit,
 } from "./acquisition-constants";
 import { isEmail, normalizeEmail } from "./product";
@@ -36,6 +38,13 @@ export const TEST_MAIL_IDEMPOTENCY_WINDOW_MS = 15_000;
 
 export function testMailIdempotencyKey(mailId: string, at = Date.now()) {
   return `acquisition-test/${mailId}/${Math.floor(at / TEST_MAIL_IDEMPOTENCY_WINDOW_MS)}`;
+}
+
+export function isScoutCaptureMail(
+  mail: { prompt_version?: string | null; template_version?: string | null } | null | undefined
+) {
+  if (!mail) return false;
+  return mail.prompt_version === SCOUT_MAIL_PROMPT_VERSION || mail.template_version === SCOUT_MAIL_TEMPLATE_VERSION;
 }
 
 export type PreSendIssue = { code: string; message: string };
@@ -79,6 +88,7 @@ export function evaluatePreSend(input: {
   }
   const used = input.mail?.findings_used;
   const hasFindings = Array.isArray(used) ? used.length > 0 : Boolean(used);
+  const scoutCapture = isScoutCaptureMail(input.mail);
   const unreachable =
     isUnreachableSiteMail(input.mail?.body_text) ||
     (isUnreachableProspect({
@@ -88,7 +98,7 @@ export function evaluatePreSend(input: {
     }) &&
       !hasFindings &&
       input.mail?.prompt_version !== MANUAL_REASONS_PROMPT_VERSION);
-  if (input.mail && !input.mail.scan_id && !unreachable && !hasFindings) {
+  if (input.mail && !input.mail.scan_id && !unreachable && !hasFindings && !scoutCapture) {
     issues.push({ code: "missing_scan", message: "De mail is niet aan een scan gekoppeld." });
   }
   if (input.auto && !unreachable && input.mail && !hasFindings) {

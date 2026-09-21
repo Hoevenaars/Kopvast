@@ -40,7 +40,7 @@ export function MailEditor({
   const router = useRouter();
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState(initialBody);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [actionPending, startAction] = useTransition();
   const lock = useRef(false);
@@ -66,9 +66,12 @@ export function MailEditor({
         const result = await action(data);
         if (result.ok) {
           router.refresh();
-          setMessage("skippedDuplicate" in result && result.skippedDuplicate ? "Deze mail is al onderweg." : success);
+          setMessage({
+            ok: true,
+            text: "skippedDuplicate" in result && result.skippedDuplicate ? "Deze mail is al onderweg." : success,
+          });
         } else {
-          setMessage(("message" in result && result.message) || "Er ging iets mis.");
+          setMessage({ ok: false, text: ("message" in result && result.message) || "Er ging iets mis." });
         }
       } finally {
         lock.current = false;
@@ -176,7 +179,7 @@ export function MailEditor({
           ) : (
             <p className="text-xs text-ink/45">LIVE MODE. Versturen gaat naar {intended || "het prospectadres"}.</p>
           )}
-          {message ? <p className="text-sm text-olive">{message}</p> : null}
+          {message ? <p className={`text-sm ${message.ok ? "text-olive" : "text-destructive"}`}>{message.text}</p> : null}
         </div>
 
         <div className="lg:sticky lg:top-24">

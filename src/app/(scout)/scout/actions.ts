@@ -22,7 +22,7 @@ import {
 } from "@/lib/acquisition-send";
 import { loadProspectDetail } from "@/lib/acquisition";
 import { isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
-import { approveDraft, getLead, saveDraft, updateScoutLeadEmail } from "@/lib/scout/leads";
+import { approveDraft, getLead, saveDraft, updateScoutLeadCompanyName, updateScoutLeadEmail } from "@/lib/scout/leads";
 import { syncProspectFromScout } from "@/lib/scout/crm";
 import { ensureScoutUnreachableDraft } from "@/lib/scout/unreachable";
 import { consumeRateLimit, rateLimitMessage } from "@/lib/scout/rate-limit";
@@ -83,6 +83,11 @@ export type ScoutEmailState =
   | { ok: false; message: string }
   | null;
 
+export type ScoutCompanyState =
+  | { ok: true; company: string }
+  | { ok: false; message: string }
+  | null;
+
 export async function updateScoutEmailAction(_prev: ScoutEmailState, formData: FormData): Promise<ScoutEmailState> {
   assertSameOrigin(await headers());
   const user = await requireScoutUser();
@@ -93,6 +98,18 @@ export async function updateScoutEmailAction(_prev: ScoutEmailState, formData: F
       return { ok: false, message: `Dit e-mailadres hoort al bij ${result.existing.company_name || result.existing.domain}.` };
     }
     return { ok: false, message: "message" in result ? result.message : "E-mail opslaan is mislukt." };
+  }
+  const base = await scoutPublicBase();
+  redirect(withBase(base, `/leads/${leadId}`));
+}
+
+export async function updateScoutCompanyAction(_prev: ScoutCompanyState, formData: FormData): Promise<ScoutCompanyState> {
+  assertSameOrigin(await headers());
+  const user = await requireScoutUser();
+  const leadId = String(formData.get("leadId") ?? "");
+  const result = await updateScoutLeadCompanyName(user, leadId, String(formData.get("company") ?? ""));
+  if (!result.ok) {
+    return { ok: false, message: "message" in result ? result.message : "Naam opslaan is mislukt." };
   }
   const base = await scoutPublicBase();
   redirect(withBase(base, `/leads/${leadId}`));

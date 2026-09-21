@@ -3,6 +3,7 @@ import { canonicalDomainFromInput } from "@/lib/acquire-score";
 import { scoutServiceClient } from "./auth";
 import { mutateLocalScout, readLocalScout } from "./store";
 import { parseManualEmail, withManualEmailEnrichment } from "@/lib/contact-email";
+import { parseManualCompanyName, replaceCompanyNameInText, withManualCompanyEnrichment } from "@/lib/company-name";
 import { emptyEnrichment, type DuplicateLead, type ScoutDraft, type ScoutLead, type ScoutLeadEvent, type ScoutScan, type ScoutSource, type ScoutStatus, type ScoutUser } from "./types";
 
 export function mapLead(row: Record<string, unknown>): ScoutLead {
@@ -357,6 +358,48 @@ export async function updateScoutLeadEmail(user: ScoutUser, leadId: string, rawE
   });
 
   return { ok: true as const, email: parsed.email };
+}
+
+export async function updateScoutLeadCompanyName(user: ScoutUser, leadId: string, rawCompany: string) {
+  const parsed = parseManualCompanyName(rawCompany);
+  if (!parsed.ok) return parsed;
+  const lead = await getLead(user.id, leadId);
+  if (!lead) return { ok: false as const, message: "Lead niet gevonden." };
+
+  if (lead.prospect_id) {
+    const { updateProspectCompanyName } = await import("@/lib/acquisition");
+    const result = await updateProspectCompanyName({
+      prospectId: lead.prospect_id,
+      company: parsed.company,
+      actorEmail: user.email,
+    });
+    if (!result.ok) return result;
+  } else {
+    const previous = lead.company_name?.trim() || "";
+    await updateLead(leadId, {
+      company_name: parsed.company,
+      enrichment: withManualCompanyEnrichment(lead.enrichment, parsed.company),
+    });
+    if (previous && previous !== parsed.company) {
+      const draft = await getDraft(leadId);
+      if (draft) {
+        const subject = replaceCompanyNameInText(draft.subject, previous, parsed.company);
+        const message = replaceCompanyNameInText(draft.message, previous, parsed.company);
+        if (subject !== draft.subject || message !== draft.message) {
+          await upsertDraft(leadId, { subject, message });
+        }
+      }
+    }
+  }
+
+  await appendEvent({
+    lead_id: leadId,
+    event_type: "company_updated",
+    actor_type: "human",
+    metadata: { company: parsed.company },
+  });
+
+  return { ok: true as const, company: parsed.company };
 }
 
 export async function saveDraft(userId: string, leadId: string, input: { subject: string; message: string }) {

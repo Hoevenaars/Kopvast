@@ -4,6 +4,8 @@ export const SCANNER_VERSION = "kopvast-1.0";
 export const SCORE_VERSION = "v1.1.0";
 export const MAIL_PROMPT_VERSION = "kopvast-acquisition-mail-v3";
 export const MAIL_TEMPLATE_VERSION = "acquisition-outreach-v3";
+export const SCOUT_MAIL_PROMPT_VERSION = "kopvast-scout";
+export const SCOUT_MAIL_TEMPLATE_VERSION = "scout-capture";
 export const PUBLIC_CHECK_PATH = "/check";
 
 export const DEFAULT_SCORE_THRESHOLDS = {
@@ -167,6 +169,7 @@ export const ACTIVITY = {
   PROSPECT_BLOCKED: "PROSPECT_BLOCKED",
   PROSPECT_CONVERTED: "PROSPECT_CONVERTED",
   CONTACT_UPDATED: "CONTACT_UPDATED",
+  COMPANY_UPDATED: "COMPANY_UPDATED",
 } as const;
 
 export const FINDING_CATEGORY_LABELS: Record<string, string> = {
