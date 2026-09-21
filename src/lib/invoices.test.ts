@@ -14,6 +14,7 @@ import {
   hasUnsplitProjectInvoice,
   installmentDescription,
   installmentKindFromDescription,
+  billingKindLabel,
   matchesInstallment,
   parseInvoiceInput,
   parseRecurringInput,
@@ -174,6 +175,8 @@ test("splitst de afgesproken prijs 50/50 zonder afrondingsrest", () => {
     "Kopvast Website — 50% bij opdrachtbevestiging"
   );
   assert.equal(installmentKindFromDescription("Kopvast Website — 50% na goedkeuring"), "final");
+  assert.equal(billingKindLabel("Maatwerk — 50% bij opdrachtbevestiging"), "Aanbetaling");
+  assert.equal(billingKindLabel("Maatwerk"), "Factuur");
   assert.equal(
     matchesInstallment(
       {

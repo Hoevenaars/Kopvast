@@ -99,6 +99,13 @@ export function installmentKindFromDescription(description: string): BillingInst
   return null;
 }
 
+export function billingKindLabel(description: string) {
+  const kind = installmentKindFromDescription(description);
+  if (kind === "deposit") return "Aanbetaling";
+  if (kind === "final") return "Slotfactuur";
+  return "Factuur";
+}
+
 export function matchesInstallment(
   invoice: { project_id?: string | null; organization_id: string; description: string },
   input: { projectId?: string | null; organizationId: string; description: string; kind: BillingInstallment }

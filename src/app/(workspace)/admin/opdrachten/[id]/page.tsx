@@ -9,6 +9,7 @@ import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge"
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { Field, areaClass, fieldClass } from "@/components/form-fields";
 import { formatNlDate } from "@/lib/acquisition-constants";
+import { billingKindLabel } from "@/lib/invoices";
 import {
   formatEuro,
   labelForOrderStatus,
@@ -218,7 +219,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                   <div>
                     <p className="font-medium">{invoice.label}</p>
                     <p className="text-ink/45">
-                      {invoice.kind === "deposit" ? "Aanbetaling" : invoice.kind === "final" ? "Slotfactuur" : invoice.kind} · {invoice.status}
+                      {billingKindLabel(invoice.label ?? "")} · {invoice.status}
                     </p>
                     <Link href={`${workspaceRoutes.adminInvoices}/${invoice.id}`} className="mt-1 inline-block text-sm underline underline-offset-4">
                       Open factuur
