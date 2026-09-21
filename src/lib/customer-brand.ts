@@ -36,7 +36,7 @@ export function firstHexColor(text: string | null | undefined) {
 }
 
 function itemValue(items: OnboardingItemRow[], key: string) {
-  return items.find((item) => item.key === key)?.value_text?.trim() || null;
+  return items.map((item) => (item.key === key ? item.value_text?.trim() || "" : "")).find(Boolean) || null;
 }
 
 export function customerBrandFromSources(input: {

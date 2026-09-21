@@ -99,6 +99,23 @@ test("bestaand brand profile wint van onboarding voor kleur en toon", () => {
   assert.equal(view.files.some((item) => item.name === "Logo"), true);
 });
 
+test("pakt de eerste ingevulde merktekst als er meerdere checklists zijn", () => {
+  const view = customerBrandFromSources({
+    organizationName: "Fluweel Events",
+    brand: null,
+    items: [
+      item({ id: "tone-empty", key: "tone", section: "merk", value_text: "" }),
+      item({ id: "tone-full", key: "tone", section: "merk", value_text: "Warm en nuchter" }),
+      item({ id: "kleuren-empty", key: "kleuren", section: "merk", value_text: "  " }),
+      item({ id: "kleuren-full", key: "kleuren", section: "merk", value_text: "#A64D27" }),
+    ],
+    files: [],
+    assets: [],
+  });
+  assert.equal(view.tone, "Warm en nuchter");
+  assert.equal(view.primaryColor, "#A64D27");
+});
+
 test("pagina-overzicht komt uit onboarding, niet uit een pagebuilder", () => {
   const pages = customerPagesFromSources([
     item({ key: "paginas", section: "content", value_text: "Home\nOver ons\nContact" }),
