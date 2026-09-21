@@ -6,6 +6,22 @@ import { areaClass, fieldClass, Field } from "@/components/form-fields";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import { formatEuro } from "@/lib/proposals";
 
+function OnboardingNext({ href, message }: { href?: string | null; message: string }) {
+  return (
+    <div className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+      <p className="text-sm text-ink">{message}</p>
+      {href ? (
+        <a
+          href={href}
+          className="inline-flex h-11 items-center rounded-md bg-copper-dark px-5 text-sm text-ivory"
+        >
+          Verder naar onboarding
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 export function ProposalResponse({
   token,
   organization,
@@ -15,6 +31,7 @@ export function ProposalResponse({
   email,
   accepted,
   current,
+  nextHref,
 }: {
   token: string;
   organization: string;
@@ -24,6 +41,7 @@ export function ProposalResponse({
   email: string;
   accepted: boolean;
   current: boolean;
+  nextHref?: string | null;
 }) {
   const [mode, setMode] = useState<"idle" | "accept" | "question">(accepted ? "idle" : "idle");
   const [acceptState, acceptAction] = useActionState(acceptProposalAction, null);
@@ -40,9 +58,13 @@ export function ProposalResponse({
 
   if (accepted || acceptState?.ok) {
     return (
-      <p className="rounded-2xl border border-ink/10 bg-white p-5 text-sm text-ink">
-        {acceptState?.message || "Akkoord ontvangen. We zetten de volgende stap in gang."}
-      </p>
+      <OnboardingNext
+        href={acceptState?.next ?? nextHref}
+        message={
+          acceptState?.message ||
+          "Akkoord ontvangen. Ga verder in Mijn Kopvast om onboarding te starten."
+        }
+      />
     );
   }
 

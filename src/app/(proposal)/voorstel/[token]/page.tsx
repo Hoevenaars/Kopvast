@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ProposalDocument } from "@/components/proposal-document";
 import { ProposalResponse } from "@/app/(proposal)/voorstel/[token]/proposal-response";
 import { readSession } from "@/lib/auth";
+import { customerOnboardingLoginPath, workspaceRoutes } from "@/lib/product";
 import { loadPublicProposal, recordProposalView } from "@/lib/proposal-ops";
 import { formatEuro } from "@/lib/proposals";
 
@@ -20,6 +21,12 @@ export default async function PublicProposalPage({ params }: { params: Promise<{
   await recordProposalView(token, { admin });
   const snapshot = publicProposal.snapshot;
   const accepted = publicProposal.proposal.status === "ACCEPTED";
+  const nextHref =
+    session?.role === "admin"
+      ? null
+      : session?.role === "customer"
+        ? workspaceRoutes.consoleOnboarding
+        : customerOnboardingLoginPath();
   const banner = publicProposal.current
     ? accepted
       ? `Akkoord ontvangen${publicProposal.proposal.accepted_at ? ` op ${new Date(publicProposal.proposal.accepted_at).toLocaleDateString("nl-NL")}` : ""}.`
@@ -43,6 +50,7 @@ export default async function PublicProposalPage({ params }: { params: Promise<{
           email={snapshot.recipientEmail}
           accepted={accepted}
           current={publicProposal.current}
+          nextHref={accepted ? nextHref : null}
         />
       </section>
     </main>
