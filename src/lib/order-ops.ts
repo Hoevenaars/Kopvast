@@ -11,6 +11,8 @@ import {
   type LeadRow,
   type OrganizationRow,
 } from "@/lib/workspace";
+import { itemSatisfiesReady, onboardingProgress, type OnboardingItemStatus } from "@/lib/onboarding";
+import type { OnboardingWorkspace } from "@/lib/onboarding-store";
 import { isEmail, normalizeEmail, workspaceRoutes, type ProjectType } from "@/lib/product";
 import { mutateStore, newId, nowIso, readStore, type MemberRow } from "@/lib/workspace-store";
 import {
@@ -179,9 +181,15 @@ function mapBillingInvoiceForOrder(
 }
 
 async function billingInvoicesForOrder(order: OrderRow): Promise<InvoiceRow[]> {
+  const project = await deliveryProjectForOrder(order);
   const { loadInvoices } = await import("@/lib/billing");
   return (await loadInvoices())
     .filter((item) => item.organization_id === order.organization_id && item.status !== "CANCELLED")
+    .filter((item) => {
+      if (!project) return item.description === (order.product_label || order.proposal_snapshot.productLabel);
+      if (item.project_id) return item.project_id === project.id;
+      return item.description === (order.product_label || order.proposal_snapshot.productLabel);
+    })
     .map((item) => mapBillingInvoiceForOrder(item, order.id));
 }
 
@@ -207,27 +215,57 @@ async function loadLiveOrderProposal(proposalId: string): Promise<ProposalRow | 
   return live?.proposal ? liveProposalToOrderProposal(live.proposal) : null;
 }
 
-async function loadOrderOnboarding(supabase: SupabaseClient, orderId: string): Promise<OnboardingRow | null> {
-  const { data, error } = await supabase.from("kopvast_onboardings").select("*").eq("order_id", orderId).maybeSingle();
-  if (error || !data) return null;
-  return mapOnboarding(data as Record<string, unknown>);
+async function deliveryProjectForOrder(order: OrderRow) {
+  const { isDeliveryProject } = await import("@/lib/production");
+  const projects = (await loadProjects()).filter(
+    (item) => item.organization_id === order.organization_id && isDeliveryProject(item.type)
+  );
+  if (!projects.length) return null;
+  const { loadProposal } = await import("@/lib/proposal-ops");
+  const number = (await loadProposal(order.proposal_id))?.proposal.number ?? null;
+  if (number) {
+    const named = projects.find((item) => (item.summary ?? "").includes(number));
+    if (named) return named;
+  }
+  return projects.find((item) => item.type === order.product_type) ?? projects[0] ?? null;
 }
 
-async function deliveryLinks(organizationId: string): Promise<{
+function orderOnboardingFromProject(order: OrderRow, workspace: OnboardingWorkspace): OnboardingRow {
+  const progressView = onboardingProgress(workspace.onboarding, workspace.items);
+  const progress: OnboardingStep[] = workspace.items
+    .filter((item) => item.required)
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      done: itemSatisfiesReady(item.status as OnboardingItemStatus),
+    }));
+  return {
+    id: workspace.onboarding.id,
+    order_id: order.id,
+    organization_id: order.organization_id,
+    status: progressView.ready ? "DONE" : progressView.completed > 0 ? "IN_PROGRESS" : "OPEN",
+    progress,
+    created_at: workspace.onboarding.created_at,
+    updated_at: workspace.onboarding.updated_at,
+  };
+}
+
+async function projectOnboardingForOrder(order: OrderRow): Promise<{
+  onboarding: OnboardingRow | null;
   deliveryOnboardingHref: string | null;
   productionHref: string | null;
 }> {
-  const { loadProjects } = await import("@/lib/workspace");
-  const { isDeliveryProject } = await import("@/lib/production");
-  const project = (await loadProjects()).find(
-    (item) => item.organization_id === organizationId && isDeliveryProject(item.type)
-  );
-  if (!project) return { deliveryOnboardingHref: null, productionHref: null };
+  const project = await deliveryProjectForOrder(order);
+  if (!project) return { onboarding: null, deliveryOnboardingHref: null, productionHref: null };
+  const { loadOnboardingWorkspaceByProject } = await import("@/lib/onboarding-store");
   const { loadProductionsForOrganization } = await import("@/lib/production-board");
-  const production = (await loadProductionsForOrganization(organizationId)).find(
-    (item) => item.project_id === project.id
-  );
+  const [workspace, productions] = await Promise.all([
+    loadOnboardingWorkspaceByProject(project.id),
+    loadProductionsForOrganization(order.organization_id),
+  ]);
+  const production = productions.find((item) => item.project_id === project.id);
   return {
+    onboarding: workspace ? orderOnboardingFromProject(order, workspace) : null,
     deliveryOnboardingHref: `${workspaceRoutes.adminOrders}/${project.id}/onboarding`,
     productionHref: production ? `${workspaceRoutes.adminProductie}/${production.id}` : workspaceRoutes.adminProductie,
   };
@@ -311,41 +349,43 @@ export async function loadOrderDetail(id: string): Promise<OrderDetail | null> {
   const order = await loadOrder(id);
   if (!order) return null;
   const supabase = refreshClient();
+  const [projectOnboarding, invoices] = await Promise.all([
+    projectOnboardingForOrder(order),
+    billingInvoicesForOrder(order),
+  ]);
   if (supabase) {
-    const [proposal, organization, onboarding, website, invoices, activities, links] = await Promise.all([
+    const [proposal, organization, website, activities] = await Promise.all([
       loadLiveOrderProposal(order.proposal_id),
       loadOrganization(order.organization_id),
-      loadOrderOnboarding(supabase, order.id),
       supabase.from("kopvast_websites").select("*").eq("order_id", order.id).maybeSingle(),
-      billingInvoicesForOrder(order),
       supabase.from("kopvast_order_activities").select("*").eq("order_id", order.id).order("created_at", { ascending: false }),
-      deliveryLinks(order.organization_id),
     ]);
     return {
       order,
       proposal,
       organization,
-      onboarding,
+      onboarding: projectOnboarding.onboarding,
       website: website.data ? mapWebsite(website.data as Record<string, unknown>) : null,
       invoices,
       activities: ((activities.data ?? []) as Record<string, unknown>[]).map(mapActivity),
-      ...links,
+      deliveryOnboardingHref: projectOnboarding.deliveryOnboardingHref,
+      productionHref: projectOnboarding.productionHref,
     };
   }
   const store = await readStore();
-  const billingInvoices = await billingInvoicesForOrder(order);
   return {
     order,
     proposal:
       store.proposals.find((item) => item.id === order.proposal_id) ?? (await loadLiveOrderProposal(order.proposal_id)),
     organization: store.organizations.find((item) => item.id === order.organization_id) ?? null,
-    onboarding: store.onboardings.find((item) => item.order_id === order.id) ?? null,
+    onboarding: projectOnboarding.onboarding,
     website: store.orderWebsites.find((item) => item.order_id === order.id) ?? null,
-    invoices: billingInvoices.length ? billingInvoices : store.invoices.filter((item) => item.order_id === order.id),
+    invoices,
     activities: store.orderActivities
       .filter((item) => item.order_id === order.id)
       .sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    ...(await deliveryLinks(order.organization_id)),
+    deliveryOnboardingHref: projectOnboarding.deliveryOnboardingHref,
+    productionHref: projectOnboarding.productionHref,
   };
 }
 
@@ -508,11 +548,6 @@ async function persistMaterialized(
         return fail("Opdracht opslaan is mislukt.");
       }
     }
-    const { data: onboarding } = await supabase.from("kopvast_onboardings").select("id").eq("order_id", materialized.order.id).maybeSingle();
-    if (!onboarding) {
-      const { error } = await supabase.from("kopvast_onboardings").insert(materialized.onboarding);
-      if (error) console.info("[kopvast] Order-onboarding overgeslagen", error.message);
-    }
     const { data: website } = await supabase.from("kopvast_websites").select("id").eq("order_id", materialized.order.id).maybeSingle();
     if (!website) await supabase.from("kopvast_websites").insert(materialized.website);
     if (materialized.activity) await supabase.from("kopvast_order_activities").insert(materialized.activity);
@@ -525,7 +560,6 @@ async function persistMaterialized(
     if (!store.orders.some((item) => item.id === materialized.order.id || item.proposal_id === proposal.id)) {
       store.orders.unshift(materialized.order);
     }
-    if (!store.onboardings.some((item) => item.order_id === materialized.order.id)) store.onboardings.push(materialized.onboarding);
     if (!store.orderWebsites.some((item) => item.order_id === materialized.order.id)) store.orderWebsites.push(materialized.website);
     if (materialized.activity && !store.orderActivities.some((item) => item.id === materialized.activity?.id)) {
       store.orderActivities.unshift(materialized.activity);
@@ -872,43 +906,6 @@ export async function updateOrderPlanning(input: {
     new_status: order.status,
     body: "Planning of notities bijgewerkt.",
     metadata: patch,
-  });
-  return { ok: true };
-}
-
-export async function updateOnboardingProgress(input: {
-  orderId: string;
-  doneIds: string[];
-  actorEmail: string;
-}): Promise<ActionResult> {
-  const detail = await loadOrderDetail(input.orderId);
-  if (!detail?.onboarding) return fail("Onboarding ontbreekt.");
-  const done = new Set(input.doneIds);
-  const progress: OnboardingStep[] = detail.onboarding.progress.map((step) => ({ ...step, done: done.has(step.id) }));
-  const status = progress.every((step) => step.done) ? "DONE" : progress.some((step) => step.done) ? "IN_PROGRESS" : "OPEN";
-  const patch = { progress, status, updated_at: nowIso() };
-  const supabase = refreshClient();
-  if (supabase) {
-    const { error } = await supabase.from("kopvast_onboardings").update(patch).eq("id", detail.onboarding.id);
-    if (error) return fail(error.message);
-  } else {
-    await mutateStore((store) => {
-      const row = store.onboardings.find((item) => item.id === detail.onboarding?.id);
-      if (!row) return;
-      row.progress = progress;
-      row.status = status;
-      row.updated_at = patch.updated_at;
-    });
-  }
-  await addActivity({
-    order_id: input.orderId,
-    event_type: ORDER_ACTIVITY.ONBOARDING_UPDATED,
-    actor_type: "human",
-    actor_id: input.actorEmail,
-    old_status: detail.order.status,
-    new_status: detail.order.status,
-    body: `Onboarding ${status === "DONE" ? "afgerond" : "bijgewerkt"}.`,
-    metadata: { done: progress.filter((step) => step.done).map((step) => step.id) },
   });
   return { ok: true };
 }

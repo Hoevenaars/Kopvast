@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { saveNextAction, saveOnboarding, savePlanning, saveWebsite } from "@/app/(workspace)/admin/opdrachten/actions";
+import { saveNextAction, savePlanning, saveWebsite } from "@/app/(workspace)/admin/opdrachten/actions";
 import { OrderStatusForm } from "@/app/(workspace)/admin/opdrachten/status-form";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { EmptyState } from "@/components/workspace/shell";
@@ -32,6 +32,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const snapshot = order.proposal_snapshot;
   const onboardingDone = onboarding ? onboarding.progress.filter((step) => step.done).length : 0;
   const onboardingTotal = onboarding?.progress.length ?? 0;
+  const onboardingState = onboarding ? onboardingStatusFromProgress(onboarding.progress) : null;
 
   return (
     <div className="space-y-8">
@@ -98,7 +99,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           <h2 className="font-semibold">Onboarding</h2>
           <p className="mt-1 text-sm text-ink/45">
             {onboarding
-              ? `${onboardingDone}/${onboardingTotal} · ${onboardingStatusFromProgress(onboarding.progress) === "DONE" ? "Afgerond" : "In uitvoering"}`
+              ? `${onboardingDone}/${onboardingTotal} · ${onboardingState === "DONE" ? "Afgerond" : onboardingState === "OPEN" ? "Nog niet gestart" : "In uitvoering"}`
               : "Nog niet gekoppeld"}
           </p>
           {detail.deliveryOnboardingHref ? (
@@ -115,19 +116,14 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </Link>
           ) : null}
           {onboarding ? (
-            <form action={saveOnboarding} className="relative mt-4 space-y-3">
-              <FormBusyOverlay label="Onboarding opslaan…" />
-              <input type="hidden" name="id" value={order.id} />
+            <ul className="mt-4 space-y-2 text-sm">
               {onboarding.progress.map((step) => (
-                <label key={step.id} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="done" value={step.id} defaultChecked={step.done} />
-                  {step.title}
-                </label>
+                <li key={step.id} className="flex items-start gap-2">
+                  <span className={step.done ? "text-olive" : "text-destructive"}>{step.done ? "✓" : "!"}</span>
+                  <span className={step.done ? "text-ink/55" : "text-ink"}>{step.title}</span>
+                </li>
               ))}
-              <SubmitButton className="text-sm underline underline-offset-4" pendingLabel="Opslaan…">
-                Voortgang opslaan
-              </SubmitButton>
-            </form>
+            </ul>
           ) : detail.deliveryOnboardingHref ? (
             <p className="mt-4 text-sm text-ink/45">De checklist staat bij projectonboarding, niet als losse orderstappen.</p>
           ) : (
