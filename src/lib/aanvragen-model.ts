@@ -131,6 +131,25 @@ export function isProposalStatus(value: string): value is ProposalStatus {
   return proposalStatuses.some((item) => item.value === value);
 }
 
+export function mapLiveProposalStatus(status: string | null | undefined): ProposalStatus | null {
+  if (!status) return null;
+  if (status === "DRAFT" || status === "READY") return "DRAFT";
+  if (status === "SENT" || status === "VIEWED" || status === "QUESTION") return "SENT";
+  if (status === "ACCEPTED") return "ACCEPTED";
+  if (status === "DECLINED" || status === "REJECTED" || status === "EXPIRED" || status === "SUPERSEDED") return "REJECTED";
+  return isProposalStatus(status) ? status : null;
+}
+
+export function isDueRequestAction(
+  row: Pick<AanvraagRecord, "next_action" | "next_action_at" | "status">,
+  now = Date.now()
+) {
+  if (!row.next_action?.trim() || !row.next_action_at) return false;
+  if (TERMINAL_STATUSES.has(row.status)) return false;
+  const at = Date.parse(row.next_action_at);
+  return Number.isFinite(at) && at <= now;
+}
+
 export function defaultProductFitForSource(source: string, type?: string): ProductFit {
   if (source === "maatwerk" || type === "maatwerk") return "CUSTOM_FIT";
   if (source === "MANUAL" || source === "domain_landingspage") return "REVIEW_REQUIRED";

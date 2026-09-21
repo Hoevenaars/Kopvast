@@ -14,6 +14,7 @@ import {
 import { calculateOpportunityScore, thresholdsFromSettings } from "./acquire-score";
 import { detectComplexityFlags, determineProductFit } from "./acquire-fit";
 import { ACTIVITY, adminStatusFromScore, emptyScanProgress, SCANNER_VERSION, SCORE_VERSION, type ScanStepKey } from "./acquisition-constants";
+import { NEXT_ACTIONS, shouldFinishAnalysisManually } from "./commercial";
 import { logProspectActivity, refreshProspectCosts } from "./acquisition-activity";
 import { upsertContact } from "./acquisition";
 import { storeGeneratedMail, storeUnreachableSiteMail } from "./acquisition-send";
@@ -36,6 +37,7 @@ type ProspectRow = {
   last_scan_at: string | null;
   company_name: string | null;
   notes: string | null;
+  next_action: string | null;
 };
 
 type AcquireSource = "websitecheck" | "kansen" | "aanvraag" | "admin";
@@ -111,7 +113,7 @@ export async function acquireAdminScan(input: {
   if (!supabase) return;
   const { data: prospect } = await supabase
     .from("prospects")
-    .select("id, status, last_scan_at, company_name, notes, website_url")
+    .select("id, status, last_scan_at, company_name, notes, next_action, website_url")
     .eq("id", input.prospectId)
     .maybeSingle();
   if (!prospect) return;
@@ -186,7 +188,7 @@ async function acquireWebsite(input: {
   let prospect = input.prospectId
     ? ((await supabase
         .from("prospects")
-        .select("id, status, last_scan_at, company_name, notes")
+        .select("id, status, last_scan_at, company_name, notes, next_action")
         .eq("id", input.prospectId)
         .maybeSingle()).data as ProspectRow | null)
     : null;
@@ -194,7 +196,7 @@ async function acquireWebsite(input: {
   if (!prospect) {
     const { data: existing, error: lookupError } = await supabase
       .from("prospects")
-      .select("id, status, last_scan_at, company_name, notes")
+      .select("id, status, last_scan_at, company_name, notes, next_action")
       .eq("is_archived", false)
       .ilike("domain", domain)
       .maybeSingle();
@@ -222,7 +224,7 @@ async function acquireWebsite(input: {
         public_check_token: crypto.randomUUID().replace(/-/g, ""),
         last_activity_at: new Date().toISOString(),
       })
-      .select("id, status, last_scan_at, company_name, notes")
+      .select("id, status, last_scan_at, company_name, notes, next_action")
       .single();
     if (error || !created) {
       console.error("[kopvast] Prospect aanmaken mislukt", error?.message);
@@ -518,6 +520,11 @@ async function acquireWebsite(input: {
     .select("id")
     .single();
 
+  const now = new Date().toISOString();
+  const finishAnalysisManually = shouldFinishAnalysisManually({
+    hasAnalysis: Boolean(analysis),
+    existingNextAction: prospect.next_action,
+  });
   await supabase
     .from("prospects")
     .update({
@@ -541,11 +548,17 @@ async function acquireWebsite(input: {
       complexity_score: fit.complexityScore,
       opportunity_score: score.total,
       product_fit: fit.fit,
-      last_scan_at: new Date().toISOString(),
-      last_activity_at: new Date().toISOString(),
+      last_scan_at: now,
+      last_activity_at: now,
       company_name: input.company || input.lead?.company || input.title || prospect.company_name,
-      needs_review: input.source === "aanvraag" || fit.fit === "REVIEW_REQUIRED" || finalStatus === "WATCHLIST" || finalStatus === "NEW",
-      needs_review_reasons: input.source === "aanvraag" ? ["inbound_lead"] : fit.fit === "REVIEW_REQUIRED" ? ["review_required"] : finalStatus === "WATCHLIST" ? ["ai_watchlist"] : [],
+      needs_review: input.source === "aanvraag" || fit.fit === "REVIEW_REQUIRED" || finalStatus === "WATCHLIST" || finalStatus === "NEW" || finishAnalysisManually,
+      needs_review_reasons: input.source === "aanvraag" ? ["inbound_lead"] : fit.fit === "REVIEW_REQUIRED" ? ["review_required"] : finalStatus === "WATCHLIST" ? ["ai_watchlist"] : finishAnalysisManually ? ["analysis_manual"] : [],
+      ...(finishAnalysisManually
+        ? {
+            next_action: NEXT_ACTIONS.FINISH_ANALYSIS,
+            next_action_at: now,
+          }
+        : {}),
     })
     .eq("id", prospect.id);
 
@@ -576,6 +589,16 @@ async function acquireWebsite(input: {
       actorType: "agent",
       newStatus: finalStatus,
       metadata: { recommendation: analysis.analysis.recommendation, industry: analysis.analysis.industry },
+    });
+  }
+
+  if (finishAnalysisManually) {
+    await logProspectActivity(supabase, {
+      prospectId: prospect.id,
+      eventType: ACTIVITY.NEXT_ACTION_SET,
+      actorType: "system",
+      newStatus: finalStatus,
+      metadata: { nextAction: NEXT_ACTIONS.FINISH_ANALYSIS, reason: "openai_missing" },
     });
   }
 

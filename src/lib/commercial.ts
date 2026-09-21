@@ -129,6 +129,10 @@ export function nextActionForHandoff(input: {
   return NEXT_ACTIONS.CALL_CLIENT;
 }
 
+export function shouldFinishAnalysisManually(input: { hasAnalysis: boolean; existingNextAction?: string | null }) {
+  return !input.hasAnalysis && !input.existingNextAction?.trim();
+}
+
 export function serviceBoundaries() {
   return {
     prospect: "src/lib/acquisition.ts + src/lib/acquire.ts",
