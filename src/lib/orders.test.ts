@@ -137,6 +137,8 @@ test("next action eist tekst en accepteert optionele eigenaar", () => {
     assert.equal(ok.owner, "Nick");
   }
   assert.equal(defaultNextAction("CHANGES").text, "Wijzigingen verwerken");
+  assert.equal(defaultNextAction("LIVE", new Date("2026-09-21T12:00:00.000Z")).text, "Factuur sturen");
+  assert.equal(defaultNextAction("LIVE", new Date("2026-09-21T12:00:00.000Z")).at, "2026-09-21");
 });
 
 test("bedragen en onboarding-progress blijven bruikbaar", () => {

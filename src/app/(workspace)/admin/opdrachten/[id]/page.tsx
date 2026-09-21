@@ -128,6 +128,8 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                 Voortgang opslaan
               </SubmitButton>
             </form>
+          ) : detail.deliveryOnboardingHref ? (
+            <p className="mt-4 text-sm text-ink/45">De checklist staat bij projectonboarding, niet als losse orderstappen.</p>
           ) : (
             <EmptyState title="Geen onboarding" text="Bij het aanmaken van de opdracht hoort hier een checklist." />
           )}
@@ -206,6 +208,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
 
         <section className="rounded-2xl border border-ink/10 bg-white p-5">
           <h2 className="font-semibold">Facturatie</h2>
+          <Link href={workspaceRoutes.adminInvoices} className="mt-1 inline-block text-sm underline underline-offset-4">
+            Open facturatie
+          </Link>
           {invoices.length === 0 ? (
             <div className="mt-4">
               <EmptyState title="Geen facturen" text="Bij akkoord ontstaan conceptfacturen vanuit de afgesproken prijs." />

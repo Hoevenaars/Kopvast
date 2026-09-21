@@ -214,7 +214,8 @@ export const NEXT_ACTION_EXAMPLES = [
   "Concept sturen",
   "Wijzigingen verwerken",
   "DNS",
-  "Factuur",
+  "Factuur sturen",
+  "Beheercheck",
 ] as const;
 
 const PRODUCT_DEFAULTS: Record<
@@ -432,7 +433,8 @@ export function buildProposalSnapshot(
 }
 
 export function defaultNextAction(status: OrderStatus, at = new Date()) {
-  const due = new Date(at.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const dueDays = status === "LIVE" || status === "COMPLETED" ? 0 : 7;
+  const due = new Date(at.getTime() + dueDays * 24 * 60 * 60 * 1000);
   const examples: Partial<Record<OrderStatus, string>> = {
     NEW: "Wachten op foto's",
     ONBOARDING: "Wachten op foto's",
@@ -442,8 +444,8 @@ export function defaultNextAction(status: OrderStatus, at = new Date()) {
     CHANGES: "Wijzigingen verwerken",
     APPROVED: "DNS",
     READY_TO_LAUNCH: "DNS",
-    LIVE: "Factuur",
-    COMPLETED: "Factuur",
+    LIVE: "Factuur sturen",
+    COMPLETED: "Beheercheck",
     ON_HOLD: "Opdracht hervatten",
   };
   return {
