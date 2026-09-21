@@ -220,6 +220,16 @@ async function saveProposalPatch(id: string, patch: Partial<ProposalRow>) {
     return { ok: true as const };
   }
   await mutateStore((store) => {
+    const live = store.voorstellen.find((item) => item.id === id);
+    if (live) {
+      if (patch.organization_id !== undefined) live.organization_id = patch.organization_id;
+      if (patch.status === "geaccepteerd") {
+        live.status = "ACCEPTED";
+        live.accepted_at = patch.accepted_at ?? nowIso();
+      }
+      live.updated_at = nowIso();
+      return;
+    }
     const row = store.customerProposals.find((item) => item.id === id);
     if (!row) return;
     Object.assign(row, patch, { updated_at: nowIso() });
@@ -228,27 +238,61 @@ async function saveProposalPatch(id: string, patch: Partial<ProposalRow>) {
 }
 
 async function insertProposal(input: Omit<ProposalRow, "id" | "created_at" | "updated_at">) {
-  const supabase = refreshClient();
-  if (supabase) {
-    const { createProposal } = await import("@/lib/proposal-ops");
-    const created = await createProposal({
-      type: input.product_type === "website" ? "website" : "maatwerk",
-      recipientName: input.contact_name || input.company_name || "Contact",
-      recipientEmail: input.contact_email || "onbekend@kopvast.nl",
-      recipientOrganization: input.company_name || input.contact_name || "Klant",
-      leadId: input.inbound_lead_id,
-      organizationId: input.organization_id,
-      createdBy: "kopvast.nl",
-    });
-    if (!created.ok) return { ok: false as const, message: created.message };
-    const proposal = await loadProposal(created.id);
-    if (!proposal) return { ok: false as const, message: "Voorstel opslaan mislukt." };
-    return { ok: true as const, proposal };
-  }
-  const proposal: ProposalRow = { ...input, id: newId(), created_at: nowIso(), updated_at: nowIso() };
-  await mutateStore((store) => {
-    store.customerProposals.unshift(proposal);
+  const { createProposal, loadProposal: loadWrProposal, saveProposalDraft } = await import("@/lib/proposal-ops");
+  const { parseAmountInput } = await import("@/lib/invoices");
+  const { eurosToCents } = await import("@/lib/proposals");
+  const { parseEuroAmount } = await import("@/lib/sites");
+  const created = await createProposal({
+    type: input.product_type === "website" ? "website" : "maatwerk",
+    recipientName: input.contact_name || input.company_name || "Contact",
+    recipientEmail: input.contact_email || "onbekend@kopvast.nl",
+    recipientOrganization: input.company_name || input.contact_name || "Klant",
+    leadId: input.inbound_lead_id,
+    organizationId: input.organization_id,
+    createdBy: "kopvast.nl",
   });
+  if (!created.ok) return { ok: false as const, message: created.message };
+  const wr = await loadWrProposal(created.id);
+  if (wr) {
+    const euros = parseEuroAmount(input.amount_label) ?? parseAmountInput(input.amount_label ?? "");
+    await saveProposalDraft(
+      created.id,
+      {
+        title: input.title,
+        intro: wr.proposal.intro,
+        aanleiding: input.body || wr.proposal.aanleiding,
+        scopeSummary: input.body || wr.proposal.scope_summary,
+        planning: wr.proposal.planning,
+        validityText: wr.proposal.validity_text,
+        recipientName: wr.proposal.recipient_name,
+        recipientEmail: wr.proposal.recipient_email,
+        recipientOrganization: wr.proposal.recipient_organization,
+        type: wr.proposal.type,
+        lines:
+          euros && euros > 0
+            ? [
+                {
+                  kind: "scope",
+                  title: input.title,
+                  description: input.body ?? "",
+                  quantity: 1,
+                  unitPriceCents: eurosToCents(euros),
+                },
+              ]
+            : wr.lines.map((line) => ({
+                id: line.id,
+                kind: line.kind,
+                title: line.title,
+                description: line.description,
+                quantity: Number(line.quantity),
+                unitPriceCents: line.unit_price_cents,
+              })),
+      },
+      "kopvast.nl"
+    );
+  }
+  const proposal = await loadProposal(created.id);
+  if (!proposal) return { ok: false as const, message: "Voorstel opslaan mislukt." };
   return { ok: true as const, proposal };
 }
 
@@ -642,9 +686,15 @@ export async function createProposalForCustomer(input: {
 }
 
 export async function acceptProposal(proposalId: string, actorEmail?: string) {
-  const { afterProposalAccepted } = await import("@/lib/commercial-handoffs");
-  const handed = await afterProposalAccepted(proposalId);
-  if (handed.ok) return { ok: true as const, organizationId: handed.organizationId, already: handed.already };
+  const { acceptProposalAsAdmin, loadProposal: loadWrProposal } = await import("@/lib/proposal-ops");
+  const wr = await loadWrProposal(proposalId);
+  if (wr) {
+    const accepted = await acceptProposalAsAdmin(proposalId, actorEmail ?? null);
+    if (!accepted.ok) return fail(accepted.message);
+    if (accepted.organizationId) {
+      return { ok: true as const, organizationId: accepted.organizationId, already: accepted.already };
+    }
+  }
   const proposal = await loadProposal(proposalId);
   if (!proposal) return fail("Voorstel niet gevonden.");
   await saveProposalPatch(proposalId, { status: "geaccepteerd", accepted_at: nowIso() });

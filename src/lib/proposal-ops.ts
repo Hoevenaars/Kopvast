@@ -1267,6 +1267,70 @@ export async function handleAcceptedProposal(proposalId: string): Promise<Propos
   return { ok: true, organizationId: organizationId as string };
 }
 
+export async function acceptProposalAsAdmin(
+  proposalId: string,
+  actorEmail: string | null
+): Promise<ProposalResult<{ id: string; already?: boolean; organizationId?: string }>> {
+  const detail = await loadProposal(proposalId);
+  if (!detail) return fail("Voorstel niet gevonden.");
+  const actor = actorEmail && isEmail(normalizeEmail(actorEmail)) ? normalizeEmail(actorEmail) : detail.proposal.recipient_email;
+  const name = detail.proposal.recipient_name || detail.proposal.recipient_organization || actor;
+
+  const finish = async (already: boolean) => {
+    const { afterProposalAccepted } = await import("@/lib/commercial-handoffs");
+    const handed = await afterProposalAccepted(proposalId);
+    if (!handed.ok) return handed;
+    return { ok: true as const, id: proposalId, already, organizationId: handed.organizationId };
+  };
+
+  if (detail.proposal.status === "ACCEPTED") return finish(true);
+
+  const lines = detail.lines.map((line) => ({
+    id: line.id,
+    kind: line.kind,
+    title: line.title,
+    description: line.description,
+    quantity: Number(line.quantity),
+    unitPriceCents: line.unit_price_cents,
+  }));
+  const snapshot = detail.proposal.accepted_snapshot || detail.versions[0]?.snapshot || draftSnapshot(detail.proposal, lines);
+  const now = nowIso();
+  const patch = {
+    updated_at: now,
+    status: "ACCEPTED" as ProposalStatus,
+    accepted_at: now,
+    accepted_by_name: name,
+    accepted_by_email: actor,
+    accepted_snapshot: snapshot,
+  };
+
+  const supabase = refreshClient();
+  if (supabase) {
+    const { data: current } = await supabase.from("proposals").select("status").eq("id", proposalId).maybeSingle();
+    if (current?.status === "ACCEPTED") return finish(true);
+    await supabase.from("proposals").update(patch).eq("id", proposalId);
+  } else {
+    const already = await mutateStore((store) => {
+      const proposal = store.voorstellen.find((item) => item.id === proposalId);
+      if (!proposal) return "missing" as const;
+      if (proposal.status === "ACCEPTED") return "already" as const;
+      Object.assign(proposal, patch);
+      return "ok" as const;
+    });
+    if (already === "missing") return fail("Voorstel niet gevonden.");
+    if (already === "already") return finish(true);
+  }
+
+  await logActivity(
+    proposalId,
+    PROPOSAL_ACTIVITY.ACCEPTED,
+    actor,
+    { version: detail.proposal.version, amount: snapshot.totals.subtotalCents, source: "admin" },
+    "human"
+  );
+  return finish(false);
+}
+
 export async function acceptProposal(
   token: string,
   input: { name: string; email: string; acceptedTerms: boolean }

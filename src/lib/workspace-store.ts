@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { InvoiceRow as BillingInvoiceRow, RecurringRow } from "@/lib/invoices";
 import type {
@@ -131,7 +132,12 @@ export type Store = {
   customerReviews: CustomerReviewRow[];
 };
 
-const file = path.join("/tmp", "kopvast-workspace.json");
+const defaultFile = path.join("/tmp", "kopvast-workspace.json");
+const isolatedFile = new AsyncLocalStorage<string>();
+
+function storeFile() {
+  return isolatedFile.getStore() ?? defaultFile;
+}
 
 const empty = (): Store => ({
   organizations: [],
@@ -182,7 +188,7 @@ const empty = (): Store => ({
 
 export async function readStore(): Promise<Store> {
   try {
-    const parsed = JSON.parse(await readFile(file, "utf8")) as Partial<Store>;
+    const parsed = JSON.parse(await readFile(storeFile(), "utf8")) as Partial<Store>;
     return {
       ...empty(),
       ...parsed,
@@ -228,27 +234,20 @@ export async function readStore(): Promise<Store> {
 }
 
 export async function writeStore(store: Store) {
+  const file = storeFile();
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, JSON.stringify(store, null, 2));
 }
 
 export async function withIsolatedStore<T>(run: () => Promise<T>): Promise<T> {
-  let snapshot: string | null = null;
+  const isolated = path.join("/tmp", `kopvast-workspace-${process.pid}-${crypto.randomUUID()}.json`);
   try {
-    snapshot = await readFile(file, "utf8");
-  } catch {
-    snapshot = null;
-  }
-  await writeStore(empty());
-  try {
-    return await run();
-  } finally {
-    if (snapshot) {
-      await mkdir(path.dirname(file), { recursive: true });
-      await writeFile(file, snapshot);
-    } else {
+    return await isolatedFile.run(isolated, async () => {
       await writeStore(empty());
-    }
+      return await run();
+    });
+  } finally {
+    await unlink(isolated).catch(() => undefined);
   }
 }
 
