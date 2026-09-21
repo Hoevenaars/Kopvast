@@ -10,6 +10,7 @@ import {
   serviceBoundaries,
   shouldFinishAnalysisManually,
   nextActionAfterAccept,
+  nextActionAfterLive,
 } from "./commercial";
 import { liveProposalToOrderProposal } from "./commercial-handoffs";
 import { normalizeDomain, normalizeEmailAddress, normalizeOrganization, sameDomain } from "./identity";
@@ -57,6 +58,7 @@ test("zet requeststatus en next action voor handoffs", () => {
   assert.equal(shouldFinishAnalysisManually({ hasAnalysis: false, existingNextAction: NEXT_ACTIONS.CALL_CLIENT }), false);
   assert.equal(nextActionAfterAccept(true), NEXT_ACTIONS.START_ONBOARDING);
   assert.equal(nextActionAfterAccept(false), NEXT_ACTIONS.MAKE_ORDER);
+  assert.equal(nextActionAfterLive(), NEXT_ACTIONS.SEND_INVOICE);
 });
 
 test("hergebruikt bestaande proposal- en ordermodules", () => {

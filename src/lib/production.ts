@@ -194,6 +194,16 @@ export function projectStatusForProduction(status: ProductionStatus): ProjectSta
   return "live";
 }
 
+export function orderStatusForProduction(status: ProductionStatus) {
+  if (status === "ready_for_production") return "READY_FOR_PRODUCTION";
+  if (status === "in_production") return "IN_PRODUCTION";
+  if (status === "client_review") return "CLIENT_REVIEW";
+  if (status === "changes") return "CHANGES";
+  if (status === "approved") return "APPROVED";
+  if (status === "ready_to_launch") return "READY_TO_LAUNCH";
+  return "LIVE";
+}
+
 export function productionsByColumn(items: ProductionCard[]) {
   return productionBoardColumns.map((column) => ({
     ...column,

@@ -139,6 +139,10 @@ export function nextActionAfterAccept(orderCreated: boolean) {
   return orderCreated ? NEXT_ACTIONS.START_ONBOARDING : NEXT_ACTIONS.MAKE_ORDER;
 }
 
+export function nextActionAfterLive() {
+  return NEXT_ACTIONS.SEND_INVOICE;
+}
+
 export function serviceBoundaries() {
   return {
     prospect: "src/lib/acquisition.ts + src/lib/acquire.ts",

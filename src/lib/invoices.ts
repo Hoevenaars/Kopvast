@@ -175,6 +175,21 @@ export function billingDraftsForProjects(
   return { invoices, recurring };
 }
 
+export function filterNewBillingDrafts(
+  drafts: ReturnType<typeof billingDraftsForProjects>,
+  existing: {
+    invoices: Array<{ project_id?: string | null }>;
+    recurring: Array<{ project_id?: string | null }>;
+  }
+) {
+  const invoiceProjects = new Set(existing.invoices.map((item) => item.project_id).filter(Boolean));
+  const recurringProjects = new Set(existing.recurring.map((item) => item.project_id).filter(Boolean));
+  return {
+    invoices: drafts.invoices.filter((item) => !invoiceProjects.has(item.project_id)),
+    recurring: drafts.recurring.filter((item) => !recurringProjects.has(item.project_id)),
+  };
+}
+
 export function parseInvoiceInput(input: {
   organizationId?: string;
   projectId?: string;

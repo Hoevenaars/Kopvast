@@ -488,15 +488,20 @@ export async function overrideOnboardingReady(input: {
   if (supabase) {
     const { error } = await supabase.from("kopvast_onboardings").update(patch).eq("id", input.onboardingId);
     if (error) return fail(error.message);
-    return { ok: true as const };
+  } else {
+    const updated = await mutateStore((store) => {
+      const row = store.onboardingChecklists.find((item) => item.id === input.onboardingId);
+      if (!row) return false;
+      Object.assign(row, patch);
+      return true;
+    });
+    if (!updated) return fail("Onboarding niet gevonden.");
   }
-  const updated = await mutateStore((store) => {
-    const row = store.onboardingChecklists.find((item) => item.id === input.onboardingId);
-    if (!row) return false;
-    Object.assign(row, patch);
-    return true;
-  });
-  if (!updated) return fail("Onboarding niet gevonden.");
+  const bundle = await loadOnboardingRecord(input.onboardingId);
+  if (bundle?.onboarding.project_id) {
+    const { markOnboardingCompleteForProject } = await import("@/lib/production-board");
+    await markOnboardingCompleteForProject(bundle.onboarding.project_id, input.actorEmail);
+  }
   return { ok: true as const };
 }
 
