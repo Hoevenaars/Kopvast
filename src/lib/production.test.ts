@@ -16,6 +16,7 @@ import {
   parseChangeRequest,
   productionsByColumn,
   projectStatusForProduction,
+  orderStatusForProduction,
   seedProductionFields,
 } from "./production";
 
@@ -38,6 +39,16 @@ test("projectstatus volgt productiestatus", () => {
   assert.equal(projectStatusForProduction("client_review"), "wacht_op_klant");
   assert.equal(projectStatusForProduction("ready_to_launch"), "opgeleverd");
   assert.equal(projectStatusForProduction("live"), "live");
+});
+
+test("opdrachtstatus volgt productiestatus", () => {
+  assert.equal(orderStatusForProduction("ready_for_production"), "READY_FOR_PRODUCTION");
+  assert.equal(orderStatusForProduction("in_production"), "IN_PRODUCTION");
+  assert.equal(orderStatusForProduction("client_review"), "CLIENT_REVIEW");
+  assert.equal(orderStatusForProduction("changes"), "CHANGES");
+  assert.equal(orderStatusForProduction("approved"), "APPROVED");
+  assert.equal(orderStatusForProduction("ready_to_launch"), "READY_TO_LAUNCH");
+  assert.equal(orderStatusForProduction("live"), "LIVE");
 });
 
 test("klantreview vereist preview-URL en boodschap", () => {

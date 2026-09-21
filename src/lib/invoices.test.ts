@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   addDays,
   billingDraftsForProjects,
+  filterNewBillingDrafts,
   canCancel,
   canMarkInvoiced,
   canMarkPaid,
@@ -50,6 +51,20 @@ test("bereidt NOT_INVOICED voor bij website en recurring bij beheer", () => {
   assert.equal(drafts.recurring[0]?.monthly_amount, 199);
   assert.equal(drafts.recurring[0]?.active, true);
   assert.equal(drafts.recurring[0]?.start_date, "2026-09-16");
+});
+
+test("zaait facturen niet opnieuw voor hetzelfde project", () => {
+  const drafts = billingDraftsForProjects([
+    { id: "p1", organization_id: "o1", type: "website", title: "Kopvast Website" },
+    { id: "p2", organization_id: "o1", type: "beheer", title: "Kopvast Beheer" },
+  ]);
+  const filtered = filterNewBillingDrafts(drafts, {
+    invoices: [{ project_id: "p1" }],
+    recurring: [],
+  });
+  assert.equal(filtered.invoices.length, 0);
+  assert.equal(filtered.recurring.length, 1);
+  assert.equal(filtered.recurring[0]?.project_id, "p2");
 });
 
 test("maatwerk krijgt geen automatisch bedrag", () => {

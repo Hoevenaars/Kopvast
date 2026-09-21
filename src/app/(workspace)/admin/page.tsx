@@ -7,6 +7,7 @@ import { loadAcquisitionDashboard } from "@/lib/acquisition";
 import { workspaceRoutes } from "@/lib/product";
 import { listAdminScoutCaptures } from "@/lib/scout/crm";
 import { SCOUT_STATUS_LABELS } from "@/lib/scout/types";
+import { loadDeliveryTodayActions } from "@/lib/production-board";
 import { loadProposalTodayActions } from "@/lib/proposal-ops";
 import { formatEuro } from "@/lib/sites";
 import { loadBeheerOverview, loadOpenSupportActions } from "@/lib/workspace";
@@ -18,13 +19,14 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminDashboard() {
-  const [data, proposalActions, requestActions, supportActions, beheer, scoutCaptures] = await Promise.all([
+  const [data, proposalActions, requestActions, supportActions, beheer, scoutCaptures, deliveryActions] = await Promise.all([
     loadAcquisitionDashboard(),
     loadProposalTodayActions(),
     loadDueRequestActions(),
     loadOpenSupportActions(),
     loadBeheerOverview(),
     listAdminScoutCaptures(8),
+    loadDeliveryTodayActions(),
   ]);
   const scoutActions = scoutCaptures.map((item) => ({
     title: "Scout-push",
@@ -33,7 +35,7 @@ export default async function AdminDashboard() {
     age: scoutAge(item.created_at),
     href: item.prospect_id ? `${workspaceRoutes.adminAcquisition}/${item.prospect_id}` : workspaceRoutes.adminScout,
   }));
-  const actions = [...scoutActions, ...proposalActions, ...requestActions, ...supportActions, ...data.actions];
+  const actions = [...scoutActions, ...proposalActions, ...requestActions, ...supportActions, ...deliveryActions, ...data.actions];
   const metrics = [
     { key: "prospects" as const, label: "Nieuwe prospects", value: String(data.metrics.prospects), icon: ScanSearch },
     { key: "scans" as const, label: "Scans", value: String(data.metrics.scans), icon: CheckCircle2 },
@@ -92,7 +94,7 @@ export default async function AdminDashboard() {
             <span className="rounded-full bg-ivory px-3 py-1 text-xs font-semibold">{actions.length}</span>
           </div>
           {actions.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-ink/45">Niets dat nu wacht. Nieuwe scans, aanvraagacties, voorstelvragen en support verschijnen hier.</p>
+            <p className="px-5 py-6 text-sm text-ink/45">Niets dat nu wacht. Nieuwe scans, aanvraagacties, voorstelvragen, productie, opdrachten en support verschijnen hier.</p>
           ) : (
             <div className="divide-y divide-ink/6">
               {actions.map((action) => (

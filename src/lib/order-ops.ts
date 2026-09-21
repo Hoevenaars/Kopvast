@@ -203,9 +203,13 @@ async function deliveryLinks(organizationId: string): Promise<{
     (item) => item.organization_id === organizationId && isDeliveryProject(item.type)
   );
   if (!project) return { deliveryOnboardingHref: null, productionHref: null };
+  const { loadProductionsForOrganization } = await import("@/lib/production-board");
+  const production = (await loadProductionsForOrganization(organizationId)).find(
+    (item) => item.project_id === project.id
+  );
   return {
     deliveryOnboardingHref: `${workspaceRoutes.adminOrders}/${project.id}/onboarding`,
-    productionHref: workspaceRoutes.adminProductie,
+    productionHref: production ? `${workspaceRoutes.adminProductie}/${production.id}` : workspaceRoutes.adminProductie,
   };
 }
 

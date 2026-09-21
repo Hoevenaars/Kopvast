@@ -1,5 +1,6 @@
 import {
   billingDraftsForProjects,
+  filterNewBillingDrafts,
   canCancel,
   canMarkInvoiced,
   canMarkPaid,
@@ -182,7 +183,11 @@ export async function seedBillingForProjects(
   projects: Array<{ id: string; organization_id: string; type: string; title: string }>
 ) {
   if (!projects.length) return;
-  const drafts = billingDraftsForProjects(projects);
+  const drafts = filterNewBillingDrafts(billingDraftsForProjects(projects), {
+    invoices: await loadInvoices(),
+    recurring: await loadRecurring(),
+  });
+  if (!drafts.invoices.length && !drafts.recurring.length) return;
   const supabase = refreshClient();
   if (supabase) {
     if (drafts.invoices.length) await supabase.from("kopvast_invoices").insert(drafts.invoices);

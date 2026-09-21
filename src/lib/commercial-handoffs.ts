@@ -267,7 +267,11 @@ async function seedDeliveryAfterAccept(input: {
   const { ensureOnboardingsForProjects } = await import("@/lib/onboarding-store");
   const { ensureProductions } = await import("@/lib/production-board");
   const projects = (await loadProjects()).filter((item) => item.organization_id === input.organizationId);
-  if (projects.length) await ensureOnboardingsForProjects(projects);
+  if (projects.length) {
+    await ensureOnboardingsForProjects(projects);
+    const { seedBillingForProjects } = await import("@/lib/billing");
+    await seedBillingForProjects(projects);
+  }
   await ensureProductions();
 
   const nextAction = nextActionAfterAccept(input.orderCreated);

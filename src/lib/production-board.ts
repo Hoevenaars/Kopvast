@@ -11,6 +11,7 @@ import {
   latestApproval,
   liveProductions,
   openChangeCount,
+  orderStatusForProduction,
   parseApproval,
   parseChangeRequest,
   parseLaunchChecks,
@@ -27,8 +28,9 @@ import {
   type ProductionRow,
   type ProductionStatus,
 } from "@/lib/production";
-import { normalizeEmail, type ProjectType } from "@/lib/product";
-import { loadOrganizations, updateOrganization, updateProjectStatus, type OrganizationRow, type ProjectRow } from "@/lib/workspace";
+import { normalizeEmail, workspaceRoutes, type ProjectType } from "@/lib/product";
+import { domainFromWebsite } from "@/lib/sites";
+import { loadOrganizations, updateOrganization, updateProject, updateProjectStatus, type OrganizationRow, type ProjectRow } from "@/lib/workspace";
 import { mutateStore, newId, nowIso, readStore } from "@/lib/workspace-store";
 
 export type ActionErr = { ok: false; message: string };
@@ -302,22 +304,48 @@ async function logActivity(input: {
 }
 
 async function syncProject(production: ProductionRow, status: ProductionStatus) {
-  await updateProjectStatus(production.project_id, projectStatusForProduction(status));
   if (status === "live") {
-    const supabase = refreshClient();
-    const liveAt = nowIso();
-    if (supabase) {
-      await supabase.from("kopvast_projects").update({ status: "live", live_at: liveAt.slice(0, 10) }).eq("id", production.project_id);
-    } else {
-      await mutateStore((store) => {
-        const project = store.projects.find((item) => item.id === production.project_id);
-        if (project) {
-          project.status = "live";
-          project.live_at = liveAt.slice(0, 10);
-        }
-      });
-    }
+    const liveAt = nowIso().slice(0, 10);
+    const productionUrl = production.preview_url || null;
+    await updateProject(production.project_id, {
+      status: "live",
+      live_at: liveAt,
+      preview_url: production.preview_url || undefined,
+      production_url: productionUrl || undefined,
+      primary_domain: domainFromWebsite(productionUrl) || undefined,
+    });
+    return;
   }
+  await updateProjectStatus(production.project_id, projectStatusForProduction(status));
+}
+
+async function syncDeliveryOrder(organizationId: string, status: string, actorEmail: string) {
+  const { loadOrdersForOrganization, updateOrderNextAction, updateOrderStatus } = await import("@/lib/order-ops");
+  const { defaultNextAction, isOrderStatus } = await import("@/lib/orders");
+  const orders = await loadOrdersForOrganization(organizationId);
+  for (const order of orders) {
+    if (order.status === "COMPLETED" || order.status === "ON_HOLD" || order.status === status) continue;
+    await updateOrderStatus({
+      orderId: order.id,
+      status,
+      override: true,
+      actorEmail,
+    }).catch(() => null);
+    if (!isOrderStatus(status)) continue;
+    const next = defaultNextAction(status);
+    await updateOrderNextAction({
+      orderId: order.id,
+      text: next.text,
+      at: next.at,
+      actorEmail,
+    }).catch(() => null);
+  }
+}
+
+async function seedLiveBilling(organizationId: string) {
+  const { seedBillingForProjects } = await import("@/lib/billing");
+  const projects = (await loadProjects()).filter((item) => item.organization_id === organizationId);
+  await seedBillingForProjects(projects);
 }
 
 function nextActionFor(production: ProductionRow, changes: ChangeRequestRow[], approvals: ApprovalRow[]) {
@@ -360,6 +388,7 @@ export async function markOnboardingComplete(id: string, actorEmail: string) {
   });
   if (!result.ok) return result;
   await updateOrganization(detail.organization.id, { status: "active", notes: detail.organization.notes ?? undefined });
+  await syncDeliveryOrder(detail.organization.id, orderStatusForProduction(detail.production.status), actorEmail);
   await logActivity({
     productionId: id,
     organizationId: detail.organization.id,
@@ -381,6 +410,7 @@ export async function startProduction(id: string, actorEmail: string) {
   });
   if (!result.ok) return result;
   await syncProject(detail.production, next);
+  await syncDeliveryOrder(detail.organization.id, orderStatusForProduction(next), actorEmail);
   await logActivity({
     productionId: id,
     organizationId: detail.organization.id,
@@ -408,6 +438,7 @@ export async function sendToClientReview(id: string, input: { previewUrl?: strin
   });
   if (!result.ok) return result;
   await syncProject(detail.production, next);
+  await syncDeliveryOrder(detail.organization.id, orderStatusForProduction(next), actorEmail);
   await logActivity({
     productionId: id,
     organizationId: detail.organization.id,
@@ -474,6 +505,7 @@ export async function createChangeRequest(input: {
     next_action: defaultNextAction("changes", { onboardingComplete: true, openChanges: 1 }),
   });
   await syncProject(detail.production, "changes");
+  await syncDeliveryOrder(input.organizationId, orderStatusForProduction("changes"), input.email);
   await logActivity({
     productionId: input.productionId,
     organizationId: input.organizationId,
@@ -566,6 +598,7 @@ export async function recordApproval(input: {
       next_action: defaultNextAction("approved", { onboardingComplete: true, finalApproved: false }),
     });
     await syncProject(detail.production, "approved");
+    await syncDeliveryOrder(input.organizationId, orderStatusForProduction("approved"), parsed.email);
   } else {
     const checks = { ...detail.production.launch_checks, final_approval: true };
     const next = Object.values(checks).every(Boolean) ? "ready_to_launch" : "approved";
@@ -575,6 +608,7 @@ export async function recordApproval(input: {
       next_action: defaultNextAction(next, { onboardingComplete: true, finalApproved: true, checklistComplete: next === "ready_to_launch" }),
     });
     await syncProject(detail.production, next);
+    await syncDeliveryOrder(input.organizationId, orderStatusForProduction(next), parsed.email);
   }
   await logActivity({
     productionId: input.productionId,
@@ -612,7 +646,10 @@ export async function saveLaunchCheck(id: string, key: string, checked: boolean,
     }),
   });
   if (!result.ok) return result;
-  if (nextStatus !== detail.production.status) await syncProject(detail.production, nextStatus);
+  if (nextStatus !== detail.production.status) {
+    await syncProject(detail.production, nextStatus);
+    await syncDeliveryOrder(detail.organization.id, orderStatusForProduction(nextStatus), actorEmail);
+  }
   await logActivity({
     productionId: id,
     organizationId: detail.organization.id,
@@ -641,9 +678,11 @@ export async function markProductionLive(id: string, actorEmail: string) {
     blockers: null,
   });
   if (!result.ok) return result;
-  await syncProject(detail.production, "live");
+  await syncProject({ ...detail.production, preview_url: detail.production.preview_url }, "live");
   await updateOrganization(detail.organization.id, { status: "active", notes: detail.organization.notes ?? undefined });
   if (detail.production.beheer_sold) await activateBeheer(detail.organization.id, liveAt);
+  await syncDeliveryOrder(detail.organization.id, orderStatusForProduction("live"), actorEmail);
+  await seedLiveBilling(detail.organization.id);
   await logActivity({
     productionId: id,
     organizationId: detail.organization.id,
@@ -687,4 +726,26 @@ export async function productionNotifications() {
       href: `/admin/productie/${item.id}`,
       status: item.status === "ready_to_launch" || item.status === "changes" ? "Actie nodig" : "Productie",
     }));
+}
+
+export async function loadDeliveryTodayActions() {
+  const productionItems = await productionNotifications();
+  const { loadDueOrderActions } = await import("@/lib/order-ops");
+  const orders = await loadDueOrderActions();
+  return [
+    ...productionItems.map((item) => ({
+      title: item.title,
+      company: item.detail,
+      status: item.status,
+      age: "nu",
+      href: item.href,
+    })),
+    ...orders.slice(0, 6).map((order) => ({
+      title: order.next_action || `Opdracht ${order.order_number}`,
+      company: order.customer_name,
+      status: "Actie nodig",
+      age: order.next_action_at?.slice(0, 10) || "nu",
+      href: `${workspaceRoutes.adminOrders}/${order.id}`,
+    })),
+  ];
 }
