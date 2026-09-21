@@ -15,6 +15,8 @@ async function requireCustomer() {
 function revalidateCustomer() {
   revalidatePath(workspaceRoutes.consoleOnboarding);
   revalidatePath(workspaceRoutes.console);
+  revalidatePath(workspaceRoutes.consoleBrand);
+  revalidatePath(workspaceRoutes.consolePages);
 }
 
 export async function saveCustomerOnboardingItem(

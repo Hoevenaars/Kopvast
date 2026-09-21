@@ -11,6 +11,9 @@ test("klant en admin hebben een eigen navigatie op /klant en /admin", () => {
   assert.equal(navigationFor("admin")[0]?.href, "/admin");
   assert.ok(customerNavigation.some((item) => item.href === "/klant/wijzigingen"));
   assert.ok(customerNavigation.some((item) => item.href === "/klant/paginas"));
+  assert.ok(customerNavigation.some((item) => item.href === "/klant/merk"));
+  assert.equal(workspaceRoutes.consoleBrand, "/klant/merk");
+  assert.equal(workspaceRoutes.consolePages, "/klant/paginas");
   assert.ok(customerNavigation.some((item) => item.href === "/klant/goedkeuringen"));
   assert.ok(adminNavigation.some((item) => item.href === "/admin/aanvragen"));
   assert.ok(!adminNavigation.some((item) => item.href === "/admin/leads"));

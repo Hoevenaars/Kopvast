@@ -41,6 +41,8 @@ export const workspaceRoutes = {
   consoleInvoices: "/klant/facturen",
   consoleApprovals: "/klant/goedkeuringen",
   consoleSupport: "/klant/support",
+  consoleBrand: "/klant/merk",
+  consolePages: "/klant/paginas",
   admin: "/admin",
   adminTaken: "/admin/taken",
   adminProspects: "/admin/prospects",
