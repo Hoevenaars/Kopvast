@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 
 const actions: Array<{ title: string; description: string; href: string; icon: ElementType }> = [
   { title: "Onboarding", description: "Lever gegevens en bestanden aan.", href: workspaceRoutes.consoleOnboarding, icon: ClipboardCheck },
-  { title: "Tekst aanpassen", description: "Wijzig teksten op je website.", href: "/klant/paginas", icon: FilePenLine },
+  { title: "Tekst aanpassen", description: "Wijzig teksten op je website.", href: workspaceRoutes.consolePages, icon: FilePenLine },
   { title: "Afbeelding vervangen", description: "Beheer foto's en afbeeldingen.", href: workspaceRoutes.consoleFiles, icon: ImageIcon },
   {
     title: "Support / wijziging aanvragen",
@@ -27,7 +27,7 @@ const actions: Array<{ title: string; description: string; href: string; icon: E
     href: workspaceRoutes.consoleSupport,
     icon: LifeBuoy,
   },
-  { title: "Mijn merk", description: "Bekijk kleuren, logo's en bestanden.", href: "/klant/merk", icon: Palette },
+  { title: "Mijn merk", description: "Bekijk kleuren, logo's en bestanden.", href: workspaceRoutes.consoleBrand, icon: Palette },
 ];
 
 export default async function CustomerDashboard() {
