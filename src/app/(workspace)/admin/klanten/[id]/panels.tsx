@@ -477,11 +477,11 @@ export function InvoicesPanel({ dossier }: { dossier: CustomerDossier }) {
         <h2 className="text-lg font-semibold md:col-span-2">Factuur registreren</h2>
         <input name="title" required placeholder="Omschrijving" className={fieldClass} />
         <input name="number" placeholder="Nummer" className={fieldClass} />
-        <input name="amountLabel" placeholder="Bedrag" className={fieldClass} />
+        <input name="amountLabel" required placeholder="Bedrag ex btw" className={fieldClass} />
         <SubmitButton className="text-sm font-semibold underline underline-offset-4">Opslaan</SubmitButton>
       </form>
       {dossier.invoices.length === 0 ? (
-        <EmptyState title="Nog geen facturen" text="Registreer een factuur in het dossier. Betaalkoppeling volgt later." />
+        <EmptyState title="Nog geen facturen" text="Registreer een factuur. Die verschijnt ook onder Facturatie en op Vandaag." />
       ) : (
         <ul className="space-y-3">
           {dossier.invoices.map((invoice) => (
@@ -491,6 +491,9 @@ export function InvoicesPanel({ dossier }: { dossier: CustomerDossier }) {
                 <p className="text-sm text-ink/45">
                   {[invoice.number, invoice.amount_label].filter(Boolean).join(" · ") || "Geen bedrag"}
                 </p>
+                <Link href={`${workspaceRoutes.adminInvoices}/${invoice.id}`} className="mt-2 inline-block text-sm underline underline-offset-4">
+                  Open factuur
+                </Link>
               </div>
               <form action={saveInvoiceStatus} className="flex items-center gap-3">
                 <input type="hidden" name="id" value={invoice.id} />

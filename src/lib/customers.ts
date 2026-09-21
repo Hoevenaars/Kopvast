@@ -76,7 +76,7 @@ export const ACTIVE_PROJECT_STATUSES = ["voorbereiding", "in_uitvoering", "wacht
 export const LIVE_PROJECT_STATUSES = ["live"] as const;
 export const OPEN_REQUEST_STATUSES = ["nieuw", "in_behandeling", "wacht_op_klant"] as const;
 export const OPEN_SUPPORT_STATUSES = ["open", "in_behandeling", "wacht_op_klant"] as const;
-export const OPEN_INVOICE_STATUSES = ["concept", "verstuurd"] as const;
+export const OPEN_INVOICE_STATUSES = ["concept", "verstuurd", "vervallen"] as const;
 export const OPEN_PROPOSAL_STATUSES = ["concept", "verstuurd"] as const;
 export const BEHEER_ACTIVE_STATUSES = ["voorbereiding", "in_uitvoering", "wacht_op_klant", "opgeleverd", "live"] as const;
 

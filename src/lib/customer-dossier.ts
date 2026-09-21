@@ -21,12 +21,14 @@ import {
   type ProposalStatus,
   type SupportRow,
 } from "@/lib/customers";
+import { displayInvoiceStatus, formatEuro, isStoredInvoiceStatus, parseAmountInput } from "@/lib/invoices";
 import {
   isProjectType,
   normalizeEmail,
   type ProjectType,
 } from "@/lib/product";
 import { refreshClient } from "@/lib/refresh";
+import { parseEuroAmount } from "@/lib/sites";
 import {
   defaultProjectsForLead,
   emptyProjectFields,
@@ -173,6 +175,45 @@ async function loadWrProposals(organizationId?: string, inboundLeadId?: string |
   }
   const { data } = await query;
   return ((data ?? []) as Array<Record<string, unknown>>).map(mapLiveToDossierProposal);
+}
+
+function mapBillingToDossierInvoice(row: {
+  id: string;
+  organization_id: string;
+  project_id: string | null;
+  description: string;
+  amount_ex_vat: number;
+  status: string;
+  invoice_number: string | null;
+  invoice_date: string | null;
+  due_date: string | null;
+  created_at: string;
+}): InvoiceRow {
+  const stored = isStoredInvoiceStatus(row.status) ? row.status : "NOT_INVOICED";
+  const display = displayInvoiceStatus({ status: stored, due_date: row.due_date });
+  const status: InvoiceRow["status"] =
+    display === "PAID" ? "betaald" : display === "OVERDUE" ? "vervallen" : display === "INVOICED" ? "verstuurd" : "concept";
+  return {
+    id: row.id,
+    organization_id: row.organization_id,
+    project_id: row.project_id,
+    number: row.invoice_number,
+    title: row.description,
+    amount_label: formatEuro(row.amount_ex_vat),
+    status,
+    issued_at: row.invoice_date,
+    due_at: row.due_date,
+    created_at: row.created_at,
+  };
+}
+
+async function loadDossierInvoices(organizationId?: string): Promise<InvoiceRow[]> {
+  const { loadInvoices } = await import("@/lib/billing");
+  const rows = await loadInvoices();
+  return rows
+    .filter((item) => item.status !== "CANCELLED")
+    .filter((item) => !organizationId || item.organization_id === organizationId)
+    .map(mapBillingToDossierInvoice);
 }
 
 async function loadProposal(id: string) {
@@ -802,24 +843,22 @@ export async function addCustomerInvoice(input: {
 }) {
   const title = input.title.trim();
   if (title.length < 3) return fail("Geef een factuurtitel.");
-  const row = {
-    organization_id: input.organizationId,
-    project_id: null as string | null,
-    number: input.number?.trim() || null,
-    title,
-    amount_label: input.amountLabel?.trim() || null,
-    status: "concept" as const,
-    issued_at: null as string | null,
-    due_at: null as string | null,
-  };
-  const supabase = refreshClient();
-  if (supabase) {
-    const { error } = await supabase.from("kopvast_invoices").insert(row);
-    if (error) return fail(error.message);
-  } else {
-    await mutateStore((store) => {
-      store.customerInvoices.unshift({ ...row, id: newId(), created_at: nowIso() });
+  const euros = parseEuroAmount(input.amountLabel) ?? parseAmountInput(input.amountLabel ?? "");
+  if (euros == null) return fail("Vul een bedrag ex btw in.");
+  const { createInvoice, saveInvoiceDetails } = await import("@/lib/billing");
+  const created = await createInvoice({
+    organizationId: input.organizationId,
+    description: title,
+    amount: String(euros),
+  });
+  if (!created.ok) return created;
+  const invoiceNumber = input.number?.trim();
+  if (invoiceNumber) {
+    const saved = await saveInvoiceDetails(created.id, {
+      description: title,
+      invoiceNumber,
     });
+    if (!saved.ok) return saved;
   }
   await logActivity({
     organizationId: input.organizationId,
@@ -827,8 +866,9 @@ export async function addCustomerInvoice(input: {
     eventType: "INVOICE_CREATED",
     title,
     actorEmail: input.actorEmail,
+    relatedId: created.id,
   });
-  return { ok: true as const };
+  return { ok: true as const, invoiceId: created.id };
 }
 
 export async function updateSupportStatus(id: string, status: string) {
@@ -851,17 +891,20 @@ export async function updateSupportStatus(id: string, status: string) {
 
 export async function updateInvoiceStatus(id: string, status: string) {
   if (!isInvoiceStatus(status)) return fail("Onbekende status.");
-  const supabase = refreshClient();
-  if (supabase) {
-    const { error } = await supabase.from("kopvast_invoices").update({ status }).eq("id", id);
-    if (error) return fail(error.message);
+  const { loadInvoices, markInvoiceInvoiced, markInvoicePaid } = await import("@/lib/billing");
+  const invoice = (await loadInvoices()).find((item) => item.id === id);
+  if (!invoice) return fail("Factuur niet gevonden.");
+  if (status === "concept") return { ok: true as const };
+  if (status === "verstuurd" || status === "vervallen") {
+    if (invoice.status === "NOT_INVOICED") return markInvoiceInvoiced(id);
     return { ok: true as const };
   }
-  await mutateStore((store) => {
-    const row = store.customerInvoices.find((item) => item.id === id);
-    if (row) row.status = status;
-  });
-  return { ok: true as const };
+  if (invoice.status === "NOT_INVOICED") {
+    const invoiced = await markInvoiceInvoiced(id);
+    if (!invoiced.ok) return invoiced;
+  }
+  if (invoice.status === "PAID") return { ok: true as const };
+  return markInvoicePaid(id);
 }
 
 async function loadTable<T>(table: string, organizationId?: string): Promise<T[]> {
@@ -960,7 +1003,7 @@ export async function loadCustomerList(input: { filter: CustomerFilter; q?: stri
     loadAllProjects(),
     loadAllRequests(),
     loadWrProposals(),
-    loadTable<InvoiceRow>("kopvast_invoices"),
+    loadDossierInvoices(),
     loadTable<SupportRow>("kopvast_support"),
     loadOpenCustomerReviews(),
     loadOpenTodos(),
@@ -998,7 +1041,7 @@ export async function loadCustomerDossier(organizationId: string): Promise<Custo
   const [leads, proposals, invoices, notes, support, activity, reviews, brandRows, todos] = await Promise.all([
     loadLeads(),
     loadWrProposals(organizationId, workspace.organization.inbound_lead_id),
-    loadTable<InvoiceRow>("kopvast_invoices", organizationId),
+    loadDossierInvoices(organizationId),
     loadTable<NoteRow>("kopvast_notes", organizationId),
     loadTable<SupportRow>("kopvast_support", organizationId),
     loadTable<ActivityRow>("kopvast_activity", organizationId),
