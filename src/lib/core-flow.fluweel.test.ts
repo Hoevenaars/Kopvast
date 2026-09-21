@@ -14,6 +14,7 @@ import {
 } from "./production-board";
 import { acceptProposal, createProposal, loadProposal, sendProposal } from "./proposal-ops";
 import type { ProposalDraftInput } from "./proposals";
+import { loadOrderDetail } from "./order-ops";
 import { createCustomerRequest, loadOrganizations } from "./workspace";
 import { readStore, withIsolatedStore } from "./workspace-store";
 
@@ -122,6 +123,14 @@ test("Fluweel-keten: akkoord tot factuur, beheer en support", async () => {
 
     const due = await loadDueInvoiceActions();
     assert.ok(due.some((item) => item.title === "Factuur sturen" && item.company === "Fluweel Events"));
+
+    const orderDetail = await loadOrderDetail(handoff.orderId ?? afterAccept.orders[0]!.id);
+    assert.ok(orderDetail, "opdracht mag na akkoord worden geopend");
+    assert.ok((orderDetail.onboarding?.progress.length ?? 0) > 5, "opdracht toont de projectchecklist, niet de oude orderstappen");
+    assert.equal(orderDetail.invoices.length, 1);
+    assert.equal(orderDetail.invoices[0]?.amount, 1495);
+    assert.ok(orderDetail.deliveryOnboardingHref?.includes("/onboarding"));
+    assert.equal(afterAccept.onboardings.length, 0);
 
     const againHandoff = await afterProposalAccepted(created.id);
     mustOk(againHandoff, "tweede handoff");

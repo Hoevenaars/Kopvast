@@ -6,7 +6,6 @@ import { requireSession } from "@/lib/auth";
 import { workspaceRoutes } from "@/lib/product";
 import {
   createOrderFromAgreement,
-  updateOnboardingProgress,
   updateOrderNextAction,
   updateOrderPlanning,
   updateOrderStatus,
@@ -81,17 +80,6 @@ export async function savePlanning(formData: FormData) {
     targetLiveAt: String(formData.get("targetLiveAt") ?? ""),
     productionNotes: String(formData.get("productionNotes") ?? ""),
     reviewNotes: String(formData.get("reviewNotes") ?? ""),
-    actorEmail: session.email,
-  });
-  refreshOrder(id);
-}
-
-export async function saveOnboarding(formData: FormData) {
-  const session = await guard();
-  const id = String(formData.get("id") ?? "");
-  await updateOnboardingProgress({
-    orderId: id,
-    doneIds: formData.getAll("done").map((item) => String(item)),
     actorEmail: session.email,
   });
   refreshOrder(id);
