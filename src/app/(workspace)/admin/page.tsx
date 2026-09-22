@@ -131,7 +131,7 @@ export default async function AdminDashboard() {
           </div>
           <div className="mt-8 space-y-5">
             <AutomationMetric label="Open support" value={String(supportActions.length)} warning={supportActions.length > 0} />
-            <AutomationMetric label="Beheer-MRR" value={formatEuro(beheer.summary.mrr)} />
+            <AutomationMetric label="MRR" value={formatEuro(beheer.summary.mrr)} />
             <AutomationMetric label="Errors" value={String(data.metrics.errors)} warning={data.metrics.errors > 0} />
           </div>
         </section>

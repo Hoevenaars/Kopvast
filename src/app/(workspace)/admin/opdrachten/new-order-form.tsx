@@ -5,6 +5,7 @@ import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy"
 import { Field, areaClass, fieldClass } from "@/components/form-fields";
 import { projectTypes } from "@/lib/product";
 import { productDefaults } from "@/lib/orders";
+import { commercialPriceLabel, getProduct } from "@/lib/products";
 
 type State = { message?: string } | null;
 
@@ -97,7 +98,7 @@ export function NewOrderForm({
       </div>
       <label className="flex items-center gap-2 text-sm text-ink">
         <input type="checkbox" name="includeRecurringBeheer" defaultChecked={defaults.productType === "website"} />
-        Kopvast Beheer meenemen (€199 per maand)
+        Kopvast Beheer meenemen ({commercialPriceLabel(getProduct("managed")!)})
       </label>
       <Field id="scope" label="Scope">
         <textarea

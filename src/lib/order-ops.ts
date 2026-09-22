@@ -393,8 +393,27 @@ export async function loadOrderDetail(id: string): Promise<OrderDetail | null> {
 
 function projectSpec(type: ProjectType, order: OrderRow) {
   if (type === "website") return defaultProjectsForLead("website").find((item) => item.type === "website")!;
-  if (type === "beheer") return defaultProjectsForLead("website").find((item) => item.type === "beheer")!;
+  if (type === "beheer") {
+    const base = defaultProjectsForLead("website").find((item) => item.type === "beheer")!;
+    const amount = order.recurring_price_amount ?? base.monthly_amount;
+    return {
+      ...base,
+      monthly_amount: amount,
+      price_label: order.recurring_price_label || (amount != null ? priceLabel(amount, productDefaults("beheer").cadence) : base.price_label),
+      status: "voorbereiding" as const,
+    };
+  }
   if (type === "maatwerk") return defaultProjectsForLead("maatwerk")[0]!;
+  if (!isOrderProductType(type)) {
+    return {
+      type,
+      title: order.product_label || type,
+      status: "voorbereiding" as const,
+      price_label: order.agreed_price_label,
+      summary: order.scope,
+      ...emptyProjectFields(),
+    };
+  }
   const defaults = productDefaults(type);
   return {
     type,
@@ -407,22 +426,30 @@ function projectSpec(type: ProjectType, order: OrderRow) {
 }
 
 export async function ensureProjectsForOrder(organizationId: string, order: OrderRow) {
-  const selected = neededProjectTypes(order).map((type) => projectSpec(type, order));
+  const { isRecurringServiceType } = await import("@/lib/products");
   const supabase = refreshClient();
   if (supabase) {
     const { data } = await supabase.from("kopvast_projects").select("type").eq("organization_id", organizationId);
-    const existing = new Set((data ?? []).map((item) => item.type));
-    const insert = selected.filter((project) => !existing.has(project.type)).map((project) => ({
-      ...project,
-      organization_id: organizationId,
-    }));
+    const existing = new Set((data ?? []).map((item) => String(item.type)));
+    const hasRecurring = [...existing].some((type) => isRecurringServiceType(type));
+    const insert = neededProjectTypes(order)
+      .filter((type) => !(isRecurringServiceType(type) && hasRecurring))
+      .filter((type) => !existing.has(type))
+      .map((type) => projectSpec(type, order))
+      .map((project) => ({
+        ...project,
+        organization_id: organizationId,
+      }));
     if (insert.length) await supabase.from("kopvast_projects").insert(insert);
     return;
   }
   await mutateStore((store) => {
     const existing = new Set(store.projects.filter((item) => item.organization_id === organizationId).map((item) => item.type));
-    for (const project of selected) {
-      if (existing.has(project.type)) continue;
+    const hasRecurring = [...existing].some((type) => isRecurringServiceType(type));
+    for (const type of neededProjectTypes(order)) {
+      if (existing.has(type)) continue;
+      if (isRecurringServiceType(type) && hasRecurring) continue;
+      const project = projectSpec(type, order);
       store.projects.push({
         ...project,
         id: newId(),
@@ -714,8 +741,8 @@ export async function createOrderFromAgreement(input: CreateAgreementInput): Pro
     price_label: null,
     price_cadence: defaults.cadence,
     include_recurring_beheer: includeRecurring,
-    recurring_price_amount: includeRecurring ? 199 : null,
-    recurring_price_label: includeRecurring ? priceLabel(199, productDefaults("beheer").cadence) : null,
+    recurring_price_amount: includeRecurring ? productDefaults("beheer").amount : null,
+    recurring_price_label: includeRecurring ? priceLabel(productDefaults("beheer").amount, productDefaults("beheer").cadence) : null,
     scope: (input.scope ?? "").trim() || defaults.label,
     snapshot: {},
     accepted_at: now,

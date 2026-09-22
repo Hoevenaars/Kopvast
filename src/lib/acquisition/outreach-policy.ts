@@ -1,3 +1,4 @@
+import { formatPrice, getAcquisitionOffer, getProduct } from "@/lib/products";
 import { products } from "@/lib/site";
 import type { ProductFit } from "@/lib/acquisition-constants";
 import {
@@ -20,9 +21,12 @@ export const PERSONAL_APPROACH_MAIL_RULES = [
   "Onderwerp blijft: Even gekeken naar [domein].",
 ] as const;
 
+const listPrice = formatPrice(getProduct("website_standard")?.priceExVat);
+const offerPrice = formatPrice(getAcquisitionOffer("regional_acquisition_offer")?.offerPriceExVat);
+
 export const PERSONAL_APPROACH_DISCOUNT_RULES = [
-  "Alleen bij een standaard website-fit. Maatwerk of geen fit krijgt geen automatische €995.",
-  "Normale prijs blijft €1.495 excl. btw. De korting is €995 excl. btw — nooit “vanaf €995”.",
+  `Alleen bij een standaard website-fit. Maatwerk of geen fit krijgt geen automatische ${offerPrice}.`,
+  `Normale prijs blijft ${listPrice} excl. btw. De korting is ${offerPrice} excl. btw — nooit “vanaf ${offerPrice}”.`,
   "Geografisch, in deze volgorde: Groesbeek, eigen gemeente Berg en Dal, regio Nijmegen.",
   "Inhoudelijk alleen met hard bewijs van de website: erfgoed, lokale bijdrage, toerisme, cultuur, sterke Kopvast-case, lokaal ondernemerschap of een kleine sterke organisatie.",
   "Maximaal één geografische en één inhoudelijke reden. Geen reden verzinnen. Zonder reden geen automatische korting.",
@@ -128,7 +132,7 @@ export function explainOutreachOffer(input: {
     return {
       title: "Kopvast Website met persoonlijke korting",
       text: offer.offerParagraph,
-      price: "€995 excl. btw in plaats van €1.495",
+      price: `${formatPrice(offer.offerPrice)} excl. btw in plaats van ${formatPrice(offer.normalPrice)}`,
       eligible: true,
       reasonLines: offer.reasonLines,
       reasonLabels,

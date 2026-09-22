@@ -17,9 +17,11 @@ import {
   type ProposalVersionRow,
 } from "@/lib/proposals";
 import { proposalValidityDefault } from "@/lib/terms";
+import { getProduct, priceInputValue, proposalLineFromProduct, proposalProductChoices } from "@/lib/products";
 
 type EditorLine = {
   key: string;
+  productId?: string;
   kind: "scope" | "recurring";
   title: string;
   description: string;
@@ -48,6 +50,7 @@ function parsedLines(lines: EditorLine[]) {
       const unitPriceCents = parseMoneyToCents(line.unitPrice || "0");
       if (!line.title.trim() || quantity == null || unitPriceCents == null) return null;
       return {
+        ...(line.productId ? { productId: line.productId } : {}),
         kind: line.kind,
         title: line.title,
         description: line.description,
@@ -149,9 +152,49 @@ export function ProposalEditor({
         </Field>
       </section>
 
+      {locked ? null : (
+        <section className="rounded-2xl border border-ink/10 bg-white p-5 md:p-6">
+          <label htmlFor="add-product" className="text-sm font-medium text-ink">
+            Product toevoegen
+          </label>
+          <select
+            id="add-product"
+            className={`${fieldClass} mt-2`}
+            defaultValue=""
+            onChange={(event) => {
+              const product = getProduct(event.target.value);
+              event.target.value = "";
+              if (!product) return;
+              const line = proposalLineFromProduct(product);
+              const draft: EditorLine = {
+                key: crypto.randomUUID(),
+                productId: line.productId,
+                kind: line.kind,
+                title: line.title,
+                description: line.description,
+                quantity: String(line.quantity),
+                unitPrice: priceInputValue(line.unitPriceCents / 100),
+              };
+              if (line.kind === "recurring") setRecurringLines((current) => [...current, draft]);
+              else setScopeLines((current) => [...current, draft]);
+            }}
+          >
+            <option value="">Kies een product</option>
+            {proposalProductChoices().map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-sm text-olive">
+            De catalogusprijs wordt ingevuld en blijft aanpasbaar. Hosting is een vanaf-prijs.
+          </p>
+        </section>
+      )}
+
       <section className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5 md:p-6">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-semibold">Scope</h2>
+          <h2 className="font-semibold">Eenmalig</h2>
           {locked ? null : (
             <button
               type="button"
@@ -172,31 +215,35 @@ export function ProposalEditor({
 
       <section className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5 md:p-6">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-semibold">Beheer (optioneel)</h2>
+          <h2 className="font-semibold">Doorlopend</h2>
           {locked ? null : (
             <button
               type="button"
               className="text-sm underline underline-offset-4"
-              onClick={() =>
+              onClick={() => {
+                const managed = getProduct("managed");
+                if (!managed) return;
+                const line = proposalLineFromProduct(managed);
                 setRecurringLines((current) => [
                   ...current,
                   {
                     key: crypto.randomUUID(),
+                    productId: line.productId,
                     kind: "recurring",
-                    title: "Kopvast Beheer",
-                    description: "",
+                    title: line.title,
+                    description: line.description,
                     quantity: "1",
-                    unitPrice: "199",
+                    unitPrice: priceInputValue(line.unitPriceCents / 100),
                   },
-                ])
-              }
+                ]);
+              }}
             >
-              Beheerregel toevoegen
+              Beheer toevoegen
             </button>
           )}
         </div>
         {recurringLines.length ? <LineFields lines={recurringLines} onChange={setRecurringLines} locked={locked} /> : (
-          <p className="text-sm text-olive">Geen maandelijks onderdeel. Voeg er een toe als beheer in het voorstel hoort.</p>
+          <p className="text-sm text-olive">Geen maandelijks onderdeel. Voeg hosting of beheer toe als dat in het voorstel hoort.</p>
         )}
       </section>
 
@@ -240,7 +287,7 @@ export function ProposalEditor({
           </div>
           {totals.recurringMonthlyCents > 0 ? (
             <div className="flex justify-between gap-4">
-              <dt className="text-olive">Beheer per maand excl. btw</dt>
+              <dt className="text-olive">Doorlopend per maand excl. btw</dt>
               <dd>{formatEuro(totals.recurringMonthlyCents)}</dd>
             </div>
           ) : null}

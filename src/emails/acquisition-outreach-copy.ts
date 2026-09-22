@@ -4,6 +4,7 @@ import {
   acquisitionChoiceUrls,
   offerPriceFromParagraph,
 } from "@/lib/acquisition-start";
+import { acquisitionOfferLeadSentences, standardWebsitePriceSentence } from "@/lib/products";
 import { site } from "@/lib/site";
 
 export type AcquisitionOutreachFinding = {
@@ -53,7 +54,7 @@ export const DEFAULT_FINDING_2: AcquisitionOutreachFinding = {
 export const DEFAULT_OPENING_OBSERVATION = (who: string) =>
   `${who} heeft duidelijk meer karakter dan er nu online uitkomt.`;
 
-export const STANDARD_PRICE_PARAGRAPH = "Een complete Kopvast Website kost €1.495 excl. btw.";
+export const STANDARD_PRICE_PARAGRAPH = standardWebsitePriceSentence();
 
 export type ResolvedAcquisitionOutreachProps = Required<
   Pick<
@@ -78,13 +79,8 @@ function firstUrl(value?: string): string | undefined {
 }
 
 export function buildOfferParagraph(specialOfferReason: string) {
-  return [
-    "Een complete Kopvast Website kost normaal €1.495 excl. btw.",
-    "Voor jullie maak ik daar €995 excl. btw. van.",
-    specialOfferReason,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const sentences = acquisitionOfferLeadSentences();
+  return [sentences.normal, sentences.offer, specialOfferReason].filter(Boolean).join(" ");
 }
 
 export function validateOfferParagraph(value: string) {

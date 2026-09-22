@@ -84,6 +84,13 @@ export const projectTypes = [
   { value: "maatwerk", label: "Maatwerk" },
 ] as const;
 
+export const serviceProjectTypes = [
+  { value: "hosting", label: "Kopvast Hosting" },
+  { value: "hosting_plus", label: "Kopvast Hosting Plus" },
+] as const;
+
+export const allProjectTypes = [...projectTypes, ...serviceProjectTypes] as const;
+
 export const projectStatuses = [
   { value: "voorbereiding", label: "Voorbereiding" },
   { value: "in_uitvoering", label: "In uitvoering" },
@@ -146,7 +153,9 @@ export const leadStatuses = [
 ] as const;
 
 export type OrganizationStatus = (typeof organizationStatuses)[number]["value"];
-export type ProjectType = (typeof projectTypes)[number]["value"];
+export type ProjectType =
+  | (typeof projectTypes)[number]["value"]
+  | (typeof serviceProjectTypes)[number]["value"];
 export type ProjectStatus = (typeof projectStatuses)[number]["value"];
 export type BeheerStatus = (typeof beheerStatuses)[number]["value"];
 export type RequestType = (typeof requestTypes)[number]["value"];
@@ -179,7 +188,7 @@ export function isBeheerStatus(value: string): value is BeheerStatus {
 }
 
 export function isProjectType(value: string): value is ProjectType {
-  return projectTypes.some((item) => item.value === value);
+  return allProjectTypes.some((item) => item.value === value);
 }
 
 export function isProjectStatus(value: string): value is ProjectStatus {

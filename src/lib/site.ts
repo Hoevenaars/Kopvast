@@ -1,3 +1,17 @@
+import { commercialPriceLabel, formatPrice, getProduct, priceCadence } from "@/lib/products";
+
+function catalogDisplay(id: string) {
+  const product = getProduct(id);
+  if (!product) throw new Error(`Onbekend product ${id}`);
+  return {
+    name: product.name,
+    price: formatPrice(product.priceExVat),
+    cadence: priceCadence(product),
+    summary: product.description ?? "",
+    priceLabel: commercialPriceLabel(product),
+  };
+}
+
 export const site = {
   name: "Kopvast",
   tagline: "Scherp denken. Sterk uitvoeren.",
@@ -47,35 +61,18 @@ export const cta = {
   refresh: { href: `${routes.merk}#merkrefresh`, label: "Bekijk de merkrefresh" },
 };
 
+const websiteProduct = catalogDisplay("website_standard");
+
 export const products = {
   website: {
-    name: "Kopvast Website",
-    price: "€1.495",
-    priceLabel: "vanaf €1.495",
-    cadence: "eenmalig, excl. btw",
-    summary:
-      "Een professionele website met maximaal zes kernpagina’s, een herkenbare uitstraling en duidelijke contactmogelijkheden.",
+    ...websiteProduct,
+    priceLabel: `vanaf ${websiteProduct.price}`,
   },
-  beheer: {
-    name: "Kopvast Beheer",
-    price: "€199",
-    cadence: "per maand, excl. btw",
-    summary:
-      "Je website blijft technisch gezond, actueel en bruikbaar. Wij houden de basis op orde en zorgen dat kleine wijzigingen niet blijven liggen.",
-  },
-  merkrefresh: {
-    name: "Kopvast Merkrefresh",
-    price: "€995",
-    cadence: "eenmalig, excl. btw",
-    summary:
-      "We behouden wat herkenbaar is en verbeteren wat beter kan. Geen onnodige rebranding, maar een sterkere en consistenter toepasbare uitstraling.",
-  },
-  sjablonen: {
-    name: "Sjablonenpakket",
-    price: "€495",
-    cadence: "eenmalig, excl. btw",
-    summary: "Offertes, presentaties, social formats, flyers en e-mailhandtekening in één herkenbare lijn.",
-  },
+  hosting: catalogDisplay("hosting"),
+  hostingPlus: catalogDisplay("hosting_plus"),
+  beheer: catalogDisplay("managed"),
+  merkrefresh: catalogDisplay("merkrefresh"),
+  sjablonen: catalogDisplay("templates"),
 };
 
 export const includedWebsite = [
@@ -91,16 +88,9 @@ export const includedWebsite = [
   "technische oplevercontrole",
 ];
 
-export const includedBeheer = [
-  "hosting",
-  "monitoring",
-  "technisch onderhoud",
-  "backups",
-  "formuliercontrole",
-  "twee kleine wijzigingen per maand",
-  "periodieke websitecontrole",
-  "toegang tot merkassets en bestanden",
-];
+export const includedHosting = [...(getProduct("hosting")?.includes ?? [])];
+
+export const includedBeheer = [...(getProduct("managed")?.includes ?? [])];
 
 export const merkRefreshItems = [
   "kleuren",

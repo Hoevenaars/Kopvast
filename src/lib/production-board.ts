@@ -31,7 +31,6 @@ import {
 import { normalizeEmail, workspaceRoutes, type ProjectType } from "@/lib/product";
 import { domainFromWebsite } from "@/lib/sites";
 import { COMMERCIAL_EVENTS, nextActionAfterLive } from "@/lib/commercial";
-import { defaultBeheerAmount } from "@/lib/sites";
 import { appendOrgActivity, loadOrganizations, updateOrganization, updateProject, updateProjectStatus, type OrganizationRow, type ProjectRow } from "@/lib/workspace";
 import { mutateStore, newId, nowIso, readStore } from "@/lib/workspace-store";
 
@@ -711,48 +710,66 @@ export async function markProductionLive(id: string, actorEmail: string) {
 
 async function ensureBeheerAfterLive(organizationId: string, liveAt: string, actorEmail: string) {
   const { ensureProjectsForOrder, loadOrdersForOrganization } = await import("@/lib/order-ops");
+  const { isRecurringServiceType } = await import("@/lib/products");
   const orders = await loadOrdersForOrganization(organizationId);
   for (const order of orders) {
     if (order.include_recurring_beheer) await ensureProjectsForOrder(organizationId, order);
   }
-  const sold = orders.some((order) => order.include_recurring_beheer);
-  const hasBeheer = (await loadProjects()).some((item) => item.organization_id === organizationId && item.type === "beheer");
-  if (!sold && !hasBeheer) return false;
-  if (!hasBeheer) return false;
-  await activateBeheer(organizationId, liveAt);
-  await appendOrgActivity({
-    organizationId,
-    source: "website",
-    eventType: COMMERCIAL_EVENTS.MANAGEMENT_STARTED,
-    title: "Beheer actief",
-    detail: "Terugkerend beheer gestart bij livegang",
-    actorEmail,
-  });
+  const recurring = (await loadProjects()).filter(
+    (item) => item.organization_id === organizationId && isRecurringServiceType(item.type)
+  );
+  if (!recurring.length) return false;
+  await activateRecurringForOrganization(organizationId, liveAt);
+  const startedBeheer = recurring.some((item) => item.type === "beheer" && item.status !== "opgezegd" && item.status !== "gepauzeerd");
+  if (startedBeheer) {
+    await appendOrgActivity({
+      organizationId,
+      source: "website",
+      eventType: COMMERCIAL_EVENTS.MANAGEMENT_STARTED,
+      title: "Beheer actief",
+      detail: "Terugkerend beheer gestart bij livegang",
+      actorEmail,
+    });
+  }
   return true;
 }
 
-async function activateBeheer(organizationId: string, liveAt: string) {
+export async function activateRecurringForOrganization(organizationId: string, liveAt: string) {
   const date = liveAt.slice(0, 10);
-  const monthly = defaultBeheerAmount();
+  const { isRecurringServiceType, recurringAmountForProjectType, recurringLivePatch } = await import("@/lib/products");
   const supabase = refreshClient();
   if (supabase) {
-    await supabase
+    const { data } = await supabase
       .from("kopvast_projects")
-      .update({ status: "live", live_at: date, started_at: date, monthly_amount: monthly })
-      .eq("organization_id", organizationId)
-      .eq("type", "beheer");
-    return;
-  }
-  await mutateStore((store) => {
-    for (const project of store.projects) {
-      if (project.organization_id === organizationId && project.type === "beheer") {
-        project.status = "live";
-        project.live_at = date;
-        project.started_at = project.started_at || date;
-        project.monthly_amount = project.monthly_amount ?? monthly;
-      }
+      .select("id, type, status, monthly_amount, started_at, live_at")
+      .eq("organization_id", organizationId);
+    for (const row of data ?? []) {
+      const project = {
+        type: String(row.type),
+        status: String(row.status),
+        monthly_amount: row.monthly_amount == null ? null : Number(row.monthly_amount),
+        started_at: row.started_at ? String(row.started_at) : null,
+        live_at: row.live_at ? String(row.live_at) : null,
+      };
+      const patch = recurringLivePatch(project, date, recurringAmountForProjectType(project.type));
+      if (!patch) continue;
+      await supabase.from("kopvast_projects").update(patch).eq("id", row.id);
     }
-  });
+  } else {
+    await mutateStore((store) => {
+      for (const project of store.projects) {
+        if (project.organization_id !== organizationId || !isRecurringServiceType(project.type)) continue;
+        const patch = recurringLivePatch(project, date, recurringAmountForProjectType(project.type));
+        if (!patch) continue;
+        project.status = patch.status;
+        project.live_at = patch.live_at;
+        project.started_at = patch.started_at;
+        project.monthly_amount = patch.monthly_amount;
+      }
+    });
+  }
+  const { activateRecurringBilling } = await import("@/lib/billing");
+  await activateRecurringBilling(organizationId, date);
 }
 
 export async function productionNotifications() {

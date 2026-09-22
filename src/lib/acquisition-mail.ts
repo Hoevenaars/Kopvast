@@ -14,6 +14,7 @@ import {
   isContentOfferReason,
   type OfferEvidence,
 } from "./acquisition/special-offer-rules";
+import { formatPrice, REGIONAL_ACQUISITION_PRICE_EX_VAT, standardWebsitePriceSentence } from "@/lib/products";
 import {
   applyPlaceholders,
   acquisitionVars,
@@ -176,7 +177,7 @@ function offerParagraphForFit(
 ) {
   if (input.fit === "CUSTOM_FIT") return fill(template.offerCustom, vars) || CUSTOM_FIT_PARAGRAPH;
   if (input.fit !== "STANDARD_FIT") {
-    return "Een complete Kopvast Website kost €1.495 excl. btw.";
+    return standardWebsitePriceSentence();
   }
 
   const offer = buildSpecialOffer({
@@ -190,7 +191,7 @@ function offerParagraphForFit(
     validateOfferParagraph(offer.offerParagraph);
     return offer.offerParagraph;
   }
-  return "Een complete Kopvast Website kost €1.495 excl. btw.";
+  return standardWebsitePriceSentence();
 }
 
 function twoFindings(input: {
@@ -310,7 +311,9 @@ export function buildOutreachEmailProps(input: {
 
 export function buildOutreachMailData(input: BuildOutreachMailInput) {
   if (input.productFit !== "STANDARD_FIT") {
-    throw new Error("Standard €995 outreach template is only allowed for STANDARD_FIT prospects.");
+    throw new Error(
+      `Standard ${formatPrice(REGIONAL_ACQUISITION_PRICE_EX_VAT)} outreach template is only allowed for STANDARD_FIT prospects.`
+    );
   }
 
   const offer = buildSpecialOffer({

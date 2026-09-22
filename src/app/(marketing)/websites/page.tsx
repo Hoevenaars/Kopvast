@@ -9,17 +9,26 @@ import { PageHero } from "@/components/page-hero";
 import { WebsitePackage } from "@/components/website-package";
 import { LindenhofDesktop, LindenhofMobile, QuoteCard } from "@/components/work/concept-mocks";
 import { ConceptLabel } from "@/components/work/frames";
-import { cta, includedBeheer, products } from "@/lib/site";
+import {
+  commercialPriceLabel,
+  formatPrice,
+  getProduct,
+  publicRecurringProducts,
+  WEBSITE_LIST_PRICE_EX_VAT,
+} from "@/lib/products";
+import { cta, includedBeheer, includedHosting, products } from "@/lib/site";
+
+const websitePrice = formatPrice(getProduct("website_standard")?.priceExVat);
+const hostingProduct = getProduct("hosting");
 
 export const metadata: Metadata = {
   title: "Websites",
-  description:
-    "Een sterke website vanaf €1.495. Maximaal zes kernpagina’s, vaste afspraken en ruimte voor maatwerk wanneer dat nodig is.",
+  description: `Een sterke website vanaf ${websitePrice}. Maximaal zes kernpagina’s, vaste afspraken en ruimte voor maatwerk wanneer dat nodig is.`,
 };
 
 const faqs = [
   {
-    q: "Wat zit er in de €1.495?",
+    q: `Wat zit er in de ${websitePrice}?`,
     a: "Maximaal zes kernpagina’s, responsive ontwerp, één taal, duidelijke navigatie, een contactformulier, basis SEO, verwerking van bestaande content, één correctieronde, een reguliere migratie en een technische oplevercontrole.",
   },
   {
@@ -61,7 +70,7 @@ export default function WebsitesPage() {
       />
 
       <AcquisitionStartBlock
-        params={{ choice: "info", website: "", company: "", offerPrice: 1495 }}
+        params={{ choice: "info", website: "", company: "", offerPrice: WEBSITE_LIST_PRICE_EX_VAT }}
       />
 
       <section className="container-page py-16">
@@ -107,6 +116,35 @@ export default function WebsitesPage() {
 
       <WebsitePackage showStart />
       <MaatwerkBlock />
+
+      <section className="border-y border-stone/40">
+        <div className="container-page py-16">
+          <p className="text-xs tracking-[0.18em] text-olive uppercase">Hosting</p>
+          <h2 className="mt-3 text-3xl text-ink md:text-4xl">
+            {hostingProduct?.name} — {commercialPriceLabel(hostingProduct!)}
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-olive">{hostingProduct?.description}</p>
+          <ul className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {includedHosting.map((item) => (
+              <li key={item} className="text-sm leading-6 text-olive">
+                · {item}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {publicRecurringProducts().map((product) => (
+              <article key={product.id} className="rounded-2xl border border-stone/50 p-5">
+                <h3 className="text-lg text-ink">{product.name.replace("Kopvast ", "")}</h3>
+                <p className="mt-3 font-heading text-3xl text-ink">
+                  {product.priceType === "FROM" ? "v.a. " : ""}
+                  {formatPrice(product.priceExVat)}
+                </p>
+                <p className="mt-1 text-xs text-stone">per maand excl. btw</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="bg-ivory">
         <div className="container-page grid gap-10 py-16 lg:grid-cols-[1.05fr_0.95fr]">

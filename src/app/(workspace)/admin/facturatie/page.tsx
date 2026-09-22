@@ -40,8 +40,8 @@ export default async function AdminInvoicesPage({
       </section>
 
       <section className="grid gap-3 md:grid-cols-3">
-        <Metric label="Actieve recurring omzet" value={`${formatEuro(data.recurringTotals.monthlyTotal)} / mnd`} />
-        <Metric label="Beheerklanten" value={String(data.recurringTotals.customerCount)} />
+        <Metric label="MRR" value={`${formatEuro(data.recurringTotals.monthlyTotal)} / mnd`} />
+        <Metric label="Klanten met doorlopende dienst" value={String(data.recurringTotals.customerCount)} />
         <div className="rounded-2xl border border-ink/10 bg-white p-5">
           <div className="text-sm text-ink/45">Billing notes</div>
           {data.recurringTotals.notes.length === 0 ? (
@@ -105,9 +105,9 @@ export default async function AdminInvoicesPage({
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl text-ink">Recurring beheer</h2>
+        <h2 className="text-xl text-ink">Doorlopende diensten</h2>
         <p className="text-sm text-ink/45">
-          Maandbedrag, startdatum en actief. V1 maakt niet automatisch elke maand een factuur.
+          Klant, product, afgesproken maandbedrag, startdatum en status. V1 maakt niet automatisch elke maand een factuur.
         </p>
         {data.recurring.length === 0 ? (
           <EmptyState title="Nog geen beheerregels" text="Bij een website-aanvraag met Kopvast Beheer komt hier de recurring omzet." />
@@ -122,7 +122,8 @@ export default async function AdminInvoicesPage({
                   <input type="hidden" name="returnTo" value={workspaceRoutes.adminInvoices} />
                   <div className="xl:col-span-2">
                     <p className="text-sm font-semibold">{item.customer}</p>
-                    <p className="mt-1 text-xs text-ink/45">{item.order_title ?? "Kopvast Beheer"}</p>
+                    <p className="mt-1 text-sm text-ink">{item.order_title ?? "Doorlopende dienst"}</p>
+                    <p className="mt-1 text-xs text-ink/45">{item.active ? "Actief" : "In afwachting"}</p>
                   </div>
                   <label className="space-y-1 text-xs text-ink/45">
                     Maandbedrag

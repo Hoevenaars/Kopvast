@@ -52,7 +52,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           value={labelForOrderStatus(order.status)}
         />
         <Stat label="Prijs" value={order.agreed_price_label || formatEuro(order.agreed_price_amount)} />
-        <Stat label="Beheer" value={order.include_recurring_beheer ? order.recurring_price_label || "€199 / maand" : "Niet meegenomen"} />
+        <Stat label="Doorlopend" value={order.include_recurring_beheer ? order.recurring_price_label || "Afgesproken tarief" : "Niet meegenomen"} />
         <Stat label="Target live" value={formatNlDate(order.target_live_at)} />
         <Stat label="Next action" value={order.next_action || "—"} />
       </section>

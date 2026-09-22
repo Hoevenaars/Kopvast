@@ -5,6 +5,8 @@ import { saveProposalAction } from "@/app/(workspace)/admin/aanvragen/actions";
 import { areaClass, fieldClass, Field } from "@/components/form-fields";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import type { ProposalLineRecord } from "@/lib/aanvragen-model";
+import { formatPrice, getAcquisitionOffer } from "@/lib/products";
+import { products } from "@/lib/site";
 
 type LineDraft = {
   key: string;
@@ -63,7 +65,7 @@ export function ProposalEditor({
       <input type="hidden" name="leadId" value={leadId} />
       {customFit ? (
         <p className="rounded-md bg-ivory px-3 py-2 text-sm text-ink/65">
-          Maatwerkvoorstel: geen vaste scope en geen €995. Voeg zelf regels en prijzen toe.
+          Maatwerkvoorstel: geen vaste scope en geen {formatPrice(getAcquisitionOffer("regional_acquisition_offer")?.offerPriceExVat)}. Voeg zelf regels en prijzen toe.
         </p>
       ) : (
         <p className="rounded-md bg-ivory px-3 py-2 text-sm text-ink/65">
@@ -121,7 +123,7 @@ export function ProposalEditor({
                 name="lineAmount"
                 value={line.amount_label}
                 onChange={(event) => updateLine(setDraftLines, line.key, { amount_label: event.target.value })}
-                placeholder={customFit ? "Prijs, optioneel" : "€1.495"}
+                placeholder={customFit ? "Prijs, optioneel" : products.website.price}
                 className={fieldClass}
               />
               <input

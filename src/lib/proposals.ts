@@ -1,4 +1,5 @@
-import { isEmail, labelFor, projectTypes } from "@/lib/product";
+import { isEmail, labelFor, projectTypes, type ProjectType } from "@/lib/product";
+import { formatPrice, isRecurringServiceType, productForLine } from "@/lib/products";
 import { site } from "@/lib/site";
 import { proposalValidityDefault, termsPlainText, VAT_RATE } from "@/lib/terms";
 
@@ -17,8 +18,8 @@ export const proposalStatuses = [
 export const proposalTypes = projectTypes;
 
 export const proposalLineKinds = [
-  { value: "scope", label: "Scope" },
-  { value: "recurring", label: "Beheer" },
+  { value: "scope", label: "Eenmalig" },
+  { value: "recurring", label: "Doorlopend" },
 ] as const;
 
 export type ProposalStatus = (typeof proposalStatuses)[number]["value"];
@@ -27,6 +28,7 @@ export type ProposalLineKind = (typeof proposalLineKinds)[number]["value"];
 
 export type ProposalLineInput = {
   id?: string;
+  productId?: string;
   kind: ProposalLineKind;
   title: string;
   description: string;
@@ -107,6 +109,7 @@ export type ProposalActivityRow = {
 
 export type ProposalSnapshotLine = {
   id: string;
+  productId?: string;
   kind: ProposalLineKind;
   title: string;
   description: string;
@@ -326,6 +329,7 @@ export function snapshotContent(input: {
 }): ProposalSnapshot {
   const lines = normalizeProposalLines(input.lines).map((line, index) => ({
     id: line.id || `line-${index + 1}`,
+    ...(line.productId ? { productId: line.productId } : {}),
     kind: line.kind,
     title: line.title,
     description: line.description,
@@ -371,6 +375,7 @@ export function snapshotFingerprint(snapshot: Pick<ProposalSnapshot, "title" | "
       description: line.description,
       quantity: line.quantity,
       unitPriceCents: line.unitPriceCents,
+      ...(line.productId ? { productId: line.productId } : {}),
     })),
   });
 }
@@ -401,16 +406,18 @@ export function canAcceptProposal(input: {
 export function projectsFromSnapshot(snapshot: ProposalSnapshot) {
   const scope = snapshot.lines.filter((line) => line.kind === "scope");
   const recurring = snapshot.lines.filter((line) => line.kind === "recurring");
-  const mainType: ProposalType =
+  const mainType: ProjectType =
     snapshot.type === "website" || snapshot.type === "merkrefresh" || snapshot.type === "sjablonen"
       ? snapshot.type
       : "maatwerk";
   const projects: Array<{
-    type: ProposalType;
+    type: ProjectType;
     title: string;
     status: "voorbereiding";
     price_label: string;
     summary: string;
+    monthly_amount: number | null;
+    included_note: string | null;
   }> = [];
   if (snapshot.totals.subtotalCents > 0) {
     projects.push({
@@ -419,15 +426,36 @@ export function projectsFromSnapshot(snapshot: ProposalSnapshot) {
       status: "voorbereiding",
       price_label: `${formatEuro(snapshot.totals.subtotalCents)} eenmalig, excl. btw`,
       summary: snapshot.scopeSummary || scope.map((line) => line.title).join(", ") || `Uit voorstel ${snapshot.number}`,
+      monthly_amount: null,
+      included_note: null,
     });
   }
-  if (snapshot.totals.recurringMonthlyCents > 0) {
+  for (const line of recurring) {
+    if (line.amountCents <= 0) continue;
+    const product = productForLine(line);
+    const type: ProjectType =
+      product && isRecurringServiceType(product.projectType) ? product.projectType : "beheer";
+    const monthly = centsToEuros(line.amountCents);
+    projects.push({
+      type,
+      title: line.title || product?.name || "Kopvast Beheer",
+      status: "voorbereiding",
+      price_label: `${formatPrice(monthly)} per maand, excl. btw`,
+      summary: line.description || line.title || `Doorlopend bij voorstel ${snapshot.number}`,
+      monthly_amount: monthly,
+      included_note: product?.description ?? (line.description || null),
+    });
+  }
+  if (!recurring.length && snapshot.totals.recurringMonthlyCents > 0) {
+    const monthly = centsToEuros(snapshot.totals.recurringMonthlyCents);
     projects.push({
       type: "beheer",
-      title: recurring[0]?.title || "Kopvast Beheer",
+      title: "Kopvast Beheer",
       status: "voorbereiding",
-      price_label: `${formatEuro(snapshot.totals.recurringMonthlyCents)} per maand, excl. btw`,
-      summary: recurring.map((line) => line.title).join(", ") || `Beheer bij voorstel ${snapshot.number}`,
+      price_label: `${formatPrice(monthly)} per maand, excl. btw`,
+      summary: `Beheer bij voorstel ${snapshot.number}`,
+      monthly_amount: monthly,
+      included_note: null,
     });
   }
   return projects;
@@ -451,8 +479,10 @@ export function parseProposalLinesJson(raw: string): ProposalLineInput[] {
           : parseMoneyToCents(String(row.unitPrice ?? row.price ?? "0"));
       if (!title || quantity == null || unitPriceCents == null) continue;
       const id = String(row.id ?? "").trim();
+      const productId = String(row.productId ?? "").trim();
       lines.push({
         ...(id ? { id } : {}),
+        ...(productId ? { productId } : {}),
         kind,
         title,
         description: String(row.description ?? "").trim(),

@@ -1,6 +1,7 @@
 import { DEPOSIT_INVOICE_LABEL, FINAL_INVOICE_LABEL, splitInstallments } from "@/lib/invoices";
-import { products } from "@/lib/site";
 import type { ProjectType } from "@/lib/product";
+import { formatPrice, getProduct, priceCadence } from "@/lib/products";
+import { products } from "@/lib/site";
 
 export const ORDER_FLOW = [
   "NEW",
@@ -79,7 +80,7 @@ export const ORDER_ACTIVITY = {
   WEBSITE_UPDATED: "WEBSITE_UPDATED",
 } as const;
 
-export type OrderProductType = ProjectType;
+export type OrderProductType = Exclude<ProjectType, "hosting" | "hosting_plus">;
 
 export type ProposalSnapshot = {
   productType: OrderProductType;
@@ -219,38 +220,42 @@ export const NEXT_ACTION_EXAMPLES = [
   "Beheercheck",
 ] as const;
 
+function catalogAmount(id: string) {
+  return getProduct(id)?.priceExVat ?? null;
+}
+
 const PRODUCT_DEFAULTS: Record<
   OrderProductType,
   { label: string; amount: number | null; cadence: string; recurring: boolean }
 > = {
   website: {
     label: products.website.name,
-    amount: 1495,
+    amount: catalogAmount("website_standard"),
     cadence: products.website.cadence,
     recurring: true,
   },
   beheer: {
     label: products.beheer.name,
-    amount: 199,
+    amount: catalogAmount("managed"),
     cadence: products.beheer.cadence,
     recurring: false,
   },
   merkrefresh: {
     label: products.merkrefresh.name,
-    amount: 995,
+    amount: catalogAmount("merkrefresh"),
     cadence: products.merkrefresh.cadence,
     recurring: false,
   },
   sjablonen: {
     label: products.sjablonen.name,
-    amount: 495,
+    amount: catalogAmount("templates"),
     cadence: products.sjablonen.cadence,
     recurring: false,
   },
   maatwerk: {
     label: "Maatwerk",
     amount: null,
-    cadence: "offerte",
+    cadence: priceCadence({ billingType: "ONE_TIME", priceType: "CUSTOM" }),
     recurring: false,
   },
 };
@@ -276,8 +281,7 @@ export function productDefaults(type: OrderProductType) {
 }
 
 export function formatEuro(amount: number | null | undefined) {
-  if (amount == null || Number.isNaN(amount)) return "—";
-  return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(amount);
+  return formatPrice(amount);
 }
 
 export function priceLabel(amount: number | null, cadence: string | null) {
@@ -412,7 +416,9 @@ export function buildProposalSnapshot(
   const amount = proposal.price_amount ?? defaults.amount;
   const cadence = proposal.price_cadence ?? defaults.cadence;
   const includeRecurring = proposal.include_recurring_beheer ?? defaults.recurring;
-  const recurringAmount = includeRecurring ? (proposal.recurring_price_amount ?? 199) : null;
+  const recurringAmount = includeRecurring
+    ? (proposal.recurring_price_amount ?? productDefaults("beheer").amount)
+    : null;
   return {
     productType: proposal.product_type,
     productLabel: defaults.label,

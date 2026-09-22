@@ -120,7 +120,7 @@ export default async function AanvraagDetailPage({ params }: { params: Promise<{
             />
           </Field>
           {row.product_fit === "CUSTOM_FIT" ? (
-            <p className="text-sm text-ink/55">Maatwerk: geen vast pakket en geen €995 forceren.</p>
+            <p className="text-sm text-ink/55">Maatwerk: geen vast pakket en geen acquisitiekorting forceren.</p>
           ) : null}
           <SubmitButton pendingLabel="Opslaan…" className="h-12 cursor-pointer rounded-md bg-ink px-5 text-sm font-semibold text-ivory">
             Kwalificatie opslaan

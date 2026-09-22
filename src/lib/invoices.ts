@@ -1,4 +1,6 @@
 import type { ProjectType } from "@/lib/product";
+import { oneTimeAmountForProjectType, recurringAmountForProjectType } from "@/lib/products";
+import { parseEuroAmount } from "@/lib/sites";
 
 export const DEFAULT_DUE_DAYS = 14;
 
@@ -47,13 +49,15 @@ export type RecurringRow = {
 };
 
 export const projectInvoiceAmounts: Partial<Record<ProjectType, number>> = {
-  website: 1495,
-  merkrefresh: 995,
-  sjablonen: 495,
+  website: oneTimeAmountForProjectType("website") ?? undefined,
+  merkrefresh: oneTimeAmountForProjectType("merkrefresh") ?? undefined,
+  sjablonen: oneTimeAmountForProjectType("sjablonen") ?? undefined,
 };
 
 export const projectRecurringAmounts: Partial<Record<ProjectType, number>> = {
-  beheer: 199,
+  hosting: recurringAmountForProjectType("hosting") ?? undefined,
+  hosting_plus: recurringAmountForProjectType("hosting_plus") ?? undefined,
+  beheer: recurringAmountForProjectType("beheer") ?? undefined,
 };
 
 export function isStoredInvoiceStatus(value: string): value is StoredInvoiceStatus {
@@ -170,8 +174,31 @@ export function recurringAmountForType(type: string) {
   return projectRecurringAmounts[type as ProjectType] ?? null;
 }
 
+function agreedOneTimeAmount(project: { type: string; price_label?: string | null }) {
+  if (recurringAmountForType(project.type) != null) return null;
+  const parsed = project.price_label ? parseEuroAmount(project.price_label) : null;
+  if (parsed != null) return parsed;
+  return invoiceAmountForType(project.type);
+}
+
+function agreedRecurringAmount(project: { type: string; monthly_amount?: number | null }) {
+  if (project.monthly_amount != null && Number.isFinite(Number(project.monthly_amount))) {
+    return roundAmount(Number(project.monthly_amount));
+  }
+  return recurringAmountForType(project.type);
+}
+
 export function billingDraftsForProjects(
-  projects: Array<{ id: string; organization_id: string; type: string; title: string }>,
+  projects: Array<{
+    id: string;
+    organization_id: string;
+    type: string;
+    title: string;
+    monthly_amount?: number | null;
+    price_label?: string | null;
+    status?: string | null;
+    started_at?: string | null;
+  }>,
   today = isoDate()
 ) {
   const invoices: Array<
@@ -194,7 +221,7 @@ export function billingDraftsForProjects(
   > = [];
 
   for (const project of projects) {
-    const amount = invoiceAmountForType(project.type);
+    const amount = agreedOneTimeAmount(project);
     if (amount != null) {
       invoices.push({
         organization_id: project.organization_id,
@@ -209,14 +236,16 @@ export function billingDraftsForProjects(
         paid_at: null,
       });
     }
-    const monthly = recurringAmountForType(project.type);
+    const monthly = agreedRecurringAmount(project);
     if (monthly != null) {
+      const pending = project.status != null && project.status !== "live";
+      const started = project.started_at?.slice(0, 10);
       recurring.push({
         organization_id: project.organization_id,
         project_id: project.id,
         monthly_amount: monthly,
-        start_date: today,
-        active: true,
+        start_date: !pending && started ? started : today,
+        active: !pending,
         billing_notes: null,
       });
     }

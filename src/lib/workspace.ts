@@ -20,6 +20,7 @@ import {
 } from "@/lib/product";
 import { isDeliveryProject, seedProductionFields } from "@/lib/production";
 import { addOnboardingToStore, ensureOnboardingsForProjects } from "@/lib/onboarding-store";
+import { isRecurringServiceType } from "@/lib/products";
 import { products } from "@/lib/site";
 import {
   OPEN_REQUEST_STATUSES,
@@ -500,6 +501,9 @@ export async function loadWebsiteDetail(id: string) {
     organization: organizations.find((item) => item.id === project.organization_id) ?? null,
     beheer:
       projects.find((item) => item.organization_id === project.organization_id && item.type === "beheer") ?? null,
+    recurring: projects.filter(
+      (item) => item.organization_id === project.organization_id && isRecurringServiceType(item.type)
+    ),
     requests: requests.filter((item) => item.organization_id === project.organization_id),
   };
 }

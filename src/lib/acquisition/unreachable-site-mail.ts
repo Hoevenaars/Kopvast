@@ -6,6 +6,7 @@ import {
   STANDARD_PRICE_PARAGRAPH,
 } from "@/emails/acquisition-outreach-copy";
 import { acquisitionChoiceUrls } from "@/lib/acquisition-start";
+import { WEBSITE_LIST_PRICE_EX_VAT } from "@/lib/products";
 import { site } from "@/lib/site";
 
 export const UNREACHABLE_SITE_PROMPT_VERSION = "kopvast-unreachable-site-v1";
@@ -26,7 +27,7 @@ export function buildUnreachableSiteMail(input: { domain: string; companyName?: 
   const urls = acquisitionChoiceUrls({
     domain: input.domain,
     companyName: input.companyName,
-    offerPrice: 1495,
+    offerPrice: WEBSITE_LIST_PRICE_EX_VAT,
   });
   const body = [
     "Goedendag,",
