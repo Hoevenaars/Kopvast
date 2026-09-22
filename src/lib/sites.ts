@@ -3,6 +3,7 @@ import {
   workspaceRoutes,
   type RequestType,
 } from "@/lib/product";
+import { formatPrice, isRecurringServiceType, recurringAmountForProjectType } from "@/lib/products";
 import { products } from "@/lib/site";
 
 export const BEHEER_CHECK_DAYS = 30;
@@ -81,6 +82,8 @@ export type BeheerRecord = {
   organizationId: string;
   customerName: string;
   domain: string;
+  productType: string;
+  productName: string;
   startedAt: string | null;
   monthlyAmount: number;
   status: string;
@@ -152,7 +155,7 @@ export function parseEuroAmount(label: string | null | undefined) {
 }
 
 export function defaultBeheerAmount() {
-  return parseEuroAmount(products.beheer.price) ?? 199;
+  return recurringAmountForProjectType("beheer") ?? parseEuroAmount(products.beheer.price) ?? 199;
 }
 
 export function isWebsiteProject(project: Pick<CatalogProject, "type">) {
@@ -179,16 +182,19 @@ export function monthlyAmountFor(project: Pick<CatalogProject, "type" | "monthly
   if (project.monthly_amount != null && Number.isFinite(Number(project.monthly_amount))) {
     return Number(project.monthly_amount);
   }
-  if (!isBeheerProject(project)) return 0;
-  return parseEuroAmount(project.price_label) ?? defaultBeheerAmount();
+  if (!isRecurringServiceType(project.type)) return 0;
+  return parseEuroAmount(project.price_label) ?? recurringAmountForProjectType(project.type) ?? 0;
+}
+
+export function recurringStatusLabel(status: string) {
+  if (status === "live") return "Actief";
+  if (status === "gepauzeerd") return "Gepauzeerd";
+  if (status === "opgezegd") return "Opgezegd";
+  return "In afwachting";
 }
 
 export function formatEuro(amount: number) {
-  return new Intl.NumberFormat("nl-NL", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return formatPrice(amount);
 }
 
 export function formatDateNl(value: string | null | undefined) {
@@ -323,7 +329,7 @@ export function buildBeheerCatalog(
 ): BeheerRecord[] {
   const websites = buildWebsiteCatalog(organizations, projects, requests, now);
   const orgs = new Map(organizations.map((item) => [item.id, item]));
-  return projects.filter(isBeheerProject).map((project) => {
+  return projects.filter((project) => isRecurringServiceType(project.type)).map((project) => {
     const organization = orgs.get(project.organization_id);
     const website = websites.find((item) => item.organizationId === project.organization_id) ?? null;
     const orgRequests = requestsForOrg(requests, project.organization_id);
@@ -334,7 +340,7 @@ export function buildBeheerCatalog(
     const health = websiteHealth({
       status: project.status === "live" ? website?.status ?? "live" : project.status,
       openSupport,
-      beheerActive: isBeheerActive(project),
+      beheerActive: project.status === "live" && isRecurringServiceType(project.type),
       lastCheckedAt: project.last_checked_at,
       now,
     });
@@ -344,6 +350,8 @@ export function buildBeheerCatalog(
       organizationId: project.organization_id,
       customerName: organization?.name ?? "Onbekende klant",
       domain: website?.domain ?? displayDomain(project, organization),
+      productType: project.type,
+      productName: project.title,
       startedAt: project.started_at,
       monthlyAmount: monthlyAmountFor(project),
       status: project.status,
@@ -362,8 +370,12 @@ export function beheerSummary(records: BeheerRecord[]) {
   const mrr = managed.reduce((sum, item) => sum + item.monthlyAmount, 0);
   const needsAction = managed.filter((item) => item.needsAction);
   const healthy = managed.filter((item) => !item.needsAction);
+  const count = (type: string) => managed.filter((item) => item.productType === type).length;
   return {
     managedCount: managed.length,
+    hostingCount: count("hosting"),
+    hostingPlusCount: count("hosting_plus"),
+    beheerCount: count("beheer"),
     mrr,
     needsActionCount: needsAction.length,
     healthyCount: healthy.length,

@@ -252,6 +252,54 @@ export async function seedBillingForProjects(
   });
 }
 
+export async function activateRecurringBilling(organizationId: string, liveDate: string) {
+  const { loadProjects } = await import("@/lib/workspace");
+  const { isRecurringServiceType, recurringAmountForProjectType } = await import("@/lib/products");
+  const projects = (await loadProjects()).filter(
+    (item) => item.organization_id === organizationId && isRecurringServiceType(item.type) && item.status === "live"
+  );
+  if (!projects.length) return;
+  const existing = await loadRecurring();
+  const supabase = refreshClient();
+  const now = nowIso();
+  for (const project of projects) {
+    const row = existing.find((item) => item.project_id === project.id && item.organization_id === organizationId);
+    const fallback = project.monthly_amount ?? recurringAmountForProjectType(project.type) ?? 0;
+    const start = project.started_at?.slice(0, 10) || liveDate;
+    if (!row) {
+      const created = {
+        organization_id: organizationId,
+        project_id: project.id,
+        monthly_amount: fallback,
+        start_date: start,
+        active: true,
+        billing_notes: null,
+      };
+      if (supabase) {
+        await supabase.from("kopvast_recurring").insert(created);
+      } else {
+        await mutateStore((store) => {
+          store.recurring.unshift({ ...created, id: newId(), created_at: now, updated_at: now });
+        });
+      }
+      continue;
+    }
+    if (row.active) continue;
+    const patch = { active: true, start_date: start, updated_at: now };
+    if (supabase) {
+      await supabase.from("kopvast_recurring").update(patch).eq("id", row.id);
+    } else {
+      await mutateStore((store) => {
+        const current = store.recurring.find((item) => item.id === row.id);
+        if (!current || current.active) return;
+        current.active = true;
+        current.start_date = start;
+        current.updated_at = now;
+      });
+    }
+  }
+}
+
 export async function createInvoice(input: {
   organizationId?: string;
   projectId?: string;

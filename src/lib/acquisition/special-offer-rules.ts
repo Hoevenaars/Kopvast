@@ -1,5 +1,6 @@
 import { buildOfferParagraph, validateOfferParagraph } from "@/emails/acquisition-outreach-copy";
 import type { ProductFit } from "@/lib/acquisition-constants";
+import { REGIONAL_ACQUISITION_PRICE_EX_VAT, WEBSITE_LIST_PRICE_EX_VAT } from "@/lib/products";
 
 export type { ProductFit };
 
@@ -44,8 +45,8 @@ export type SpecialOfferInput = {
 
 export type SpecialOfferResult = {
   eligible: boolean;
-  normalPrice: 1495;
-  offerPrice: 995;
+  normalPrice: typeof WEBSITE_LIST_PRICE_EX_VAT;
+  offerPrice: typeof REGIONAL_ACQUISITION_PRICE_EX_VAT;
   geographicReason: GeographicOfferReason;
   contentReason: ContentOfferReason;
   reasonLines: string[];
@@ -192,8 +193,8 @@ export function buildSpecialOffer(input: SpecialOfferInput): SpecialOfferResult 
   if (input.productFit !== "STANDARD_FIT") {
     return {
       eligible: false,
-      normalPrice: 1495,
-      offerPrice: 995,
+      normalPrice: WEBSITE_LIST_PRICE_EX_VAT,
+      offerPrice: REGIONAL_ACQUISITION_PRICE_EX_VAT,
       geographicReason: null,
       contentReason: null,
       reasonLines: [],
@@ -223,8 +224,8 @@ export function buildSpecialOffer(input: SpecialOfferInput): SpecialOfferResult 
   if (selectedReasons.length === 0) {
     return {
       eligible: false,
-      normalPrice: 1495,
-      offerPrice: 995,
+      normalPrice: WEBSITE_LIST_PRICE_EX_VAT,
+      offerPrice: REGIONAL_ACQUISITION_PRICE_EX_VAT,
       geographicReason,
       contentReason,
       reasonLines: [],
@@ -237,8 +238,8 @@ export function buildSpecialOffer(input: SpecialOfferInput): SpecialOfferResult 
 
   return {
     eligible: true,
-    normalPrice: 1495,
-    offerPrice: 995,
+    normalPrice: WEBSITE_LIST_PRICE_EX_VAT,
+    offerPrice: REGIONAL_ACQUISITION_PRICE_EX_VAT,
     geographicReason,
     contentReason,
     reasonLines: selectedReasons,

@@ -31,12 +31,15 @@ import type { CustomerDossier } from "@/lib/customer-dossier";
 import { onboardingProgress } from "@/lib/onboarding";
 import type { OnboardingWorkspace } from "@/lib/onboarding-store";
 import { labelForOrderStatus } from "@/lib/orders";
+import { formatPrice, isRecurringServiceType } from "@/lib/products";
+import { formatDateNl, monthlyAmountFor, recurringStatusLabel } from "@/lib/sites";
 import type { OrderRow } from "@/lib/orders";
 import {
   assetKinds,
   labelFor,
   organizationStatuses,
   projectStatuses,
+  allProjectTypes,
   projectTypes,
   requestStatuses,
   requestTypes,
@@ -57,6 +60,8 @@ export function OverviewPanel({ dossier }: { dossier: CustomerDossier }) {
         <Stat label="Volgende actie" value={facts.nextAction || "Geen open actie"} />
       </section>
 
+      <RecurringServices projects={dossier.projects} organizationId={organization.id} />
+
       <section className="grid gap-4 lg:grid-cols-2">
         <QuickForm
           title="Nieuwe opdracht"
@@ -66,7 +71,7 @@ export function OverviewPanel({ dossier }: { dossier: CustomerDossier }) {
         >
           <input name="title" required placeholder="Opdrachtnaam" className={fieldClass} />
           <select name="type" className={fieldClass} defaultValue="website">
-            {projectTypes.map((item) => (
+            {allProjectTypes.map((item) => (
               <option key={item.value} value={item.value}>
                 {item.label}
               </option>
@@ -87,7 +92,7 @@ export function OverviewPanel({ dossier }: { dossier: CustomerDossier }) {
           pending="Voorstel maken…"
         >
           <input name="title" required placeholder="Titel van het voorstel" className={fieldClass} />
-          <input name="amountLabel" placeholder="Bedrag, bijv. €1.495" className={fieldClass} />
+          <input name="amountLabel" placeholder="Bedrag excl. btw" className={fieldClass} />
           <SubmitButton className="text-sm font-semibold underline underline-offset-4">Voorstel opslaan</SubmitButton>
         </QuickForm>
         <QuickForm
@@ -320,7 +325,7 @@ export function OrdersPanel({
         <h2 className="text-lg font-semibold md:col-span-2">Projectstatus</h2>
         <input name="title" required placeholder="Opdrachtnaam" className={fieldClass} />
         <select name="type" className={fieldClass} defaultValue="website">
-          {projectTypes.map((item) => (
+          {allProjectTypes.map((item) => (
             <option key={item.value} value={item.value}>
               {item.label}
             </option>
@@ -336,7 +341,7 @@ export function OrdersPanel({
           {dossier.projects.map((project) => (
             <li key={project.id} className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-white p-5 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-wide text-ink/40">{labelFor(projectTypes, project.type)}</p>
+                <p className="text-xs uppercase tracking-wide text-ink/40">{labelFor(allProjectTypes, project.type)}</p>
                 <p className="mt-1 text-sm font-medium text-ink">{project.title}</p>
                 <p className="text-sm text-olive">{project.price_label}</p>
               </div>
@@ -362,8 +367,56 @@ export function OrdersPanel({
   );
 }
 
+function RecurringServices({
+  projects,
+  organizationId,
+}: {
+  projects: CustomerDossier["projects"];
+  organizationId: string;
+}) {
+  const services = projects.filter((item) => isRecurringServiceType(item.type));
+  const website = projects.find((item) => item.type === "website" || item.type === "maatwerk");
+  if (services.length === 0) return null;
+  return (
+    <section className="rounded-2xl border border-ink/10 bg-white p-5">
+      <h2 className="font-semibold">Doorlopende diensten</h2>
+      <ul className="mt-4 space-y-4">
+        {services.map((service) => (
+          <li key={service.id} className="border-t border-ink/8 pt-4 first:border-t-0 first:pt-0">
+            <p className="font-medium">{service.title}</p>
+            <p className="mt-1 text-sm text-ink/60">
+              {formatPrice(monthlyAmountFor(service))} per maand excl. btw · {recurringStatusLabel(service.status)}
+              {service.started_at || service.live_at
+                ? ` sinds ${formatDateNl(service.started_at || service.live_at)}`
+                : ""}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-3 text-sm">
+              <Link href={workspaceRoutes.adminBeheer} className="underline underline-offset-4">
+                Beheer
+              </Link>
+              {website ? (
+                <Link href={`${workspaceRoutes.adminWebsites}/${website.id}`} className="underline underline-offset-4">
+                  Website
+                </Link>
+              ) : null}
+              <Link
+                href={`${workspaceRoutes.adminOrders}?organizationId=${organizationId}`}
+                className="underline underline-offset-4"
+              >
+                Opdrachten
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function WebsitePanel({ dossier }: { dossier: CustomerDossier }) {
-  const website = dossier.projects.filter((item) => item.type === "website" || item.type === "beheer");
+  const website = dossier.projects.filter(
+    (item) => item.type === "website" || item.type === "beheer" || isRecurringServiceType(item.type)
+  );
   if (website.length === 0) {
     return <EmptyState title="Nog geen website" text="Koppel een website- of beheeropdracht om de status hier te zien." />;
   }
@@ -371,7 +424,7 @@ export function WebsitePanel({ dossier }: { dossier: CustomerDossier }) {
     <ul className="grid gap-4 md:grid-cols-2">
       {website.map((project) => (
         <li key={project.id} className="rounded-2xl border border-ink/10 bg-white p-5">
-          <p className="text-xs uppercase tracking-wide text-ink/40">{labelFor(projectTypes, project.type)}</p>
+          <p className="text-xs uppercase tracking-wide text-ink/40">{labelFor(allProjectTypes, project.type)}</p>
           <h3 className="mt-2 text-lg font-semibold">{project.title}</h3>
           <p className="mt-2 text-sm text-ink/50">{labelFor(projectStatuses, project.status)}</p>
           {dossier.organization.website ? (

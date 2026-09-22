@@ -1186,8 +1186,8 @@ export async function handleAcceptedProposal(proposalId: string): Promise<Propos
     if (!already && projects.length) {
       await supabase.from("kopvast_projects").insert(
         projects.map((project) => ({
-          ...project,
           ...emptyProjectFields(),
+          ...project,
           organization_id: organizationId,
           summary: `${project.summary} (${proposal.number} v${proposal.version})`,
         }))
@@ -1241,8 +1241,8 @@ export async function handleAcceptedProposal(proposalId: string): Promise<Propos
       if (!already) {
         for (const project of projects) {
           store.projects.push({
-            ...project,
             ...emptyProjectFields(),
+            ...project,
             id: newId(),
             organization_id: organizationId,
             started_at: null,

@@ -1,4 +1,9 @@
 import { parseDomainParam } from "@/lib/domain-landing";
+import {
+  formatPrice,
+  REGIONAL_ACQUISITION_PRICE_EX_VAT,
+  WEBSITE_LIST_PRICE_EX_VAT,
+} from "@/lib/products";
 import { includedWebsite, products, site } from "@/lib/site";
 
 export const ACQUISITION_START_PATH = "/start";
@@ -11,7 +16,7 @@ export const acquisitionChoices = [
 ] as const;
 
 export type AcquisitionChoice = (typeof acquisitionChoices)[number]["value"];
-export type AcquisitionOfferPrice = 995 | 1495;
+export type AcquisitionOfferPrice = typeof REGIONAL_ACQUISITION_PRICE_EX_VAT | typeof WEBSITE_LIST_PRICE_EX_VAT;
 
 export type AcquisitionStartParams = {
   choice: AcquisitionChoice;
@@ -46,15 +51,19 @@ export function parseCompanyParam(raw: unknown): string {
 
 export function parseOfferPrice(raw: unknown): AcquisitionOfferPrice {
   const digits = firstQueryValue(raw).replace(/\D/g, "");
-  return digits === "995" ? 995 : 1495;
+  return digits === String(REGIONAL_ACQUISITION_PRICE_EX_VAT)
+    ? REGIONAL_ACQUISITION_PRICE_EX_VAT
+    : WEBSITE_LIST_PRICE_EX_VAT;
 }
 
 export function offerPriceFromParagraph(text: string | null | undefined): AcquisitionOfferPrice {
-  return /€\s*995/.test(text ?? "") ? 995 : 1495;
+  return new RegExp(`€\\s*${REGIONAL_ACQUISITION_PRICE_EX_VAT}`).test(text ?? "")
+    ? REGIONAL_ACQUISITION_PRICE_EX_VAT
+    : WEBSITE_LIST_PRICE_EX_VAT;
 }
 
 export function formatOfferPrice(price: AcquisitionOfferPrice) {
-  return price === 995 ? "€995" : products.website.price;
+  return formatPrice(price);
 }
 
 export function parseStartSearchParams(input: {
@@ -81,7 +90,11 @@ export function acquisitionChoiceUrls(
   const website = parseDomainParam(input.domain) ?? "";
   const company = parseCompanyParam(input.companyName);
   const offerPrice =
-    input.offerPrice === 995 ? 995 : input.offerPrice === 1495 ? 1495 : null;
+    input.offerPrice === REGIONAL_ACQUISITION_PRICE_EX_VAT
+      ? REGIONAL_ACQUISITION_PRICE_EX_VAT
+      : input.offerPrice === WEBSITE_LIST_PRICE_EX_VAT
+        ? WEBSITE_LIST_PRICE_EX_VAT
+        : null;
 
   function href(choice: AcquisitionChoice) {
     const params = new URLSearchParams();
@@ -113,7 +126,7 @@ export function startLandingCopy(params: AcquisitionStartParams) {
   const who = params.company || params.website;
   const price = formatOfferPrice(params.offerPrice);
   const priceLine =
-    params.offerPrice === 995
+    params.offerPrice === REGIONAL_ACQUISITION_PRICE_EX_VAT
       ? `Een complete Kopvast Website kost normaal ${products.website.price} excl. btw. Voor jullie staat ${price} excl. btw.`
       : `${products.website.name} kost ${price} ${products.website.cadence}.`;
 

@@ -15,7 +15,8 @@ import {
   requestTypes,
   workspaceRoutes,
 } from "@/lib/product";
-import { formatDateNl } from "@/lib/sites";
+import { formatPrice } from "@/lib/products";
+import { formatDateNl, monthlyAmountFor, recurringStatusLabel } from "@/lib/sites";
 import { loadWebsiteDetail } from "@/lib/workspace";
 
 export const metadata: Metadata = {
@@ -31,7 +32,7 @@ export default async function AdminWebsiteDetailPage({
   const { id } = await params;
   const detail = await loadWebsiteDetail(id);
   if (!detail) notFound();
-  const { website, project, organization, beheer, requests } = detail;
+  const { website, project, organization, beheer, recurring, requests } = detail;
   const changes = requests.filter((item) => item.type === "post_launch" || item.type === "wijziging" || item.type === "content");
   const support = requests.filter((item) => item.type === "vraag" || item.type === "post_launch");
 
@@ -108,6 +109,39 @@ export default async function AdminWebsiteDetailPage({
           Opslaan
         </button>
       </form>
+
+      <section className="rounded-2xl border border-ink/10 bg-white p-5">
+        <p className="text-xs font-semibold tracking-[0.14em] text-ink/35 uppercase">Doorlopende dienst</p>
+        {recurring.length === 0 ? (
+          <p className="mt-3 text-sm text-ink/55">Geen hosting of beheer gekoppeld.</p>
+        ) : (
+          <ul className="mt-4 space-y-4">
+            {recurring.map((service) => (
+              <li key={service.id} className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm text-ink/45">Product</p>
+                  <p className="font-semibold">{service.title}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-ink/45">Status</p>
+                  <p>{recurringStatusLabel(service.status)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-ink/45">Sinds</p>
+                  <p>{formatDateNl(service.started_at || service.live_at)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-ink/45">Tarief</p>
+                  <p>{formatPrice(monthlyAmountFor(service))} per maand excl. btw</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link href={workspaceRoutes.adminBeheer} className="mt-4 inline-block text-sm underline underline-offset-4">
+          Naar beheer
+        </Link>
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-ink/10 bg-white p-5">

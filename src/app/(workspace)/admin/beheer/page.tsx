@@ -6,7 +6,7 @@ import { PageIntro } from "@/components/workspace/page-frame";
 import { EmptyState } from "@/components/workspace/shell";
 import { StatusBadge, toneForStatus } from "@/components/workspace/status-badge";
 import { beheerStatuses, labelFor, projectStatuses, workspaceRoutes } from "@/lib/product";
-import { formatDateNl, formatEuro } from "@/lib/sites";
+import { formatDateNl, formatEuro, recurringStatusLabel } from "@/lib/sites";
 import { loadBeheerOverview } from "@/lib/workspace";
 
 export const metadata: Metadata = {
@@ -17,8 +17,7 @@ export const metadata: Metadata = {
 export default async function AdminBeheerPage() {
   const { records, summary } = await loadBeheerOverview();
   const metrics = [
-    { label: "Managed websites", value: String(summary.managedCount) },
-    { label: "MRR", value: formatEuro(summary.mrr) },
+    { label: "Actieve diensten", value: String(summary.managedCount) },
     { label: "Actie nodig", value: String(summary.needsActionCount) },
     { label: "Zonder issues", value: String(summary.healthyCount) },
   ];
@@ -28,8 +27,22 @@ export default async function AdminBeheerPage() {
       <PageIntro
         eyebrow="Beheer"
         title="Beheer"
-        text="Actieve maandbedragen, status en open wijzigingen. Uptime- en SSL-checks kunnen later automatisch."
+        text="Hosting, Hosting Plus en Beheer. MRR telt de afgesproken maandbedragen van actieve diensten."
       />
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Hosting", value: String(summary.hostingCount) },
+          { label: "Hosting Plus", value: String(summary.hostingPlusCount) },
+          { label: "Beheer", value: String(summary.beheerCount) },
+          { label: "MRR", value: formatEuro(summary.mrr) },
+        ].map((metric) => (
+          <div key={metric.label} className="rounded-2xl border border-ink/10 bg-white p-5">
+            <div className="text-sm text-ink/45">{metric.label}</div>
+            <div className="mt-5 text-3xl font-semibold tracking-tight">{metric.value}</div>
+          </div>
+        ))}
+      </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
@@ -50,6 +63,7 @@ export default async function AdminBeheerPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-semibold">{item.customerName}</h2>
+                    <span className="text-xs font-medium text-ink/55">{item.productName}</span>
                     <StatusBadge
                       label={
                         beheerStatuses.some((status) => status.value === item.status)
@@ -66,7 +80,7 @@ export default async function AdminBeheerPage() {
                   </div>
                   <p className="mt-1 text-sm text-ink/45">{item.domain}</p>
                   <p className="mt-3 text-sm text-ink/55">
-                    Start {formatDateNl(item.startedAt)} · {formatEuro(item.monthlyAmount)} per maand · laatste check{" "}
+                    {recurringStatusLabel(item.status)} · sinds {formatDateNl(item.startedAt)} · {formatEuro(item.monthlyAmount)} per maand excl. btw · laatste check{" "}
                     {formatDateNl(item.lastCheckedAt)}
                   </p>
                   <p className="mt-2 text-sm text-ink/55">

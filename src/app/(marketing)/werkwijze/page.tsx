@@ -4,6 +4,7 @@ import { AcquisitionStartBlock } from "@/components/acquisition-start-block";
 import { ButtonLink } from "@/components/button-link";
 import { CtaBand } from "@/components/cta-band";
 import { PageHero } from "@/components/page-hero";
+import { WEBSITE_LIST_PRICE_EX_VAT } from "@/lib/products";
 import { cta, processSteps } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export default function ProcessPage() {
         text="Eerst scherp krijgen wat klopt. Daarna bouwen. Je ziet op elk moment wat klaar is, wat jij moet doen en wat buiten de vaste prijs valt."
       />
       <AcquisitionStartBlock
-        params={{ choice: "voorstel", website: "", company: "", offerPrice: 1495 }}
+        params={{ choice: "voorstel", website: "", company: "", offerPrice: WEBSITE_LIST_PRICE_EX_VAT }}
       />
       <section className="container-page grid gap-6 py-16 md:grid-cols-2">
         {processSteps.map((step) => (
