@@ -25,6 +25,8 @@ export function MailEditor({
   intended,
   testTo,
   canSend,
+  title = "Persoonlijke acquisitiemail",
+  layout = "outreach",
 }: {
   prospectId: string;
   mailId: string;
@@ -36,6 +38,8 @@ export function MailEditor({
   intended: string | null;
   testTo: string;
   canSend: boolean;
+  title?: string;
+  layout?: "outreach" | "short";
 }) {
   const router = useRouter();
   const [subject, setSubject] = useState(initialSubject);
@@ -92,7 +96,15 @@ export function MailEditor({
           </div>
         </div>
       ) : null}
-      <h2 className="font-semibold">Persoonlijke acquisitiemail</h2>
+      <h2 id={layout === "short" ? "handmatige-mail" : undefined} className="font-semibold">
+        {title}
+      </h2>
+      {layout === "short" ? (
+        <p className="text-sm text-ink/60">
+          Concept op basis van de eerdere mail en website. Bekijk de preview, pas de tekst aan en verstuur zelf. Kopvast
+          verstuurt dit niet automatisch.
+        </p>
+      ) : null}
       {mode === "TEST" ? (
         <div className="rounded-xl bg-[#F3E4DD] px-4 py-3 text-sm text-copper-dark">
           <p className="font-semibold">TEST MODE</p>
@@ -127,6 +139,7 @@ export function MailEditor({
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-2">
+            {layout === "short" ? null : (
             <button
               type="button"
               disabled={pending}
@@ -135,6 +148,7 @@ export function MailEditor({
             >
               Opnieuw genereren
             </button>
+            )}
             <button
               type="button"
               disabled={pending}
@@ -185,7 +199,7 @@ export function MailEditor({
         <div className="lg:sticky lg:top-24">
           <h3 className="text-sm font-semibold">Preview</h3>
           <div className="mt-3 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
-            <MailPreview subject={subject} body={body} companyName={companyName} domain={domain} />
+            <MailPreview subject={subject} body={body} companyName={companyName} domain={domain} layout={layout} />
           </div>
         </div>
       </div>

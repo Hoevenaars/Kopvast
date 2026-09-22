@@ -1,6 +1,7 @@
 import { loadDueRequestActions } from "@/lib/aanvragen";
 import { loadDueOrderActions } from "@/lib/order-ops";
 import { loadAcquisitionDashboard, type DashboardAction } from "@/lib/acquisition";
+import { loadNurtureTodayActions } from "@/lib/acquisition/follow-up";
 import { workspaceRoutes } from "@/lib/product";
 import { productionNotifications } from "@/lib/production-board";
 import { loadProposalTodayActions } from "@/lib/proposal-ops";
@@ -26,13 +27,15 @@ export function notificationsFromActions(actions: DashboardAction[]): Notificati
 }
 
 export async function loadAdminNotifications(): Promise<NotificationItem[]> {
-  const [dash, proposalActions, requestActions, support] = await Promise.all([
+  const [dash, proposalActions, requestActions, support, nurtureActions] = await Promise.all([
     loadAcquisitionDashboard(),
     loadProposalTodayActions(),
     loadDueRequestActions(),
     loadOpenSupportActions(),
+    loadNurtureTodayActions(),
   ]);
   const items = [
+    ...notificationsFromActions(nurtureActions),
     ...notificationsFromActions(proposalActions),
     ...notificationsFromActions(requestActions),
     ...support.map((action, index) => ({

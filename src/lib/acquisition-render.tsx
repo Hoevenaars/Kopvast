@@ -6,7 +6,9 @@ import {
   visibleEmailTextFromHtml,
   type AcquisitionOutreachEmailProps,
 } from "@/emails/acquisition-outreach";
+import { AcquisitionFollowUpEmail } from "@/emails/acquisition-follow-up";
 import { AcquisitionUnreachableEmail } from "@/emails/acquisition-unreachable";
+import { followUpPlainText } from "@/lib/acquisition/follow-up-copy";
 import { isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
 
 export async function prepareAcquisitionEmail(props: AcquisitionOutreachEmailProps) {
@@ -32,6 +34,26 @@ export async function prepareAcquisitionEmail(props: AcquisitionOutreachEmailPro
     html,
     text: prepared.plainText,
   };
+}
+
+export async function prepareFollowUpEmail(input: {
+  subject?: string;
+  body: string;
+  choiceAUrl?: string | null;
+  choiceBUrl?: string | null;
+}) {
+  const text = followUpPlainText(input.body, input.choiceAUrl, input.choiceBUrl);
+  assertUniqueAcquisitionCopy(text);
+  const html = await render(
+    <AcquisitionFollowUpEmail
+      subject={input.subject}
+      body={input.body}
+      choiceAUrl={input.choiceAUrl}
+      choiceBUrl={input.choiceBUrl}
+    />
+  );
+  assertUniqueAcquisitionCopy(visibleEmailTextFromHtml(html));
+  return { html, text };
 }
 
 export async function renderOutreachHtml(props: AcquisitionOutreachEmailProps) {

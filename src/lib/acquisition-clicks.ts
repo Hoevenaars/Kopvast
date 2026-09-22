@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Resend } from "resend";
-import { prepareAcquisitionEmail } from "@/lib/acquisition-render";
+import { prepareAcquisitionEmail, prepareFollowUpEmail } from "@/lib/acquisition-render";
 import { logProspectActivity } from "@/lib/acquisition-activity";
 import { ACTIVITY } from "@/lib/acquisition-constants";
 import {
@@ -182,11 +182,18 @@ export async function ensureAcquisitionClickLinks(input: {
   body?: string;
   choiceAUrl?: string;
   choiceBUrl?: string;
+  offerPrice?: 995 | 1495 | null;
 }) {
+  const offerPrice =
+    input.offerPrice === 995 || input.offerPrice === 1495
+      ? input.offerPrice
+      : input.offerPrice === null
+        ? null
+        : offerPriceFromParagraph(input.body);
   const defaults = acquisitionChoiceUrls({
     domain: input.domain,
     companyName: input.companyName,
-    offerPrice: offerPriceFromParagraph(input.body),
+    offerPrice,
   });
   const parsed = input.body ? parseOutreachBody(input.body, input.domain) : {};
   const destinations = {
@@ -269,6 +276,24 @@ async function ensureChoiceLink(input: {
   };
   await saveLink(link, token);
   return { link, trackingUrl: trackingUrlForToken(token), token };
+}
+
+export async function prepareTrackedShortAcquisitionEmail(input: {
+  prospectId: string;
+  mailId?: string | null;
+  domain: string;
+  companyName?: string | null;
+  subject?: string;
+  body: string;
+  offerPrice?: 995 | 1495 | null;
+}) {
+  const tracked = await ensureAcquisitionClickLinks(input);
+  return prepareFollowUpEmail({
+    subject: input.subject,
+    body: input.body,
+    choiceAUrl: tracked.choiceAUrl,
+    choiceBUrl: tracked.choiceBUrl,
+  });
 }
 
 export async function prepareTrackedAcquisitionEmail(input: {

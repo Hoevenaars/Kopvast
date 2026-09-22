@@ -20,6 +20,12 @@ import {
   type UpdateContactEmailResult,
 } from "@/lib/acquisition";
 import {
+  blockProspectOutreach,
+  closeProspectCommercial,
+  createManualFollowUpDraft,
+  scheduleProspectNurture,
+} from "@/lib/acquisition/follow-up";
+import {
   ensureUnreachableSiteMail,
   generateAndSendManualReasonsMail,
   generateManualReasonsMail,
@@ -279,4 +285,57 @@ export async function convertProspectForm(formData: FormData): Promise<void> {
 
 export async function rescanProspectAction(formData: FormData): Promise<void> {
   await reuseProspectAction(formData);
+}
+
+export async function prepareManualFollowUpForm(formData: FormData): Promise<void> {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const source = String(formData.get("source") ?? "") === "nurture" ? "nurture" : "manual";
+  const result = await createManualFollowUpDraft({ prospectId, actorEmail: session.email, source });
+  revalidateAcquisition(prospectId);
+  if (!result.ok) {
+    redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}?mailError=${encodeURIComponent(result.message)}`);
+  }
+  redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}#handmatige-mail`);
+}
+
+export async function scheduleNurtureForm(formData: FormData): Promise<void> {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const result = await scheduleProspectNurture({
+    prospectId,
+    preset: String(formData.get("preset") ?? ""),
+    customDate: String(formData.get("customDate") ?? ""),
+    reason: String(formData.get("reason") ?? ""),
+    note: String(formData.get("note") ?? ""),
+    actorEmail: session.email,
+    postponed: String(formData.get("postponed") ?? "") === "1",
+  });
+  revalidateAcquisition(prospectId);
+  if (!result.ok) {
+    redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}?mailError=${encodeURIComponent(result.message)}`);
+  }
+  redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}`);
+}
+
+export async function closeProspectForm(formData: FormData): Promise<void> {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const result = await closeProspectCommercial({ prospectId, actorEmail: session.email });
+  revalidateAcquisition(prospectId);
+  if (!result.ok) {
+    redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}?mailError=${encodeURIComponent(result.message)}`);
+  }
+  redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}`);
+}
+
+export async function blockProspectForm(formData: FormData): Promise<void> {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const result = await blockProspectOutreach({ prospectId, actorEmail: session.email });
+  revalidateAcquisition(prospectId);
+  if (!result.ok) {
+    redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}?mailError=${encodeURIComponent(result.message)}`);
+  }
+  redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}`);
 }

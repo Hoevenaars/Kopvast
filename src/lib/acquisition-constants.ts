@@ -87,6 +87,7 @@ export const prospectStatuses = [
   { value: "PREVIEW_READY", label: "Preview klaar" },
   { value: "ARCHIVED", label: "Gearchiveerd" },
   { value: "CONVERTED", label: "Lead" },
+  { value: "CLOSED", label: "Gesloten" },
 ] as const;
 
 export type ProspectStatus = (typeof prospectStatuses)[number]["value"];
@@ -168,6 +169,11 @@ export const ACTIVITY = {
   NEXT_ACTION_SET: "NEXT_ACTION_SET",
   PROSPECT_BLOCKED: "PROSPECT_BLOCKED",
   PROSPECT_CONVERTED: "PROSPECT_CONVERTED",
+  AUTO_FOLLOW_UP_SCHEDULED: "AUTO_FOLLOW_UP_SCHEDULED",
+  AUTO_FOLLOW_UP_SENT: "AUTO_FOLLOW_UP_SENT",
+  AUTO_FOLLOW_UP_CANCELLED: "AUTO_FOLLOW_UP_CANCELLED",
+  NO_RESPONSE_SET: "NO_RESPONSE_SET",
+  MANUAL_FOLLOW_UP_SENT: "MANUAL_FOLLOW_UP_SENT",
   CONTACT_UPDATED: "CONTACT_UPDATED",
   COMPANY_UPDATED: "COMPANY_UPDATED",
 } as const;
