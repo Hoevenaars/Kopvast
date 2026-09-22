@@ -32,6 +32,14 @@ export type SpecialOfferInput = {
    * de €995 launch-propositie willen gebruiken.
    */
   allowLaunchOffer?: boolean;
+  /**
+   * Handmatig gekozen redenen. Slaat plaats- en bewijsdetectie over.
+   * null betekent bewust geen reden van dat type.
+   */
+  manualReasons?: {
+    geographicReason: GeographicOfferReason;
+    contentReason: ContentOfferReason;
+  };
 };
 
 export type SpecialOfferResult = {
@@ -193,8 +201,12 @@ export function buildSpecialOffer(input: SpecialOfferInput): SpecialOfferResult 
     };
   }
 
-  const geographicReason = determineGeographicReason(input.place, input.municipality);
-  const contentReason = determineContentReason(input.contentEvidence);
+  const geographicReason = input.manualReasons
+    ? input.manualReasons.geographicReason
+    : determineGeographicReason(input.place, input.municipality);
+  const contentReason = input.manualReasons
+    ? input.manualReasons.contentReason
+    : determineContentReason(input.contentEvidence);
   const reasonLines: string[] = [];
   const geographicCopy = geographicReasonCopy(geographicReason);
   const contentCopy = contentReasonCopy(contentReason);
