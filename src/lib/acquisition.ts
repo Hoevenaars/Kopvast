@@ -61,6 +61,7 @@ export type ProspectListItem = {
   email: string | null;
   suppressed: boolean;
   fromScout: boolean;
+  attention: string | null;
 };
 
 export type ProspectContact = {
@@ -144,6 +145,17 @@ export type ProspectDetail = {
   next_action_at: string | null;
   do_not_contact: boolean;
   auto_outreach_blocked: boolean;
+  outreach_paused: boolean;
+  auto_follow_up_due_at: string | null;
+  auto_follow_up_sent_at: string | null;
+  auto_follow_up_cancelled_at: string | null;
+  nurture_status: string | null;
+  nurture_until: string | null;
+  nurture_reason: string | null;
+  nurture_note: string | null;
+  commercial_intent: string | null;
+  commercial_stage: string | null;
+  is_archived: boolean;
   legal_note: string | null;
   notes: string | null;
   last_scan_at: string | null;
@@ -159,7 +171,10 @@ export type ProspectDetail = {
   contact: ProspectContact | null;
   contacts: ProspectContact[];
   scan: ProspectScan | null;
+  previousScan: ProspectScan | null;
   findings: ProspectFinding[];
+  previousFindings: ProspectFinding[];
+  previousOpportunityScore: number | null;
   mail: ProspectMail | null;
   mails: ProspectMail[];
   activities: Array<{ id: string; event_type: string; actor_type: string; created_at: string; metadata: unknown }>;
@@ -251,7 +266,7 @@ export async function listAcquisitionProspects(input: {
   let query = supabase
     .from("prospects")
     .select(
-      "id, company_name, domain, website_url, status, opportunity_score, product_fit, mail_status, response_status, last_activity_at, created_at, do_not_contact"
+      "id, company_name, domain, website_url, status, opportunity_score, product_fit, mail_status, response_status, last_activity_at, created_at, do_not_contact, nurture_status, auto_follow_up_due_at, auto_follow_up_sent_at, auto_follow_up_cancelled_at"
     )
     .eq("is_archived", false);
 
@@ -287,7 +302,15 @@ export async function listAcquisitionProspects(input: {
     return { items: [], configured: true, error: error.message };
   }
 
-  const rows = (data ?? []) as Array<ProspectListItem & { do_not_contact?: boolean }>;
+  const rows = (data ?? []) as Array<
+    ProspectListItem & {
+      do_not_contact?: boolean;
+      nurture_status?: string | null;
+      auto_follow_up_due_at?: string | null;
+      auto_follow_up_sent_at?: string | null;
+      auto_follow_up_cancelled_at?: string | null;
+    }
+  >;
   const ids = rows.map((item) => item.id);
   const scoutIds = new Set(await scoutProspectIds());
   const { data: contacts } = ids.length
@@ -304,9 +327,24 @@ export async function listAcquisitionProspects(input: {
     email: emailByProspect.get(row.id) ?? null,
     suppressed: Boolean(row.do_not_contact),
     fromScout: scoutIds.has(row.id),
+    attention: acquisitionAttention(row),
   }));
 
   return { items, configured: true };
+}
+
+function acquisitionAttention(row: {
+  nurture_status?: string | null;
+  auto_follow_up_sent_at?: string | null;
+  auto_follow_up_due_at?: string | null;
+  auto_follow_up_cancelled_at?: string | null;
+  response_status?: string | null;
+}) {
+  if (row.nurture_status === "DUE") return "Opnieuw benaderen";
+  if (row.nurture_status === "SCHEDULED") return "Later benaderen";
+  if (row.auto_follow_up_sent_at && (!row.response_status || row.response_status === "NO_RESPONSE")) return "Geen reactie";
+  if (row.auto_follow_up_due_at && !row.auto_follow_up_sent_at && !row.auto_follow_up_cancelled_at) return "Follow-up gepland";
+  return null;
 }
 
 async function loadDuplicate(supabase: SupabaseClient, prospectId: string): Promise<DuplicateProspect> {
@@ -881,10 +919,10 @@ export const loadProspectDetail = cache(async (id: string): Promise<ProspectDeta
       .from("email_messages")
       .select("*")
       .eq("prospect_id", id)
-      .in("kind", ["acquisition_outreach", "acquisition_test"])
+      .in("kind", ["acquisition_outreach", "acquisition_test", "acquisition_follow_up", "acquisition_manual_follow_up"])
       .order("created_at", { ascending: false })
       .limit(20),
-    supabase.from("prospect_scores").select("*").eq("prospect_id", id).order("calculated_at", { ascending: false }).limit(1),
+    supabase.from("prospect_scores").select("*").eq("prospect_id", id).order("calculated_at", { ascending: false }).limit(2),
     supabase.from("activity_logs").select("id, event_type, actor_type, created_at, metadata").eq("prospect_id", id).order("created_at", { ascending: false }).limit(30),
     supabase
       .from("prospect_contacts")
@@ -905,14 +943,28 @@ export const loadProspectDetail = cache(async (id: string): Promise<ProspectDeta
     ...row,
     provider_message_id: (row as { resend_id?: string }).resend_id ?? null,
   })) as ProspectMail[];
-  const score = (scoresRes.data ?? [])[0] as
-    | {
-        website_improvement_potential?: number;
-        commercial_fit_score?: number;
-        product_fit_score?: number;
-        evidence_quality_score?: number;
-      }
-    | undefined;
+  const scoreRows = (scoresRes.data ?? []) as Array<{
+    website_improvement_potential?: number;
+    commercial_fit_score?: number;
+    product_fit_score?: number;
+    evidence_quality_score?: number;
+    opportunity_score?: number;
+  }>;
+  const score = scoreRows[0];
+  const previousScore = scoreRows[1];
+  const allFindings = (findingsRes.data ?? []) as ProspectFinding[];
+  const latestScanId = scans[0]?.id;
+  const previousScanId = scans[1]?.id;
+  const latestFindings = (() => {
+    if (!latestScanId) return allFindings;
+    const scoped = allFindings.filter((item) => item.scan_id === latestScanId);
+    return scoped.length ? scoped : allFindings;
+  })();
+  const draftManual = mails.find((item) => item.kind === "acquisition_manual_follow_up" && item.status === "draft");
+  const outreachDraft = mails.find((item) => item.kind === "acquisition_outreach" && item.status === "draft");
+  const outreach =
+    mails.find((item) => item.kind === "acquisition_outreach" && item.status !== "cancelled") ??
+    mails.find((item) => item.kind === "acquisition_outreach");
   const contact = contacts[0] ?? null;
 
   return {
@@ -934,6 +986,17 @@ export const loadProspectDetail = cache(async (id: string): Promise<ProspectDeta
     next_action_at: prospect.next_action_at,
     do_not_contact: prospect.do_not_contact,
     auto_outreach_blocked: prospect.auto_outreach_blocked,
+    outreach_paused: Boolean(prospect.outreach_paused),
+    auto_follow_up_due_at: prospect.auto_follow_up_due_at ?? null,
+    auto_follow_up_sent_at: prospect.auto_follow_up_sent_at ?? null,
+    auto_follow_up_cancelled_at: prospect.auto_follow_up_cancelled_at ?? null,
+    nurture_status: prospect.nurture_status ?? null,
+    nurture_until: prospect.nurture_until ?? null,
+    nurture_reason: prospect.nurture_reason ?? null,
+    nurture_note: prospect.nurture_note ?? null,
+    commercial_intent: prospect.commercial_intent ?? null,
+    commercial_stage: prospect.commercial_stage ?? null,
+    is_archived: Boolean(prospect.is_archived),
     legal_note: prospect.legal_note,
     notes: prospect.notes,
     last_scan_at: prospect.last_scan_at,
@@ -954,18 +1017,16 @@ export const loadProspectDetail = cache(async (id: string): Promise<ProspectDeta
           progress: Array.isArray(scans[0].progress) ? (scans[0].progress as ScanProgressStep[]) : emptyScanProgress(),
         }
       : null,
-    findings: (() => {
-      const all = (findingsRes.data ?? []) as ProspectFinding[];
-      const scanId = scans[0]?.id;
-      if (!scanId) return all;
-      const scoped = all.filter((item) => item.scan_id === scanId);
-      return scoped.length ? scoped : all;
-    })(),
-    mail:
-      mails.find((item) => item.kind === "acquisition_outreach" && item.status !== "cancelled") ??
-      mails.find((item) => item.kind === "acquisition_outreach") ??
-      mails[0] ??
-      null,
+    previousScan: scans[1]
+      ? {
+          ...scans[1],
+          progress: Array.isArray(scans[1].progress) ? (scans[1].progress as ScanProgressStep[]) : emptyScanProgress(),
+        }
+      : null,
+    findings: latestFindings,
+    previousFindings: previousScanId ? allFindings.filter((item) => item.scan_id === previousScanId) : [],
+    previousOpportunityScore: previousScore?.opportunity_score == null ? null : Number(previousScore.opportunity_score),
+    mail: draftManual ?? outreachDraft ?? outreach ?? mails[0] ?? null,
     mails,
     activities: (activitiesRes.data ?? []) as ProspectDetail["activities"],
     suppression,
@@ -1008,6 +1069,11 @@ export async function updateProspectFollowUp(input: {
 
   const { error } = await supabase.from("prospects").update(patch).eq("id", input.prospectId);
   if (error) return { ok: false as const, message: error.message };
+
+  if (input.responseStatus && input.responseStatus !== "NO_RESPONSE") {
+    const { cancelPendingAutoFollowUp } = await import("@/lib/acquisition/follow-up");
+    await cancelPendingAutoFollowUp(input.prospectId, input.responseStatus);
+  }
 
   if (input.responseStatus === "UNSUBSCRIBED") {
     const { data: contact } = await supabase
@@ -1100,6 +1166,9 @@ export async function convertProspectToLead(input: { prospectId: string; actorEm
       last_activity_at: new Date().toISOString(),
     })
     .eq("id", detail.id);
+
+  const { cancelPendingAutoFollowUp } = await import("@/lib/acquisition/follow-up");
+  await cancelPendingAutoFollowUp(detail.id, "converted");
 
   await logProspectActivity(supabase, {
     prospectId: detail.id,

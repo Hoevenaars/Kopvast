@@ -1,4 +1,5 @@
 import { logProspectActivity } from "@/lib/acquisition-activity";
+import { cancelPendingAutoFollowUp } from "@/lib/acquisition/follow-up";
 import { publicCheckUrl, type ProductFit } from "@/lib/acquisition-constants";
 import { convertProspectToLead, loadProspectDetail } from "@/lib/acquisition";
 import { loadAanvraag, saveAanvraagNextAction, updateAanvraagQualification } from "@/lib/aanvragen";
@@ -143,6 +144,7 @@ export async function handleAcquisitionChoice(input: {
     nextAction,
     responseStatus: intent === "PROPOSAL" ? "POSITIVE" : "QUESTION",
   });
+  await cancelPendingAutoFollowUp(detail.id, intent);
 
   if (supabase) {
     await logProspectActivity(supabase, {
@@ -194,6 +196,7 @@ export async function createProposalFromRequest(
 
   const lead = await loadAanvraag(requestId);
   if (!lead) return fail("Aanvraag niet gevonden.");
+  if (lead.prospect_id) await cancelPendingAutoFollowUp(lead.prospect_id, "proposal");
 
   const created = await createProposal({
     type: lead.type === "website" ? "website" : "maatwerk",

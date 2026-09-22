@@ -7,6 +7,7 @@ import {
   rescanProspectAction,
   updateFollowUpForm,
 } from "@/app/(workspace)/admin/acquisitie/actions";
+import { CommercialFollowUp } from "@/components/acquisition/commercial-follow-up";
 import { ManualReasonsForm } from "@/components/acquisition/manual-reasons-form";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
@@ -30,8 +31,8 @@ import {
   responseStatuses,
   type ProductFit,
 } from "@/lib/acquisition-constants";
+import { isShortAcquisitionKind } from "@/lib/acquisition/follow-up";
 import { explainOutreachOffer } from "@/lib/acquisition/outreach-policy";
-import { workspaceRoutes } from "@/lib/product";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { ProspectContactEmailForm } from "../contact-email-form";
 import { ProspectCompanyNameForm } from "../company-name-form";
@@ -144,6 +145,8 @@ export default async function ProspectDetailPage({
         />
       ) : null}
 
+      <CommercialFollowUp prospect={prospect} asOf={new Date().toISOString()} />
+
       {prospect.mail ? (
         <MailEditor
           key={`${prospect.mail.id}-${prospect.company_name ?? ""}`}
@@ -157,6 +160,8 @@ export default async function ProspectDetailPage({
           intended={prospect.contact?.email ?? null}
           productFit={prospect.product_fit}
           canSend={!blocked && Boolean(prospect.contact?.email)}
+          title={isShortAcquisitionKind(prospect.mail.kind) ? "Handmatige follow-up" : "Persoonlijke acquisitiemail"}
+          layout={isShortAcquisitionKind(prospect.mail.kind) ? "short" : "outreach"}
         />
       ) : showUnreachableCreate ? (
         <form action={createUnreachableMailForm} className="relative space-y-4 rounded-2xl border border-copper/25 bg-[#FBF6F2] p-5">

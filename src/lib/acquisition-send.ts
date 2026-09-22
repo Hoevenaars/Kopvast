@@ -4,7 +4,7 @@ import { fromAddress } from "./email";
 import { refreshClient } from "./refresh";
 import { addSuppression } from "./suppression";
 import { getEmailMode, getTestEmail, recipientForMode, resolveEmailSettings } from "./email-mode";
-import { prepareTrackedAcquisitionEmail } from "./acquisition-clicks";
+import { prepareTrackedAcquisitionEmail, prepareTrackedShortAcquisitionEmail } from "./acquisition-clicks";
 import { generateAcquisitionMail, fallbackAcquisitionMail, type MailFinding } from "./acquisition-mail";
 import { DUPLICATE_EMAIL_CONTENT_ERROR, findDuplicatedAcquisitionContent } from "@/emails/acquisition-outreach-copy";
 import { logProspectActivity, refreshProspectCosts } from "./acquisition-activity";
@@ -26,6 +26,19 @@ import {
   MANUAL_REASONS_PROMPT_VERSION,
   parseManualReasonCategories,
 } from "./acquisition/manual-reasons";
+import {
+  autoFollowUpIdempotencyKey,
+  buildAutoFollowUpBody,
+  cancelPendingAutoFollowUp,
+  followUpBlockReason,
+  followUpChoicePrice,
+  isShortAcquisitionKind,
+  listDueAutoFollowUpIds,
+  loadFollowUpCommercialFlags,
+  scheduleAutoFollowUp,
+  snapshotFromDetail,
+  AUTO_FOLLOW_UP_TEMPLATE_VERSION,
+} from "./acquisition/follow-up";
 import {
   buildUnreachableSiteMail,
   isUnreachableProspect,
@@ -89,6 +102,7 @@ export function evaluatePreSend(input: {
   const used = input.mail?.findings_used;
   const hasFindings = Array.isArray(used) ? used.length > 0 : Boolean(used);
   const scoutCapture = isScoutCaptureMail(input.mail);
+  const shortFollowUp = isShortAcquisitionKind(input.mail?.kind);
   const unreachable =
     isUnreachableSiteMail(input.mail?.body_text) ||
     (isUnreachableProspect({
@@ -98,7 +112,7 @@ export function evaluatePreSend(input: {
     }) &&
       !hasFindings &&
       input.mail?.prompt_version !== MANUAL_REASONS_PROMPT_VERSION);
-  if (input.mail && !input.mail.scan_id && !unreachable && !hasFindings && !scoutCapture) {
+  if (input.mail && !input.mail.scan_id && !unreachable && !hasFindings && !scoutCapture && !shortFollowUp) {
     issues.push({ code: "missing_scan", message: "De mail is niet aan een scan gekoppeld." });
   }
   if (input.auto && !unreachable && input.mail && !hasFindings) {
@@ -650,19 +664,31 @@ export async function saveProspectMailDraft(input: {
 
   const detail = await loadProspectDetail(input.prospectId);
   if (!detail) return { ok: false as const, message: "Prospect niet gevonden." };
+  const existing = detail.mails.find((item) => item.id === input.mailId);
+  const shortFollowUp = isShortAcquisitionKind(existing?.kind);
   let html: string;
   let text = body;
   try {
-    const prepared = await prepareTrackedAcquisitionEmail({
-      prospectId: input.prospectId,
-      mailId: input.mailId,
-      domain: detail.domain,
-      companyName: detail.company_name,
-      subject,
-      body,
-    });
+    const prepared = shortFollowUp
+      ? await prepareTrackedShortAcquisitionEmail({
+          prospectId: input.prospectId,
+          mailId: input.mailId,
+          domain: detail.domain,
+          companyName: detail.company_name,
+          subject,
+          body,
+          offerPrice: followUpChoicePrice({ fit: detail.product_fit, place: detail.city }),
+        })
+      : await prepareTrackedAcquisitionEmail({
+          prospectId: input.prospectId,
+          mailId: input.mailId,
+          domain: detail.domain,
+          companyName: detail.company_name,
+          subject,
+          body,
+        });
     html = prepared.html;
-    text = prepared.text;
+    text = shortFollowUp ? body : prepared.text;
   } catch (error) {
     return renderFailure(error);
   }
@@ -741,15 +767,26 @@ export async function sendProspectTestMail(input: { prospectId: string; mailId: 
 
   let html: string;
   let text: string;
+  const shortFollowUp = isShortAcquisitionKind(mail?.kind);
   try {
-    const prepared = await prepareTrackedAcquisitionEmail({
-      prospectId: detail.id,
-      mailId: mail!.id,
-      domain: detail.domain,
-      companyName: detail.company_name,
-      subject,
-      body,
-    });
+    const prepared = shortFollowUp
+      ? await prepareTrackedShortAcquisitionEmail({
+          prospectId: detail.id,
+          mailId: mail!.id,
+          domain: detail.domain,
+          companyName: detail.company_name,
+          subject,
+          body,
+          offerPrice: followUpChoicePrice({ fit: detail.product_fit, place: detail.city }),
+        })
+      : await prepareTrackedAcquisitionEmail({
+          prospectId: detail.id,
+          mailId: mail!.id,
+          domain: detail.domain,
+          companyName: detail.company_name,
+          subject,
+          body,
+        });
     html = prepared.html;
     text = prepared.text;
   } catch (error) {
@@ -811,7 +848,8 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
   const intended = normalizeEmail(detail.contact!.email);
   const settings = await resolveEmailSettings();
   const recipient = recipientForMode(intended, settings.mode, settings.testEmail);
-  const idempotencyKey = `acquisition-outreach/${mail!.id}`;
+  const shortFollowUp = isShortAcquisitionKind(mail?.kind);
+  const idempotencyKey = shortFollowUp ? `acquisition-manual/${mail!.id}` : `acquisition-outreach/${mail!.id}`;
 
   const { data: locked, error: lockError } = await supabase
     .from("email_messages")
@@ -833,7 +871,9 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
   if (lockError) return { ok: false as const, message: lockError.message };
   if (!locked) return { ok: true as const, skippedDuplicate: true };
 
-  await supabase.from("prospects").update({ mail_status: "queued", updated_at: new Date().toISOString() }).eq("id", detail.id);
+  if (!shortFollowUp) {
+    await supabase.from("prospects").update({ mail_status: "queued", updated_at: new Date().toISOString() }).eq("id", detail.id);
+  }
   await logProspectActivity(supabase, {
     prospectId: detail.id,
     eventType: ACTIVITY.MAIL_QUEUED,
@@ -847,14 +887,24 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
   let html: string;
   let text: string;
   try {
-    const prepared = await prepareTrackedAcquisitionEmail({
-      prospectId: detail.id,
-      mailId: mail!.id,
-      domain: detail.domain,
-      companyName: detail.company_name,
-      subject,
-      body,
-    });
+    const prepared = shortFollowUp
+      ? await prepareTrackedShortAcquisitionEmail({
+          prospectId: detail.id,
+          mailId: mail!.id,
+          domain: detail.domain,
+          companyName: detail.company_name,
+          subject,
+          body,
+          offerPrice: followUpChoicePrice({ fit: detail.product_fit, place: detail.city }),
+        })
+      : await prepareTrackedAcquisitionEmail({
+          prospectId: detail.id,
+          mailId: mail!.id,
+          domain: detail.domain,
+          companyName: detail.company_name,
+          subject,
+          body,
+        });
     html = prepared.html;
     text = prepared.text;
   } catch (error) {
@@ -865,10 +915,11 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
         status: "failed",
         failed_at: new Date().toISOString(),
         last_error: failed.message,
+        send_locked_at: null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", mail!.id);
-    await supabase.from("prospects").update({ mail_status: "failed" }).eq("id", detail.id);
+    if (!shortFollowUp) await supabase.from("prospects").update({ mail_status: "failed" }).eq("id", detail.id);
     await logProspectActivity(supabase, {
       prospectId: detail.id,
       eventType: ACTIVITY.MAIL_FAILED,
@@ -892,10 +943,11 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
         status: "failed",
         failed_at: new Date().toISOString(),
         last_error: sent.message,
+        send_locked_at: null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", mail!.id);
-    await supabase.from("prospects").update({ mail_status: "failed" }).eq("id", detail.id);
+    if (!shortFollowUp) await supabase.from("prospects").update({ mail_status: "failed" }).eq("id", detail.id);
     await logProspectActivity(supabase, {
       prospectId: detail.id,
       eventType: ACTIVITY.MAIL_FAILED,
@@ -905,27 +957,37 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
     return sent;
   }
 
+  const sentAt = new Date().toISOString();
   await supabase
     .from("email_messages")
     .update({
       status: "sent",
-      sent_at: new Date().toISOString(),
+      sent_at: sentAt,
       resend_id: sent.id ?? null,
       last_error: null,
       attempt_count: 1,
       body_text: text,
       body_html: html,
-      updated_at: new Date().toISOString(),
+      updated_at: sentAt,
     })
     .eq("id", mail!.id);
   await supabase
     .from("prospects")
-    .update({
-      mail_status: "sent",
-      last_contacted_at: new Date().toISOString(),
-      response_status: detail.response_status ?? "NO_RESPONSE",
-      updated_at: new Date().toISOString(),
-    })
+    .update(
+      shortFollowUp
+        ? {
+            last_contacted_at: sentAt,
+            nurture_status: null,
+            ...(detail.status === "CLOSED" ? {} : { outreach_paused: false }),
+            updated_at: sentAt,
+          }
+        : {
+            mail_status: "sent",
+            last_contacted_at: sentAt,
+            response_status: detail.response_status ?? "NO_RESPONSE",
+            updated_at: sentAt,
+          }
+    )
     .eq("id", detail.id);
   await supabase.from("cost_events").insert({
     prospect_id: detail.id,
@@ -937,11 +999,24 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
   await refreshProspectCosts(supabase, detail.id);
   await logProspectActivity(supabase, {
     prospectId: detail.id,
-    eventType: ACTIVITY.MAIL_SENT,
+    eventType: shortFollowUp ? ACTIVITY.MANUAL_FOLLOW_UP_SENT : ACTIVITY.MAIL_SENT,
     actorType: "human",
     actorId: input.actorEmail,
-    metadata: { resendId: sent.id, mode: recipient.mode, to: recipient.to, intended },
+    metadata: {
+      mailId: mail!.id,
+      subject,
+      resendId: sent.id,
+      mode: recipient.mode,
+      to: recipient.to,
+      intended,
+      source: mail!.prompt_version ?? null,
+    },
   });
+  if (shortFollowUp) {
+    await cancelPendingAutoFollowUp(detail.id, "manual_follow_up");
+  } else if (mail!.kind === "acquisition_outreach") {
+    await scheduleAutoFollowUp({ prospectId: detail.id, kind: mail!.kind, sentAt: new Date(sentAt) });
+  }
   return { ok: true as const, mode: recipient.mode, to: recipient.to };
 }
 
@@ -1014,6 +1089,7 @@ export async function applyAcquisitionWebhook(input: {
       actorType: "webhook",
       metadata: { emailId: input.emailId },
     });
+    await cancelPendingAutoFollowUp(message.prospect_id, "bounced");
   }
   if (input.type === "email.failed") {
     await supabase
@@ -1050,10 +1126,243 @@ export async function applyAcquisitionWebhook(input: {
       actorType: "webhook",
       metadata: { reason: "COMPLAINT", emailId: input.emailId },
     });
+    await cancelPendingAutoFollowUp(message.prospect_id, "complaint");
   }
   return true;
 }
 
 export function fallbackMailForTests(input: Parameters<typeof fallbackAcquisitionMail>[0]) {
   return fallbackAcquisitionMail(input);
+}
+
+const FOLLOW_UP_LOCK_MS = 15 * 60 * 1000;
+
+export async function processDueAutoFollowUps(limit = 4) {
+  const supabase = refreshClient();
+  if (!supabase) return [];
+  const ids = await listDueAutoFollowUpIds(supabase, limit);
+  const results = [];
+  for (const prospectId of ids) {
+    try {
+      results.push(await sendAutomaticFollowUp(prospectId));
+    } catch (error) {
+      console.error("[kopvast] Automatische follow-up mislukt", error);
+      results.push({
+        ok: false as const,
+        prospectId,
+        message: error instanceof Error ? error.message : "Follow-up mislukt.",
+      });
+    }
+  }
+  return results;
+}
+
+export async function sendAutomaticFollowUp(prospectId: string) {
+  const supabase = refreshClient();
+  if (!supabase) return { ok: false as const, prospectId, message: "Website Refresh is niet geconfigureerd." };
+  const detail = await loadProspectDetail(prospectId);
+  if (!detail) return { ok: false as const, prospectId, message: "Prospect niet gevonden." };
+
+  const flags = await loadFollowUpCommercialFlags(detail.id, detail.inbound_lead_id);
+  if ("error" in flags) return { ok: false as const, prospectId, message: flags.error, retry: true as const };
+  const reason = followUpBlockReason(snapshotFromDetail(detail, flags));
+  if (reason) {
+    if (reason !== "already_sent") await cancelPendingAutoFollowUp(detail.id, reason);
+    return { ok: true as const, prospectId, skipped: reason };
+  }
+
+  const key = autoFollowUpIdempotencyKey(detail.id);
+  const now = new Date().toISOString();
+  const { data: existing } = await supabase
+    .from("email_messages")
+    .select("id, status, send_locked_at")
+    .eq("idempotency_key", key)
+    .maybeSingle();
+
+  let mailId = existing?.id ? String(existing.id) : "";
+  if (existing && ["sent", "delivered"].includes(String(existing.status))) {
+    await finishAutomaticFollowUp(detail, mailId, null);
+    return { ok: true as const, prospectId, skippedDuplicate: true as const };
+  }
+  if (existing?.status === "queued" && existing.send_locked_at) {
+    const age = Date.now() - new Date(String(existing.send_locked_at)).getTime();
+    if (age < FOLLOW_UP_LOCK_MS) return { ok: true as const, prospectId, skippedDuplicate: true as const };
+  }
+
+  const settings = await resolveEmailSettings();
+  const intended = detail.contact?.email ? normalizeEmail(detail.contact.email) : "";
+  if (!intended) {
+    await cancelPendingAutoFollowUp(detail.id, "missing_email");
+    return { ok: true as const, prospectId, skipped: "missing_email" };
+  }
+  const recipient = recipientForMode(intended, settings.mode, settings.testEmail);
+  const subject = `Nog even over ${detail.domain}`;
+  const body = buildAutoFollowUpBody({ domain: detail.domain, fit: detail.product_fit, place: detail.city });
+
+  if (!mailId) {
+    const { data: created, error } = await supabase
+      .from("email_messages")
+      .insert({
+        prospect_id: detail.id,
+        contact_id: detail.contact?.id ?? null,
+        scan_id: detail.scan?.id ?? null,
+        kind: "acquisition_follow_up",
+        to_email: recipient.to,
+        intended_to_email: intended,
+        subject,
+        body_text: body,
+        status: "queued",
+        queued_at: now,
+        send_locked_at: now,
+        email_mode: recipient.mode,
+        idempotency_key: key,
+        template_version: AUTO_FOLLOW_UP_TEMPLATE_VERSION,
+        prompt_version: AUTO_FOLLOW_UP_TEMPLATE_VERSION,
+        findings_used: [],
+        provider: "resend",
+      })
+      .select("id")
+      .single();
+    if (error || !created) {
+      if (error && /duplicate|unique/i.test(error.message)) {
+        return { ok: true as const, prospectId, skippedDuplicate: true as const };
+      }
+      return { ok: false as const, prospectId, message: error?.message || "Follow-up opslaan mislukt." };
+    }
+    mailId = String(created.id);
+  } else {
+    const { data: locked } = await supabase
+      .from("email_messages")
+      .update({ status: "queued", send_locked_at: now, updated_at: now, last_error: null })
+      .eq("id", mailId)
+      .in("status", ["queued", "failed", "draft"])
+      .select("id")
+      .maybeSingle();
+    if (!locked) return { ok: true as const, prospectId, skippedDuplicate: true as const };
+  }
+
+  const fresh = await loadProspectDetail(detail.id);
+  if (!fresh) return { ok: false as const, prospectId, message: "Prospect niet gevonden." };
+  const freshFlags = await loadFollowUpCommercialFlags(fresh.id, fresh.inbound_lead_id);
+  if ("error" in freshFlags) return { ok: false as const, prospectId, message: freshFlags.error, retry: true as const };
+  const freshReason = followUpBlockReason(snapshotFromDetail(fresh, freshFlags));
+  if (freshReason) {
+    if (freshReason !== "already_sent") {
+      await supabase
+        .from("email_messages")
+        .update({ status: "cancelled", cancelled_at: new Date().toISOString(), send_locked_at: null, updated_at: new Date().toISOString() })
+        .eq("id", mailId);
+      await cancelPendingAutoFollowUp(fresh.id, freshReason);
+    }
+    return { ok: true as const, prospectId, skipped: freshReason };
+  }
+
+  let html: string;
+  let text: string;
+  try {
+    const prepared = await prepareTrackedShortAcquisitionEmail({
+      prospectId: fresh.id,
+      mailId,
+      domain: fresh.domain,
+      companyName: fresh.company_name,
+      subject,
+      body,
+      offerPrice: followUpChoicePrice({ fit: fresh.product_fit, place: fresh.city }),
+    });
+    html = prepared.html;
+    text = prepared.text;
+  } catch (error) {
+    const failed = renderFailure(error);
+    await supabase
+      .from("email_messages")
+      .update({
+        status: "failed",
+        failed_at: new Date().toISOString(),
+        last_error: failed.message,
+        send_locked_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", mailId);
+    return { ok: false as const, prospectId, message: failed.message };
+  }
+
+  const sent = await sendViaResend({ to: recipient.to, subject, html, text, idempotencyKey: key });
+  if (!sent.ok) {
+    await supabase
+      .from("email_messages")
+      .update({
+        status: "failed",
+        failed_at: new Date().toISOString(),
+        last_error: sent.message,
+        send_locked_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", mailId);
+    await logProspectActivity(supabase, {
+      prospectId: fresh.id,
+      eventType: ACTIVITY.MAIL_FAILED,
+      actorType: "system",
+      metadata: { error: sent.message, kind: "acquisition_follow_up" },
+    });
+    return { ok: false as const, prospectId, message: sent.message };
+  }
+
+  await supabase
+    .from("email_messages")
+    .update({
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      resend_id: sent.id ?? null,
+      body_text: text,
+      body_html: html,
+      last_error: null,
+      attempt_count: 1,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", mailId);
+  await finishAutomaticFollowUp(fresh, mailId, sent.id ?? null);
+  return { ok: true as const, prospectId, sent: true as const };
+}
+
+async function finishAutomaticFollowUp(detail: ProspectDetail, mailId: string, resendId: string | null) {
+  const supabase = refreshClient();
+  if (!supabase) return;
+  const now = new Date().toISOString();
+  const stillQuiet = !detail.response_status || detail.response_status === "NO_RESPONSE";
+  await supabase
+    .from("prospects")
+    .update({
+      auto_follow_up_sent_at: now,
+      last_contacted_at: now,
+      ...(stillQuiet ? { response_status: "NO_RESPONSE" } : {}),
+      ...(!detail.next_action?.trim() ? { next_action: "Kies handmatige opvolging, nurture of sluiten", next_action_at: now } : {}),
+      updated_at: now,
+    })
+    .eq("id", detail.id)
+    .is("auto_follow_up_sent_at", null);
+
+  const { data: sentLog } = await supabase
+    .from("activity_logs")
+    .select("id")
+    .eq("prospect_id", detail.id)
+    .eq("event_type", ACTIVITY.AUTO_FOLLOW_UP_SENT)
+    .limit(1)
+    .maybeSingle();
+  if (!sentLog) {
+    await logProspectActivity(supabase, {
+      prospectId: detail.id,
+      eventType: ACTIVITY.AUTO_FOLLOW_UP_SENT,
+      actorType: "system",
+      metadata: { mailId, resendId },
+    });
+    if (stillQuiet) {
+      await logProspectActivity(supabase, {
+        prospectId: detail.id,
+        eventType: ACTIVITY.NO_RESPONSE_SET,
+        actorType: "system",
+        newStatus: "NO_RESPONSE",
+        metadata: { mailId },
+      });
+    }
+  }
 }

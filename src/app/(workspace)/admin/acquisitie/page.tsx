@@ -123,6 +123,11 @@ export default async function AcquisitionOverviewPage({
                               Scout
                             </span>
                           ) : null}
+                          {item.attention ? (
+                            <span className="rounded-full bg-ivory px-2 py-0.5 text-[11px] font-semibold tracking-wide text-ink/70">
+                              {item.attention}
+                            </span>
+                          ) : null}
                         </div>
                         <p className="text-sm text-ink/45">{item.domain}</p>
                         <p className="mt-1 text-sm text-ink/55">{item.email || "Geen e-mail"}</p>

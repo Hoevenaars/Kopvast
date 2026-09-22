@@ -45,6 +45,8 @@ export function MailEditor({
   intended,
   productFit,
   canSend,
+  title = "Persoonlijke acquisitiemail",
+  layout = "outreach",
 }: {
   prospectId: string;
   mailId: string;
@@ -56,6 +58,8 @@ export function MailEditor({
   intended: string | null;
   productFit: ProductFit | null;
   canSend: boolean;
+  title?: string;
+  layout?: "outreach" | "short";
 }) {
   const router = useRouter();
   const [subject, setSubject] = useState(initialSubject);
@@ -73,7 +77,7 @@ export function MailEditor({
 
   const pending = actionPending || Boolean(busyLabel);
   const dirty = subject !== savedSubject || body !== savedBody;
-  const canDiscount = productFit === "STANDARD_FIT" && !isUnreachableSiteMail(body);
+  const canDiscount = layout !== "short" && productFit === "STANDARD_FIT" && !isUnreachableSiteMail(body);
 
   function run(
     action: (formData: FormData) => Promise<ActionResult | { ok: true }>,
@@ -149,19 +153,22 @@ export function MailEditor({
           </div>
         </div>
       ) : null}
-
       <div>
-        <h2 className="font-semibold">{phase === "edit" ? "Concept aanpassen" : "Concept"}</h2>
+        <h2 id={layout === "short" ? "handmatige-mail" : undefined} className="font-semibold">
+          {layout === "short" ? title : phase === "edit" ? "Concept aanpassen" : "Concept"}
+        </h2>
         <p className="mt-1 text-sm text-ink/60">
-          {phase === "edit"
-            ? "Pas de tekst aan en werk het concept bij. Daarna zie je de mail opnieuw, voordat je verstuurt."
-            : "Dit concept gaat de deur uit. Pas het aan, of zet er een korting op, en verstuur daarna."}
+          {layout === "short"
+            ? "Concept op basis van de eerdere mail en website. Bekijk de preview, pas de tekst aan en verstuur zelf. Kopvast verstuurt dit niet automatisch."
+            : phase === "edit"
+              ? "Pas de tekst aan en werk het concept bij. Daarna zie je de mail opnieuw, voordat je verstuurt."
+              : "Dit concept gaat de deur uit. Pas het aan, of zet er een korting op, en verstuur daarna."}
         </p>
       </div>
 
       {phase === "concept" ? (
         <div className="max-w-xl">
-          <MailPreview subject={subject} body={body} companyName={companyName} domain={domain} />
+          <MailPreview subject={subject} body={body} companyName={companyName} domain={domain} layout={layout} />
         </div>
       ) : (
         <div className="max-w-3xl space-y-4">
@@ -317,7 +324,7 @@ export function MailEditor({
         ) : null}
       </div>
 
-      {phase === "concept" && !dirty ? (
+      {phase === "concept" && !dirty && layout !== "short" ? (
         <button
           type="button"
           disabled={pending}

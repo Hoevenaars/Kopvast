@@ -87,6 +87,7 @@ export const prospectStatuses = [
   { value: "PREVIEW_READY", label: "Preview klaar" },
   { value: "ARCHIVED", label: "Gearchiveerd" },
   { value: "CONVERTED", label: "Lead" },
+  { value: "CLOSED", label: "Gesloten" },
 ] as const;
 
 export type ProspectStatus = (typeof prospectStatuses)[number]["value"];
@@ -168,6 +169,11 @@ export const ACTIVITY = {
   NEXT_ACTION_SET: "NEXT_ACTION_SET",
   PROSPECT_BLOCKED: "PROSPECT_BLOCKED",
   PROSPECT_CONVERTED: "PROSPECT_CONVERTED",
+  AUTO_FOLLOW_UP_SCHEDULED: "AUTO_FOLLOW_UP_SCHEDULED",
+  AUTO_FOLLOW_UP_SENT: "AUTO_FOLLOW_UP_SENT",
+  AUTO_FOLLOW_UP_CANCELLED: "AUTO_FOLLOW_UP_CANCELLED",
+  NO_RESPONSE_SET: "NO_RESPONSE_SET",
+  MANUAL_FOLLOW_UP_SENT: "MANUAL_FOLLOW_UP_SENT",
   CONTACT_UPDATED: "CONTACT_UPDATED",
   COMPANY_UPDATED: "COMPANY_UPDATED",
 } as const;
@@ -307,6 +313,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   RESPONSE_UPDATED: "Reactie bijgewerkt",
   NEXT_ACTION_SET: "Vervolgactie ingesteld",
   PROSPECT_BLOCKED: "Prospect geblokkeerd",
+  PROSPECT_CLOSED: "Prospect gesloten",
   PROSPECT_CONVERTED: "Omgezet naar lead",
   CONTACT_UPDATED: "Contact bijgewerkt",
   COMPANY_UPDATED: "Bedrijfsnaam gewijzigd",
@@ -317,6 +324,14 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   kopvast_aanvraag: "Aanvraag via Kopvast",
   kopvast_websitecheck: "Websitecheck via Kopvast",
   ORDER_HANDOFF_FAILED: "Opdracht doorzetten mislukt",
+  AUTO_FOLLOW_UP_SCHEDULED: "Automatische follow-up gepland",
+  AUTO_FOLLOW_UP_SENT: "Automatische follow-up verzonden",
+  AUTO_FOLLOW_UP_CANCELLED: "Automatische follow-up geannuleerd",
+  NO_RESPONSE_SET: "Geen reactie na follow-up",
+  MANUAL_FOLLOW_UP_SENT: "Handmatige follow-up verzonden",
+  NURTURE_SCHEDULED: "Later opnieuw benaderen",
+  NURTURE_DUE: "Opnieuw benaderen",
+  NURTURE_POSTPONED: "Opnieuw benaderen uitgesteld",
 };
 
 const ACTOR_LABELS: Record<string, string> = {

@@ -23,6 +23,9 @@ test("activiteiten krijgen een Nederlandse naam", () => {
   assert.equal(labelForActivity("MAIL_CLICKED", { choice: "info" }), "Geklikt op meer info");
   assert.equal(labelForActivity("MAIL_CLICKED", { choice: "proposal" }), "Geklikt op voorstel");
   assert.equal(labelForActivity("ONBEKEND_EVENT"), "ONBEKEND_EVENT");
+  assert.equal(labelForActivity("AUTO_FOLLOW_UP_SENT"), "Automatische follow-up verzonden");
+  assert.equal(labelForActivity("PROSPECT_BLOCKED"), "Prospect geblokkeerd");
+  assert.equal(labelForActivity("NURTURE_DUE"), "Opnieuw benaderen");
 });
 
 test("actor bij een activiteit is Nederlands", () => {
