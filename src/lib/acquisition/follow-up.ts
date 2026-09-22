@@ -48,19 +48,6 @@ export const nurtureReasons = [
 
 export type NurtureReason = (typeof nurtureReasons)[number]["value"];
 
-export const FOLLOW_UP_ACTIVITY_LABELS: Record<string, string> = {
-  AUTO_FOLLOW_UP_SCHEDULED: "Automatische follow-up gepland",
-  AUTO_FOLLOW_UP_SENT: "Automatische follow-up verzonden",
-  AUTO_FOLLOW_UP_CANCELLED: "Automatische follow-up geannuleerd",
-  NO_RESPONSE_SET: "Geen reactie na follow-up",
-  MANUAL_FOLLOW_UP_SENT: "Handmatige follow-up verzonden",
-  NURTURE_SCHEDULED: "Later opnieuw benaderen",
-  NURTURE_DUE: "Opnieuw benaderen",
-  NURTURE_POSTPONED: "Opnieuw benaderen uitgesteld",
-  PROSPECT_CLOSED: "Prospect gesloten",
-  PROSPECT_BLOCKED: "Niet meer benaderen",
-};
-
 const BLOCKING_RESPONSES = new Set(["POSITIVE", "QUESTION", "MEETING", "NOT_INTERESTED", "UNSUBSCRIBED"]);
 const BLOCKING_STAGES = new Set(["ENGAGED", "REQUESTED", "QUALIFIED", "PROPOSAL", "WON", "CUSTOMER"]);
 const CLOSED_STATUSES = new Set(["CLOSED", "CONVERTED", "ARCHIVED", "REJECTED"]);

@@ -20,6 +20,9 @@ import { ScoutCapturePanel } from "@/app/(workspace)/admin/scout/scout-capture-p
 import {
   FINDING_CATEGORY_LABELS,
   formatNlDate,
+  formatNlDateTime,
+  labelForActivity,
+  labelForActor,
   labelForContact,
   labelForFit,
   labelForMail,
@@ -28,14 +31,13 @@ import {
   responseStatuses,
   type ProductFit,
 } from "@/lib/acquisition-constants";
-import { FOLLOW_UP_ACTIVITY_LABELS, isShortAcquisitionKind } from "@/lib/acquisition/follow-up";
+import { isShortAcquisitionKind } from "@/lib/acquisition/follow-up";
 import { explainOutreachOffer } from "@/lib/acquisition/outreach-policy";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { ProspectContactEmailForm } from "../contact-email-form";
 import { ProspectCompanyNameForm } from "../company-name-form";
 import { MailEditor } from "../mail-editor";
 import { ScanProgress } from "../scan-progress";
-import { EmailModeBanner } from "../email-mode-banner";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -73,7 +75,6 @@ export default async function ProspectDetailPage({
   return (
     <div className="space-y-8">
       <PageIntro eyebrow={prospect.domain} title={prospect.company_name || prospect.domain} text={prospect.website_url} />
-      <EmailModeBanner mode={mode} testTo={settings.testEmail} />
       {scout ? <ScoutCapturePanel capture={scout} /> : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -157,7 +158,7 @@ export default async function ProspectDetailPage({
           domain={prospect.domain}
           mode={mode}
           intended={prospect.contact?.email ?? null}
-          testTo={settings.testEmail}
+          productFit={prospect.product_fit}
           canSend={!blocked && Boolean(prospect.contact?.email)}
           title={isShortAcquisitionKind(prospect.mail.kind) ? "Handmatige follow-up" : "Persoonlijke acquisitiemail"}
           layout={isShortAcquisitionKind(prospect.mail.kind) ? "short" : "outreach"}
@@ -259,23 +260,9 @@ export default async function ProspectDetailPage({
         <ul className="mt-4 divide-y divide-ink/6">
           {prospect.activities.map((item) => (
             <li key={item.id} className="flex flex-col gap-1 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-              <span>
-                {FOLLOW_UP_ACTIVITY_LABELS[item.event_type]
-                  ? FOLLOW_UP_ACTIVITY_LABELS[item.event_type]
-                  : item.event_type === "SCOUT_CAPTURED"
-                  ? "Scout-push"
-                  : item.event_type === "MAIL_CLICKED"
-                    ? clickLabelFromActivity(item.metadata)
-                    : item.event_type === "OUTREACH_PROPOSAL_REQUEST"
-                      ? "Wil een voorstel"
-                      : item.event_type === "OUTREACH_MORE_INFO"
-                        ? "Wil meer info"
-                        : item.event_type === "COMPANY_UPDATED"
-                          ? "Bedrijfsnaam gewijzigd"
-                          : item.event_type}
-              </span>
+              <span>{labelForActivity(item.event_type, item.metadata)}</span>
               <span className="text-xs text-ink/40">
-                {item.actor_type} · {new Date(item.created_at).toLocaleString("nl-NL")}
+                {labelForActor(item.actor_type)} · {formatNlDateTime(item.created_at)}
               </span>
             </li>
           ))}
@@ -283,11 +270,6 @@ export default async function ProspectDetailPage({
       </section>
     </div>
   );
-}
-
-function clickLabelFromActivity(metadata: unknown) {
-  const choice = metadata && typeof metadata === "object" && "choice" in metadata ? String(metadata.choice) : "";
-  return choice === "info" ? "Geklikt op meer info" : "Geklikt op voorstel";
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

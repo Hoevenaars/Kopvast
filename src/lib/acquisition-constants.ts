@@ -273,13 +273,89 @@ export function labelForContact(status: string | null | undefined) {
   return contactStatuses.find((item) => item.value === status)?.label ?? status ?? "—";
 }
 
+/** Nederlandse tijd, onafhankelijk van de servertijdzone. */
+export const NL_TIME_ZONE = "Europe/Amsterdam";
+
 export function formatNlDate(value: string | null | undefined) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("nl-NL", {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: NL_TIME_ZONE,
   });
+}
+
+export function formatNlDateTime(value: string | null | undefined) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("nl-NL", { timeZone: NL_TIME_ZONE });
+}
+
+export const ACTIVITY_LABELS: Record<string, string> = {
+  PROSPECT_CREATED: "Prospect aangemaakt",
+  PROSPECT_REUSED: "Bestaande prospect gebruikt",
+  SCAN_STARTED: "Scan gestart",
+  SCAN_COMPLETED: "Scan afgerond",
+  SCAN_FAILED: "Scan mislukt",
+  ANALYSIS_COMPLETED: "Analyse afgerond",
+  SCORE_CALCULATED: "Score berekend",
+  PRODUCT_FIT_SET: "Productfit bepaald",
+  MAIL_GENERATED: "Mail opgesteld",
+  MAIL_EDITED: "Mail bewerkt",
+  TEST_MAIL_SENT: "Testmail verzonden",
+  MAIL_QUEUED: "Mail in wachtrij",
+  MAIL_SENT: "Mail verzonden",
+  MAIL_DELIVERED: "Mail afgeleverd",
+  MAIL_BOUNCED: "Mail teruggestuurd",
+  MAIL_FAILED: "Mail mislukt",
+  RESPONSE_UPDATED: "Reactie bijgewerkt",
+  NEXT_ACTION_SET: "Vervolgactie ingesteld",
+  PROSPECT_BLOCKED: "Prospect geblokkeerd",
+  PROSPECT_CLOSED: "Prospect gesloten",
+  PROSPECT_CONVERTED: "Omgezet naar lead",
+  CONTACT_UPDATED: "Contact bijgewerkt",
+  COMPANY_UPDATED: "Bedrijfsnaam gewijzigd",
+  SCOUT_CAPTURED: "Scout-push",
+  OUTREACH_PROPOSAL_REQUEST: "Wil een voorstel",
+  OUTREACH_MORE_INFO: "Wil meer info",
+  WEBSITE_CHECK_REQUESTED: "Websitecheck aangevraagd",
+  kopvast_aanvraag: "Aanvraag via Kopvast",
+  kopvast_websitecheck: "Websitecheck via Kopvast",
+  ORDER_HANDOFF_FAILED: "Opdracht doorzetten mislukt",
+  AUTO_FOLLOW_UP_SCHEDULED: "Automatische follow-up gepland",
+  AUTO_FOLLOW_UP_SENT: "Automatische follow-up verzonden",
+  AUTO_FOLLOW_UP_CANCELLED: "Automatische follow-up geannuleerd",
+  NO_RESPONSE_SET: "Geen reactie na follow-up",
+  MANUAL_FOLLOW_UP_SENT: "Handmatige follow-up verzonden",
+  NURTURE_SCHEDULED: "Later opnieuw benaderen",
+  NURTURE_DUE: "Opnieuw benaderen",
+  NURTURE_POSTPONED: "Opnieuw benaderen uitgesteld",
+};
+
+const ACTOR_LABELS: Record<string, string> = {
+  human: "medewerker",
+  system: "systeem",
+  agent: "automatisch",
+  webhook: "webhook",
+  user: "bezoeker",
+};
+
+export function labelForActivity(eventType: string, metadata?: unknown) {
+  if (eventType === "MAIL_CLICKED") {
+    const choice =
+      metadata && typeof metadata === "object" && "choice" in metadata
+        ? String((metadata as { choice?: unknown }).choice)
+        : "";
+    return choice === "info" ? "Geklikt op meer info" : "Geklikt op voorstel";
+  }
+  return ACTIVITY_LABELS[eventType] ?? eventType;
+}
+
+export function labelForActor(actorType: string | null | undefined) {
+  if (!actorType) return "systeem";
+  return ACTOR_LABELS[actorType] ?? actorType;
 }
 
 export function pickCommercialFindings<T extends { finding_type: string; severity: string }>(

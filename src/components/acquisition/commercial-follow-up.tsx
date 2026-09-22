@@ -9,7 +9,6 @@ import { ConfirmSubmit } from "@/components/acquisition/confirm-submit";
 import { fieldClass, Field } from "@/components/form-fields";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
 import {
-  FOLLOW_UP_ACTIVITY_LABELS,
   labelForNurtureReason,
   nurtureIsDue,
   nurturePresets,
@@ -19,7 +18,7 @@ import {
   summarizeScanChanges,
   type ScanChangeSummary,
 } from "@/lib/acquisition/follow-up";
-import { formatNlDate } from "@/lib/acquisition-constants";
+import { formatNlDate, labelForActivity } from "@/lib/acquisition-constants";
 import type { ProspectDetail } from "@/lib/acquisition";
 
 const buttonClass = "h-12 cursor-pointer rounded-md px-4 text-sm font-semibold";
@@ -162,7 +161,7 @@ function NurtureReview({
           <ul className="mt-2 space-y-2 text-sm text-ink/70">
             {prospect.activities.slice(0, 5).map((item) => (
               <li key={item.id}>
-                {FOLLOW_UP_ACTIVITY_LABELS[item.event_type] || item.event_type} · {formatNlDate(item.created_at)}
+                {labelForActivity(item.event_type, item.metadata)} · {formatNlDate(item.created_at)}
               </li>
             ))}
           </ul>
