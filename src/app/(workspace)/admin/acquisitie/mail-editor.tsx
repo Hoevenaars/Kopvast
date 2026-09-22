@@ -2,17 +2,37 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  regenerateMailAction,
-  saveMailAction,
-  sendLiveMailAction,
-  sendTestMailAction,
-} from "@/app/(workspace)/admin/acquisitie/actions";
+import { regenerateMailAction, saveMailAction, sendLiveMailAction } from "@/app/(workspace)/admin/acquisitie/actions";
 import { MailPreview } from "@/app/(workspace)/admin/acquisitie/mail-preview";
 import { areaClass, fieldClass, Field } from "@/components/form-fields";
+import { applyManualOfferToMailBody, paragraphForManualDiscount } from "@/lib/acquisition/manual-offer";
+import { isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
+import {
+  CONTENT_REASON_LABELS,
+  GEOGRAPHIC_REASON_LABELS,
+} from "@/lib/acquisition/outreach-policy";
+import type { ContentOfferReason, GeographicOfferReason } from "@/lib/acquisition/special-offer-rules";
+import type { ProductFit } from "@/lib/acquisition-constants";
 import type { EmailMode } from "@/lib/email-mode";
 
 type ActionResult = { ok: boolean; message?: string; skippedDuplicate?: boolean };
+type GeoChoice = Exclude<GeographicOfferReason, null>;
+type ContentChoice = Exclude<ContentOfferReason, null>;
+
+const GEO_OPTIONS: Array<{ value: "" | GeoChoice; label: string }> = [
+  { value: "", label: "Geen plaatselijke reden" },
+  { value: "GROESBEEK", label: GEOGRAPHIC_REASON_LABELS.GROESBEEK },
+  { value: "BERG_EN_DAL", label: GEOGRAPHIC_REASON_LABELS.BERG_EN_DAL },
+  { value: "REGION_NIJMEGEN", label: GEOGRAPHIC_REASON_LABELS.REGION_NIJMEGEN },
+];
+
+const CONTENT_OPTIONS: Array<{ value: "" | ContentChoice; label: string }> = [
+  { value: "", label: "Geen inhoudelijke reden" },
+  ...(Object.entries(CONTENT_REASON_LABELS) as Array<[ContentChoice, string]>).map(([value, label]) => ({
+    value,
+    label,
+  })),
+];
 
 export function MailEditor({
   prospectId,
@@ -23,7 +43,7 @@ export function MailEditor({
   domain,
   mode,
   intended,
-  testTo,
+  productFit,
   canSend,
 }: {
   prospectId: string;
@@ -34,24 +54,34 @@ export function MailEditor({
   domain: string;
   mode: EmailMode;
   intended: string | null;
-  testTo: string;
+  productFit: ProductFit | null;
   canSend: boolean;
 }) {
   const router = useRouter();
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState(initialBody);
+  const [savedSubject, setSavedSubject] = useState(initialSubject);
+  const [savedBody, setSavedBody] = useState(initialBody);
+  const [phase, setPhase] = useState<"concept" | "edit">("concept");
+  const [geographic, setGeographic] = useState<"" | GeoChoice>("");
+  const [content, setContent] = useState<"" | ContentChoice>("");
+  const [launch, setLaunch] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [actionPending, startAction] = useTransition();
   const lock = useRef(false);
 
+  const pending = actionPending || Boolean(busyLabel);
+  const dirty = subject !== savedSubject || body !== savedBody;
+  const canDiscount = productFit === "STANDARD_FIT" && !isUnreachableSiteMail(body);
+
   function run(
     action: (formData: FormData) => Promise<ActionResult | { ok: true }>,
-    extra?: Record<string, string>,
-    success = "Opgeslagen.",
-    pendingText = "Bezig…"
+    success: string,
+    pendingText: string,
+    afterSuccess?: () => void
   ) {
-    if (lock.current || actionPending) return;
+    if (lock.current || pending) return;
     lock.current = true;
     setBusyLabel(pendingText);
     setMessage(null);
@@ -60,7 +90,6 @@ export function MailEditor({
     data.set("mailId", mailId);
     data.set("subject", subject);
     data.set("body", body);
-    for (const [key, value] of Object.entries(extra ?? {})) data.set(key, value);
     startAction(async () => {
       try {
         const result = await action(data);
@@ -70,6 +99,7 @@ export function MailEditor({
             ok: true,
             text: "skippedDuplicate" in result && result.skippedDuplicate ? "Deze mail is al onderweg." : success,
           });
+          afterSuccess?.();
         } else {
           setMessage({ ok: false, text: ("message" in result && result.message) || "Er ging iets mis." });
         }
@@ -80,7 +110,34 @@ export function MailEditor({
     });
   }
 
-  const pending = actionPending || Boolean(busyLabel);
+  function applyDiscount() {
+    const offer = paragraphForManualDiscount({
+      geographicReason: launch ? null : geographic || null,
+      contentReason: launch ? null : content || null,
+      allowLaunchOffer: launch,
+    });
+    const applied = applyManualOfferToMailBody(body, offer.paragraph);
+    if (!applied.ok) {
+      setMessage({ ok: false, text: applied.message });
+      return;
+    }
+    setBody(applied.body);
+    setPhase("concept");
+    setMessage({
+      ok: true,
+      text: offer.discounted
+        ? "Korting staat in het concept. Werk het concept bij om het te bewaren."
+        : "Normale prijs staat in het concept. Werk het concept bij om het te bewaren.",
+    });
+  }
+
+  function saveDraft() {
+    run(saveMailAction, "Concept bijgewerkt.", "Concept bijwerken…", () => {
+      setSavedSubject(subject);
+      setSavedBody(body);
+      setPhase("concept");
+    });
+  }
 
   return (
     <section className="relative space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
@@ -92,21 +149,22 @@ export function MailEditor({
           </div>
         </div>
       ) : null}
-      <h2 className="font-semibold">Persoonlijke acquisitiemail</h2>
-      {mode === "TEST" ? (
-        <div className="rounded-xl bg-[#F3E4DD] px-4 py-3 text-sm text-copper-dark">
-          <p className="font-semibold">TEST MODE</p>
-          <p className="mt-1">Werkelijke ontvanger: {intended || "—"}</p>
-          <p>Test wordt verzonden naar: {testTo}</p>
+
+      <div>
+        <h2 className="font-semibold">{phase === "edit" ? "Concept aanpassen" : "Concept"}</h2>
+        <p className="mt-1 text-sm text-ink/60">
+          {phase === "edit"
+            ? "Pas de tekst aan en werk het concept bij. Daarna zie je de mail opnieuw, voordat je verstuurt."
+            : "Dit concept gaat de deur uit. Pas het aan, of zet er een korting op, en verstuur daarna."}
+        </p>
+      </div>
+
+      {phase === "concept" ? (
+        <div className="max-w-xl">
+          <MailPreview subject={subject} body={body} companyName={companyName} domain={domain} />
         </div>
       ) : (
-        <div className="rounded-xl bg-[#F3E4DD] px-4 py-3 text-sm text-copper-dark">
-          LIVE MODE — deze mail gaat naar {intended}.
-        </div>
-      )}
-
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <div className="space-y-4">
+        <div className="max-w-3xl space-y-4">
           <Field id="subject" label="Onderwerp">
             <input
               id="subject"
@@ -119,76 +177,161 @@ export function MailEditor({
           <Field id="body" label="Mailtekst">
             <textarea
               id="body"
-              className={`${areaClass} min-h-64 lg:min-h-[28rem]`}
+              className={`${areaClass} min-h-64`}
               value={body}
               onChange={(event) => setBody(event.target.value)}
               disabled={pending}
             />
           </Field>
+        </div>
+      )}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => run(regenerateMailAction, undefined, "Nieuwe conceptmail klaar.", "Nieuwe mail maken…")}
-              className="h-12 cursor-pointer rounded-md border border-ink/15 text-sm font-semibold disabled:cursor-wait disabled:opacity-50"
-            >
-              Opnieuw genereren
-            </button>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => run(saveMailAction, undefined, "Concept opgeslagen.", "Concept opslaan…")}
-              className="h-12 cursor-pointer rounded-md border border-ink/15 text-sm font-semibold disabled:cursor-wait disabled:opacity-50"
-            >
-              Concept opslaan
-            </button>
-            <button
-              type="button"
-              disabled={pending || !canSend}
-              onClick={() => run(sendTestMailAction, undefined, "Testmail verstuurd.", "Testmail versturen…")}
-              className="h-12 cursor-pointer rounded-md border border-ink/15 text-sm font-semibold disabled:cursor-wait disabled:opacity-50"
-            >
-              Testmail sturen
-            </button>
-            <button
-              type="button"
-              disabled={pending || !canSend}
-              onClick={() => {
-                if (mode === "LIVE") {
-                  const target = intended || "het prospectadres";
-                  if (!window.confirm(`Deze mail gaat naar ${target}. Versturen?`)) return;
-                }
-                run(
-                  sendLiveMailAction,
-                  undefined,
-                  mode === "LIVE" ? "Mail verstuurd." : "Mail naar testadres verstuurd.",
-                  "Mail versturen…"
-                );
-              }}
-              className="h-12 cursor-pointer rounded-md bg-copper-dark text-sm font-semibold text-ivory disabled:cursor-wait disabled:opacity-50"
-            >
-              {mode === "LIVE" ? "Versturen" : "Versturen naar testadres"}
-            </button>
-          </div>
-          {mode !== "LIVE" ? (
-            <p className="text-xs text-ink/45">
-              TEST MODE. Versturen doorloopt de echte flow, maar Resend levert af op {testTo}. LIVE zet je aan onder
-              Instellingen.
+      {phase === "concept" && canDiscount ? (
+        <div className="max-w-xl space-y-3 rounded-xl border border-ink/10 bg-ivory px-4 py-4">
+          <div>
+            <h3 className="text-sm font-semibold">Korting</h3>
+            <p className="mt-1 text-sm leading-6 text-ink/60">
+              Hooguit één plaats en één inhoudelijke reden. De zin komt uit de spelregels. Zonder reden blijft €1.495
+              staan.
             </p>
-          ) : (
-            <p className="text-xs text-ink/45">LIVE MODE. Versturen gaat naar {intended || "het prospectadres"}.</p>
-          )}
-          {message ? <p className={`text-sm ${message.ok ? "text-olive" : "text-destructive"}`}>{message.text}</p> : null}
-        </div>
-
-        <div className="lg:sticky lg:top-24">
-          <h3 className="text-sm font-semibold">Preview</h3>
-          <div className="mt-3 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
-            <MailPreview subject={subject} body={body} companyName={companyName} domain={domain} />
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field id="geo-reason" label="Plaats">
+              <select
+                id="geo-reason"
+                className={fieldClass}
+                value={launch ? "" : geographic}
+                disabled={pending || launch}
+                onChange={(event) => setGeographic(event.target.value as "" | GeoChoice)}
+              >
+                {GEO_OPTIONS.map((option) => (
+                  <option key={option.value || "none"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field id="content-reason" label="Inhoud">
+              <select
+                id="content-reason"
+                className={fieldClass}
+                value={launch ? "" : content}
+                disabled={pending || launch}
+                onChange={(event) => setContent(event.target.value as "" | ContentChoice)}
+              >
+                {CONTENT_OPTIONS.map((option) => (
+                  <option key={option.value || "none"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <label className="flex items-start gap-2 text-sm text-ink/80">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={launch}
+              disabled={pending}
+              onChange={(event) => setLaunch(event.target.checked)}
+            />
+            <span>Scherpe uitzondering, zonder plaats of inhoudelijke reden.</span>
+          </label>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={applyDiscount}
+            className="h-11 cursor-pointer rounded-md border border-ink/15 px-4 text-sm font-semibold disabled:cursor-wait disabled:opacity-50"
+          >
+            Korting toepassen
+          </button>
         </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-3">
+        {phase === "edit" ? (
+          <>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={saveDraft}
+              className="h-12 cursor-pointer rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory disabled:cursor-wait disabled:opacity-50"
+            >
+              Bijwerken
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                setSubject(savedSubject);
+                setBody(savedBody);
+                setPhase("concept");
+                setMessage(null);
+              }}
+              className="h-12 cursor-pointer rounded-md border border-ink/15 px-5 text-sm font-semibold disabled:cursor-wait disabled:opacity-50"
+            >
+              Annuleren
+            </button>
+          </>
+        ) : dirty ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={saveDraft}
+            className="h-12 cursor-pointer rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory disabled:cursor-wait disabled:opacity-50"
+          >
+            Bijwerken
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={pending || !canSend}
+            onClick={() => {
+              if (mode === "LIVE") {
+                const target = intended || "het prospectadres";
+                if (!window.confirm(`Deze mail gaat naar ${target}. Versturen?`)) return;
+              }
+              run(
+                sendLiveMailAction,
+                mode === "LIVE" ? "Mail verstuurd." : "Mail naar het testadres verstuurd.",
+                "Mail versturen…"
+              );
+            }}
+            className="h-12 cursor-pointer rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory disabled:cursor-wait disabled:opacity-50"
+          >
+            {mode === "LIVE" ? "Verzenden" : "Verzenden naar testadres"}
+          </button>
+        )}
+        {phase === "concept" ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setMessage(null);
+              setPhase("edit");
+            }}
+            className="h-12 cursor-pointer rounded-md border border-ink/15 px-5 text-sm font-semibold disabled:cursor-wait disabled:opacity-50"
+          >
+            Aanpassen
+          </button>
+        ) : null}
       </div>
+
+      {phase === "concept" && !dirty ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            if (!window.confirm("Het huidige concept wordt vervangen door een nieuw concept. Doorgaan?")) return;
+            run(regenerateMailAction, "Nieuw concept klaar.", "Nieuw concept maken…");
+          }}
+          className="text-sm font-medium text-ink/55 underline-offset-2 hover:underline disabled:opacity-50"
+        >
+          Opnieuw genereren
+        </button>
+      ) : null}
+
+      {message ? <p className={`text-sm ${message.ok ? "text-olive" : "text-destructive"}`}>{message.text}</p> : null}
     </section>
   );
 }

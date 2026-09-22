@@ -16,7 +16,7 @@ export function EmailModeBanner({ mode, testTo }: { mode: EmailMode; testTo: str
         </>
       ) : (
         <>
-          <strong>LIVE MODE</strong> — acquisitiemails gaan naar het echte prospectadres. Testmail blijft intern.
+          <strong>LIVE MODE</strong> — acquisitiemails gaan naar het echte prospectadres.
         </>
       )}
     </div>
