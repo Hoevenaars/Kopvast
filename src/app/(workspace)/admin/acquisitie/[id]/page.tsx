@@ -19,6 +19,9 @@ import { ScoutCapturePanel } from "@/app/(workspace)/admin/scout/scout-capture-p
 import {
   FINDING_CATEGORY_LABELS,
   formatNlDate,
+  formatNlDateTime,
+  labelForActivity,
+  labelForActor,
   labelForContact,
   labelForFit,
   labelForMail,
@@ -252,21 +255,9 @@ export default async function ProspectDetailPage({
         <ul className="mt-4 divide-y divide-ink/6">
           {prospect.activities.map((item) => (
             <li key={item.id} className="flex flex-col gap-1 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-              <span>
-                {item.event_type === "SCOUT_CAPTURED"
-                  ? "Scout-push"
-                  : item.event_type === "MAIL_CLICKED"
-                    ? clickLabelFromActivity(item.metadata)
-                    : item.event_type === "OUTREACH_PROPOSAL_REQUEST"
-                      ? "Wil een voorstel"
-                      : item.event_type === "OUTREACH_MORE_INFO"
-                        ? "Wil meer info"
-                        : item.event_type === "COMPANY_UPDATED"
-                          ? "Bedrijfsnaam gewijzigd"
-                          : item.event_type}
-              </span>
+              <span>{labelForActivity(item.event_type, item.metadata)}</span>
               <span className="text-xs text-ink/40">
-                {item.actor_type} · {new Date(item.created_at).toLocaleString("nl-NL")}
+                {labelForActor(item.actor_type)} · {formatNlDateTime(item.created_at)}
               </span>
             </li>
           ))}
@@ -274,11 +265,6 @@ export default async function ProspectDetailPage({
       </section>
     </div>
   );
-}
-
-function clickLabelFromActivity(metadata: unknown) {
-  const choice = metadata && typeof metadata === "object" && "choice" in metadata ? String(metadata.choice) : "";
-  return choice === "info" ? "Geklikt op meer info" : "Geklikt op voorstel";
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
