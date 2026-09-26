@@ -20,6 +20,7 @@ import {
   type ProductFit,
 } from "./acquisition-constants";
 import { explicitOfferPriceInText } from "./acquisition-start";
+import { isStructuredAcquisitionBody } from "./mail-body";
 import { isEmail, normalizeEmail } from "./product";
 import {
   findingsFromManualReasons,
@@ -689,7 +690,7 @@ export async function saveProspectMailDraft(input: {
           body,
         });
     html = prepared.html;
-    text = shortFollowUp ? body : prepared.text;
+    text = isStructuredAcquisitionBody(body) ? prepared.text : body;
   } catch (error) {
     return renderFailure(error);
   }
