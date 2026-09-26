@@ -158,7 +158,6 @@ export default async function ProspectDetailPage({
           domain={prospect.domain}
           mode={mode}
           intended={prospect.contact?.email ?? null}
-          productFit={prospect.product_fit}
           canSend={!blocked && Boolean(prospect.contact?.email)}
           title={isShortAcquisitionKind(prospect.mail.kind) ? "Handmatige follow-up" : "Persoonlijke acquisitiemail"}
           layout={isShortAcquisitionKind(prospect.mail.kind) ? "short" : "outreach"}

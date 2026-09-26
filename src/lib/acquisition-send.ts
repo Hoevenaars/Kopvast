@@ -19,6 +19,7 @@ import {
   SCOUT_MAIL_TEMPLATE_VERSION,
   type ProductFit,
 } from "./acquisition-constants";
+import { explicitOfferPriceInText } from "./acquisition-start";
 import { isEmail, normalizeEmail } from "./product";
 import {
   findingsFromManualReasons,
@@ -677,7 +678,7 @@ export async function saveProspectMailDraft(input: {
           companyName: detail.company_name,
           subject,
           body,
-          offerPrice: followUpChoicePrice({ fit: detail.product_fit, place: detail.city }),
+          offerPrice: explicitOfferPriceInText(body) ?? followUpChoicePrice({ fit: detail.product_fit, place: detail.city }),
         })
       : await prepareTrackedAcquisitionEmail({
           prospectId: input.prospectId,
@@ -777,7 +778,7 @@ export async function sendProspectTestMail(input: { prospectId: string; mailId: 
           companyName: detail.company_name,
           subject,
           body,
-          offerPrice: followUpChoicePrice({ fit: detail.product_fit, place: detail.city }),
+          offerPrice: explicitOfferPriceInText(body) ?? followUpChoicePrice({ fit: detail.product_fit, place: detail.city }),
         })
       : await prepareTrackedAcquisitionEmail({
           prospectId: detail.id,
@@ -895,7 +896,7 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
           companyName: detail.company_name,
           subject,
           body,
-          offerPrice: followUpChoicePrice({ fit: detail.product_fit, place: detail.city }),
+          offerPrice: explicitOfferPriceInText(body) ?? followUpChoicePrice({ fit: detail.product_fit, place: detail.city }),
         })
       : await prepareTrackedAcquisitionEmail({
           prospectId: detail.id,
@@ -1267,7 +1268,7 @@ export async function sendAutomaticFollowUp(prospectId: string) {
       companyName: fresh.company_name,
       subject,
       body,
-      offerPrice: followUpChoicePrice({ fit: fresh.product_fit, place: fresh.city }),
+      offerPrice: explicitOfferPriceInText(body) ?? followUpChoicePrice({ fit: fresh.product_fit, place: fresh.city }),
     });
     html = prepared.html;
     text = prepared.text;

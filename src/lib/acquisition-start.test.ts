@@ -10,6 +10,7 @@ import {
   acquisitionSource,
   formatOfferPrice,
   isAcquisitionStartSource,
+  explicitOfferPriceInText,
   offerPriceFromParagraph,
   parseAcquisitionChoice,
   parseCompanyParam,
@@ -55,6 +56,9 @@ test("parst startquery veilig", () => {
   assert.equal(parseOfferPrice("abc"), 1495);
   assert.equal(offerPriceFromParagraph("Voor jullie maak ik daar €995 excl. btw. van."), 995);
   assert.equal(offerPriceFromParagraph("Een complete Kopvast Website kost €1.495 excl. btw."), 1495);
+  assert.equal(explicitOfferPriceInText("Voor jullie maak ik daar €995 excl. btw. van."), 995);
+  assert.equal(explicitOfferPriceInText("Een complete Kopvast Website kost €1.495 excl. btw."), 1495);
+  assert.equal(explicitOfferPriceInText("Alleen een observatie, zonder prijs."), null);
 
   const parsed = parseStartSearchParams({
     keuze: "info",

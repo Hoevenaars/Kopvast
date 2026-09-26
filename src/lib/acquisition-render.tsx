@@ -10,6 +10,7 @@ import { AcquisitionFollowUpEmail } from "@/emails/acquisition-follow-up";
 import { AcquisitionUnreachableEmail } from "@/emails/acquisition-unreachable";
 import { followUpPlainText } from "@/lib/acquisition/follow-up-copy";
 import { isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
+import { isStructuredAcquisitionBody } from "@/lib/mail-body";
 
 export async function prepareAcquisitionEmail(props: AcquisitionOutreachEmailProps) {
   if (isUnreachableSiteMail(props.body)) {
@@ -23,6 +24,21 @@ export async function prepareAcquisitionEmail(props: AcquisitionOutreachEmailPro
       emailProps: props,
       html,
       text: body,
+    };
+  }
+
+  const body = props.body?.trim() ?? "";
+  if (body && !isStructuredAcquisitionBody(body)) {
+    const prepared = await prepareFollowUpEmail({
+      subject: props.subject,
+      body,
+      choiceAUrl: props.choiceAUrl,
+      choiceBUrl: props.choiceBUrl,
+    });
+    return {
+      emailProps: props,
+      html: prepared.html,
+      text: prepared.text,
     };
   }
 

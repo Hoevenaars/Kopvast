@@ -10,8 +10,9 @@ import {
   emailPropsFromDraft,
   findDuplicatedAcquisitionContent,
 } from "@/emails/acquisition-outreach-copy";
+import { acquisitionChoiceUrls, explicitOfferPriceInText } from "@/lib/acquisition-start";
 import { isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
-import { splitMailParagraphs } from "@/lib/mail-body";
+import { isStructuredAcquisitionBody, splitMailParagraphs } from "@/lib/mail-body";
 
 export function MailPreview({
   subject,
@@ -26,11 +27,26 @@ export function MailPreview({
   domain: string;
   layout?: "outreach" | "short";
 }) {
-  if (layout === "short") {
+  const structured = isStructuredAcquisitionBody(body);
+
+  if (!body.trim()) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-ink/10 bg-white">
+        <div className="px-6 pt-7 pb-8 text-[15px] leading-6 text-ink/35">De preview verschijnt terwijl je typt.</div>
+      </div>
+    );
+  }
+
+  if (layout === "short" || (!isUnreachableSiteMail(body) && !structured)) {
     const blocks = splitMailParagraphs(body).filter(
       (item) => item !== PROPOSAL_CTA_LABEL && item !== MORE_INFO_CTA_LABEL && !/^KOPVAST$/i.test(item)
     );
     const showChoices = body.includes(PROPOSAL_CTA_LABEL) || body.includes(MORE_INFO_CTA_LABEL);
+    const choiceUrls = acquisitionChoiceUrls({
+      domain,
+      companyName,
+      offerPrice: explicitOfferPriceInText(body),
+    });
     return (
       <div className="overflow-hidden rounded-xl border border-ink/10 bg-white">
         <div className="px-6 pt-7 pb-8 text-[15px] leading-6 text-ink">
@@ -44,12 +60,12 @@ export function MailPreview({
           {showChoices ? (
             <>
           <p className="mb-3">
-            <a href={DEFAULT_CHOICE_A_URL} className="inline-block rounded-[4px] bg-[#121212] px-[18px] py-[13px] text-sm font-bold text-white no-underline">
+            <a href={choiceUrls.choiceAUrl} className="inline-block rounded-[4px] bg-[#121212] px-[18px] py-[13px] text-sm font-bold text-white no-underline">
               {PROPOSAL_CTA_LABEL}
             </a>
           </p>
           <p className="mb-4">
-            <a href={DEFAULT_CHOICE_B_URL} className="inline-block rounded-[4px] border border-[#121212] bg-white px-[18px] py-[12px] text-sm font-bold text-[#121212] no-underline">
+            <a href={choiceUrls.choiceBUrl} className="inline-block rounded-[4px] border border-[#121212] bg-white px-[18px] py-[12px] text-sm font-bold text-[#121212] no-underline">
               {MORE_INFO_CTA_LABEL}
             </a>
           </p>
@@ -102,14 +118,6 @@ export function MailPreview({
           <p className="mb-0">{site.name}</p>
           <p className="mt-0.5 text-[13px] text-ink/45">{site.tagline}</p>
         </div>
-      </div>
-    );
-  }
-
-  if (!body.trim()) {
-    return (
-      <div className="overflow-hidden rounded-xl border border-ink/10 bg-white">
-        <div className="px-6 pt-7 pb-8 text-[15px] leading-6 text-ink/35">De preview verschijnt terwijl je typt.</div>
       </div>
     );
   }

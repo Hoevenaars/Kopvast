@@ -6,13 +6,11 @@ import { regenerateMailAction, saveMailAction, sendLiveMailAction } from "@/app/
 import { MailPreview } from "@/app/(workspace)/admin/acquisitie/mail-preview";
 import { areaClass, fieldClass, Field } from "@/components/form-fields";
 import { applyManualOfferToMailBody, paragraphForManualDiscount } from "@/lib/acquisition/manual-offer";
-import { isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
 import {
   CONTENT_REASON_LABELS,
   GEOGRAPHIC_REASON_LABELS,
 } from "@/lib/acquisition/outreach-policy";
 import type { ContentOfferReason, GeographicOfferReason } from "@/lib/acquisition/special-offer-rules";
-import type { ProductFit } from "@/lib/acquisition-constants";
 import type { EmailMode } from "@/lib/email-mode";
 
 type ActionResult = { ok: boolean; message?: string; skippedDuplicate?: boolean };
@@ -43,7 +41,6 @@ export function MailEditor({
   domain,
   mode,
   intended,
-  productFit,
   canSend,
   title = "Persoonlijke acquisitiemail",
   layout = "outreach",
@@ -56,7 +53,6 @@ export function MailEditor({
   domain: string;
   mode: EmailMode;
   intended: string | null;
-  productFit: ProductFit | null;
   canSend: boolean;
   title?: string;
   layout?: "outreach" | "short";
@@ -77,7 +73,6 @@ export function MailEditor({
 
   const pending = actionPending || Boolean(busyLabel);
   const dirty = subject !== savedSubject || body !== savedBody;
-  const canDiscount = layout !== "short" && productFit === "STANDARD_FIT" && !isUnreachableSiteMail(body);
 
   function run(
     action: (formData: FormData) => Promise<ActionResult | { ok: true }>,
@@ -159,10 +154,10 @@ export function MailEditor({
         </h2>
         <p className="mt-1 text-sm text-ink/60">
           {layout === "short"
-            ? "Concept op basis van de eerdere mail en website. Bekijk de preview, pas de tekst aan en verstuur zelf. Kopvast verstuurt dit niet automatisch."
+            ? "Concept op basis van de eerdere mail en website. Bekijk de preview, zet er desgewenst een korting op, pas de tekst aan en verstuur zelf. Kopvast verstuurt dit niet automatisch."
             : phase === "edit"
               ? "Pas de tekst aan en werk het concept bij. Daarna zie je de mail opnieuw, voordat je verstuurt."
-              : "Dit concept gaat de deur uit. Pas het aan, of zet er een korting op, en verstuur daarna."}
+              : "Dit concept gaat de deur uit. Pas het aan, kies zelf of er een korting in komt, en verstuur daarna."}
         </p>
       </div>
 
@@ -193,13 +188,13 @@ export function MailEditor({
         </div>
       )}
 
-      {phase === "concept" && canDiscount ? (
+      {phase === "concept" ? (
         <div className="max-w-xl space-y-3 rounded-xl border border-ink/10 bg-ivory px-4 py-4">
           <div>
             <h3 className="text-sm font-semibold">Korting</h3>
             <p className="mt-1 text-sm leading-6 text-ink/60">
-              Hooguit één plaats en één inhoudelijke reden. De zin komt uit de spelregels. Zonder reden blijft €1.495
-              staan.
+              Jij kiest per mail of er een korting in komt, ook als de mail nog geen prijs noemt. Hooguit één plaats en
+              één inhoudelijke reden. De zin komt uit de spelregels. Zonder reden blijft €1.495 staan.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

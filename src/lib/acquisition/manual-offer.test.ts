@@ -72,7 +72,51 @@ test("scherpe uitzondering is alleen de launch-reden", () => {
   assert.equal(offer.reasonLines.length, 1);
 });
 
-test("een mail zonder prijsalinea krijgt geen korting", () => {
-  const applied = applyManualOfferToMailBody("Goedendag,\n\nAlleen een opening.", "Een complete Kopvast Website kost €1.495 excl. btw.");
-  assert.equal(applied.ok, false);
+test("een mail zonder prijsalinea krijgt de gekozen prijs alsnog", () => {
+  const offer = paragraphForManualDiscount({
+    geographicReason: null,
+    contentReason: null,
+    allowLaunchOffer: true,
+  });
+  const scout = [
+    "Beste MVS,",
+    "",
+    "Ik kwam jullie website tegen en er vielen me een paar concrete zaken op.",
+    "",
+    "Met vriendelijke groet,",
+    "Kopvast",
+  ].join("\n");
+  const applied = applyManualOfferToMailBody(scout, offer.paragraph);
+  assert.equal(applied.ok, true);
+  if (!applied.ok) return;
+  assert.match(applied.body, /€995 excl\. btw/);
+  assert.match(applied.body, /scherpe uitzondering/);
+  assert.match(applied.body, /zaken op\.\n\nEen complete Kopvast Website/);
+  assert.match(applied.body, /uitzondering\.\n\nMet vriendelijke groet/);
+  assert.doesNotMatch(applied.body, /Een complete Kopvast Website[\s\S]*Een complete Kopvast Website/);
+});
+
+test("een follow-up zonder standaardprijsalinea kan alsnog korting krijgen", () => {
+  const body = [
+    "Goedendag,",
+    "",
+    "Ik stuur mijn mail over mvs.nl nog één keer naar boven.",
+    "",
+    "Voor jullie staat mijn aanbod van €1.495 excl. btw. nog steeds.",
+    "",
+    "Ja, doe me een voorstel",
+    "",
+    "Stuur me eerst meer info",
+  ].join("\n");
+  const offer = paragraphForManualDiscount({
+    geographicReason: "REGION_NIJMEGEN",
+    contentReason: null,
+  });
+  const applied = applyManualOfferToMailBody(body, offer.paragraph);
+  assert.equal(applied.ok, true);
+  if (!applied.ok) return;
+  assert.match(applied.body, /€995 excl\. btw/);
+  assert.doesNotMatch(applied.body, /nog steeds/);
+  assert.match(applied.body, /Ja, doe me een voorstel/);
+  assert.equal(applied.body.match(/€995/g)?.length, 1);
 });
