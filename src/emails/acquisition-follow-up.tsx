@@ -1,5 +1,6 @@
 import { Body, Button, Container, Head, Html, Link, Preview, Section, Text } from "react-email";
 import { MORE_INFO_CTA_LABEL, PROPOSAL_CTA_LABEL } from "@/emails/acquisition-outreach-copy";
+import { mailHasClosingSignature } from "@/lib/acquisition/follow-up-copy";
 import { splitMailParagraphs } from "@/lib/mail-body";
 import { site } from "@/lib/site";
 
@@ -102,7 +103,7 @@ export function AcquisitionFollowUpEmail({
   choiceBUrl?: string | null;
 }) {
   const blocks = splitMailParagraphs(body).filter((item) => !/^KOPVAST$/i.test(item) && item !== site.name && item !== site.tagline);
-  const showSignature = !blocks.some((item) => item === site.tagline);
+  const showSignature = !mailHasClosingSignature(body);
 
   return (
     <Html lang="nl" dir="ltr">

@@ -15,7 +15,7 @@ import { fieldClass, Field } from "@/components/form-fields";
 import { loadProspectDetail } from "@/lib/acquisition";
 import { mailHasFindings } from "@/lib/acquisition/manual-reasons";
 import { isUnreachableProspect } from "@/lib/acquisition/unreachable-site-mail";
-import { loadScoutCaptureForProspect } from "@/lib/scout/crm";
+import { ensureScoutProspectContact, loadScoutCaptureForProspect } from "@/lib/scout/crm";
 import { ScoutCapturePanel } from "@/app/(workspace)/admin/scout/scout-capture-panel";
 import {
   FINDING_CATEGORY_LABELS,
@@ -54,9 +54,10 @@ export default async function ProspectDetailPage({
 }) {
   const { id } = await params;
   const { mailError } = await searchParams;
+  const scout = await loadScoutCaptureForProspect(id);
+  if (scout?.email) await ensureScoutProspectContact(id, scout.email);
   const prospect = await loadProspectDetail(id);
   if (!prospect) notFound();
-  const scout = await loadScoutCaptureForProspect(id);
 
   const running = ["queued", "running"].includes(prospect.scan?.status ?? "") || ["SCANNING", "ANALYSING", "VALIDATING"].includes(prospect.status);
   const commercialFindings = pickCommercialFindings(prospect.findings, 5);
