@@ -661,6 +661,30 @@ test("mailparagrafen splitsen op lege regels", () => {
   assert.deepEqual(splitMailParagraphs("   "), []);
 });
 
+test("scoutmail houdt de eigen tekst en een gekozen korting", async () => {
+  const body = [
+    "Beste MVS,",
+    "",
+    "Ik kwam jullie website tegen en er vielen me een paar concrete zaken op.",
+    "",
+    "Een complete Kopvast Website kost normaal €1.495 excl. btw. Voor jullie maak ik daar €995 excl. btw. van. Daarom maak ik voor jullie graag een scherpe uitzondering.",
+    "",
+    "Met vriendelijke groet,",
+    "Kopvast",
+  ].join("\n");
+  const prepared = await prepareAcquisitionEmail({
+    domain: "mvs.nl",
+    companyName: "MVS",
+    subject: "Korte observatie over MVS",
+    body,
+  });
+  assert.match(prepared.text, /paar concrete zaken op/);
+  assert.match(prepared.text, /€995 excl\. btw/);
+  assert.match(prepared.html, /€995 excl\. btw/);
+  assert.doesNotMatch(prepared.text, /Twee dingen vielen direct op/);
+  assert.doesNotMatch(prepared.html, /kort bekeken/);
+});
+
 test("onbereikbare-site-mail rendert zonder te doen alsof we de site zagen", async () => {
   const mail = buildUnreachableSiteMail({ domain: "atelierlint.nl", companyName: "Atelier Lint" });
   const prepared = await prepareAcquisitionEmail({

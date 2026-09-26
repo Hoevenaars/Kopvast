@@ -62,6 +62,14 @@ export function offerPriceFromParagraph(text: string | null | undefined): Acquis
     : WEBSITE_LIST_PRICE_EX_VAT;
 }
 
+export function explicitOfferPriceInText(text: string | null | undefined): AcquisitionOfferPrice | null {
+  if (new RegExp(`€\\s*${REGIONAL_ACQUISITION_PRICE_EX_VAT}\\b`).test(text ?? "")) {
+    return REGIONAL_ACQUISITION_PRICE_EX_VAT;
+  }
+  if (/€\s*1[.,]?495\b/.test(text ?? "")) return WEBSITE_LIST_PRICE_EX_VAT;
+  return null;
+}
+
 export function formatOfferPrice(price: AcquisitionOfferPrice) {
   return formatPrice(price);
 }
