@@ -142,6 +142,32 @@ function revalidateAdminSurfaces(prospectId?: string | null) {
   if (prospectId) revalidatePath(`${workspaceRoutes.adminAcquisition}/${prospectId}`);
 }
 
+export async function ensureScoutProspectContact(prospectId: string, email: string | null | undefined) {
+  if (!email || !isEmail(email)) return;
+  const supabase = scoutServiceClient();
+  if (!supabase) return;
+  const normalized = normalizeEmail(email);
+  const { data: existing, error: lookupError } = await supabase
+    .from("prospect_contacts")
+    .select("id")
+    .eq("prospect_id", prospectId)
+    .ilike("email", normalized)
+    .maybeSingle();
+  if (lookupError) {
+    console.error("[scout] Contact opzoeken mislukt", lookupError.message);
+    return;
+  }
+  if (existing) return;
+  const { error } = await supabase.from("prospect_contacts").insert({
+    prospect_id: prospectId,
+    email: normalized,
+    email_source: "scout",
+    contact_status: "UNKNOWN",
+    do_not_contact: false,
+  });
+  if (error) console.error("[scout] Contact koppelen mislukt", error.message);
+}
+
 export async function syncProspectFromScout(leadId: string): Promise<string | null> {
   const supabase = scoutServiceClient();
   const lead = await getLeadById(leadId);
@@ -175,24 +201,7 @@ export async function syncProspectFromScout(leadId: string): Promise<string | nu
   const { error } = await supabase.from("prospects").update(patch).eq("id", lead.prospect_id);
   if (error) console.error("[scout] Prospect bijwerken mislukt", error.message);
 
-  if (lead.email && isEmail(lead.email)) {
-    const email = normalizeEmail(lead.email);
-    const { data: existing } = await supabase
-      .from("prospect_contacts")
-      .select("id")
-      .eq("prospect_id", lead.prospect_id)
-      .ilike("email", email)
-      .maybeSingle();
-    if (!existing) {
-      await supabase.from("prospect_contacts").insert({
-        prospect_id: lead.prospect_id,
-        email,
-        email_source: "scout",
-        contact_status: "UNKNOWN",
-        do_not_contact: false,
-      });
-    }
-  }
+  await ensureScoutProspectContact(lead.prospect_id, lead.email);
 
   if (draft?.subject && draft.message && !locked) {
     await upsertScoutOutreachDraft(lead.prospect_id, draft);

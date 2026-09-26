@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
-import { sanitizeAcquisitionSearch } from "./mail-body";
+import { isStructuredAcquisitionBody, sanitizeAcquisitionSearch } from "./mail-body";
 import { refreshClient } from "./refresh";
 import { clickActivityLabel, loadRecentAcquisitionClicks } from "./acquisition-clicks";
 import { scoutProspectIds } from "./scout/crm";
@@ -875,7 +875,7 @@ export async function updateProspectCompanyName(input: {
           body,
         });
         html = prepared.html;
-        text = prepared.text;
+        text = isStructuredAcquisitionBody(body) ? prepared.text : body;
       } catch (error) {
         console.error("[kopvast] Conceptmail bij naamwijziging renderen mislukt", error instanceof Error ? error.message : error);
       }

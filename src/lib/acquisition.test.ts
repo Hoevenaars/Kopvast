@@ -683,6 +683,8 @@ test("scoutmail houdt de eigen tekst en een gekozen korting", async () => {
   assert.match(prepared.html, /€995 excl\. btw/);
   assert.doesNotMatch(prepared.text, /Twee dingen vielen direct op/);
   assert.doesNotMatch(prepared.html, /kort bekeken/);
+  assert.doesNotMatch(prepared.text, /Kopvast\n\nKopvast/);
+  assert.doesNotMatch(prepared.text, /Scherp denken/);
 });
 
 test("onbereikbare-site-mail rendert zonder te doen alsof we de site zagen", async () => {
