@@ -1,13 +1,5 @@
--- Eén automatische acquisitie-follow-up en nurture op het bestaande prospect.
--- Geen tweede CRM. last_contacted_at blijft het laatste contactmoment.
-
-ALTER TABLE public.prospects DROP CONSTRAINT IF EXISTS prospects_status_check;
-ALTER TABLE public.prospects ADD CONSTRAINT prospects_status_check CHECK (
-  status = ANY (ARRAY[
-    'NEW','VALIDATING','SCANNING','SCAN_FAILED','ANALYSING','QUALIFIED','WATCHLIST',
-    'SALES_READY','PRIORITY','REJECTED','PREVIEW_READY','CONTACTED','ARCHIVED','CONVERTED','CLOSED'
-  ])
-);
+-- Follow-upkolommen ontbraken op productie, waardoor de acquisitielijst
+-- kapotging op prospects.nurture_status. CONTACTED blijft geldig.
 
 ALTER TABLE public.prospects
   ADD COLUMN IF NOT EXISTS auto_follow_up_due_at timestamptz,
@@ -32,6 +24,22 @@ ALTER TABLE public.prospects ADD CONSTRAINT prospects_nurture_reason_check CHECK
   ])
 );
 
+ALTER TABLE public.prospects DROP CONSTRAINT IF EXISTS prospects_status_check;
+ALTER TABLE public.prospects ADD CONSTRAINT prospects_status_check CHECK (
+  status = ANY (ARRAY[
+    'NEW','VALIDATING','SCANNING','SCAN_FAILED','ANALYSING','QUALIFIED','WATCHLIST',
+    'SALES_READY','PRIORITY','REJECTED','PREVIEW_READY','CONTACTED','ARCHIVED','CONVERTED','CLOSED'
+  ])
+);
+
+ALTER TABLE public.email_messages DROP CONSTRAINT IF EXISTS email_messages_kind_check;
+ALTER TABLE public.email_messages ADD CONSTRAINT email_messages_kind_check CHECK (
+  kind = ANY (ARRAY[
+    'internal_notification','customer_confirmation','acquisition_outreach','acquisition_test',
+    'acquisition_follow_up','acquisition_manual_follow_up'
+  ])
+);
+
 CREATE INDEX IF NOT EXISTS prospects_auto_follow_up_due_idx
   ON public.prospects (auto_follow_up_due_at)
   WHERE auto_follow_up_sent_at IS NULL
@@ -41,14 +49,6 @@ CREATE INDEX IF NOT EXISTS prospects_auto_follow_up_due_idx
 CREATE INDEX IF NOT EXISTS prospects_nurture_until_idx
   ON public.prospects (nurture_until)
   WHERE nurture_status = 'SCHEDULED';
-
-ALTER TABLE public.email_messages DROP CONSTRAINT IF EXISTS email_messages_kind_check;
-ALTER TABLE public.email_messages ADD CONSTRAINT email_messages_kind_check CHECK (
-  kind = ANY (ARRAY[
-    'internal_notification','customer_confirmation','acquisition_outreach','acquisition_test',
-    'acquisition_follow_up','acquisition_manual_follow_up'
-  ])
-);
 
 CREATE UNIQUE INDEX IF NOT EXISTS email_messages_one_auto_follow_up_idx
   ON public.email_messages (prospect_id)

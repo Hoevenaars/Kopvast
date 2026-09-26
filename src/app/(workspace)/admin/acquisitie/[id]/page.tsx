@@ -8,6 +8,7 @@ import {
   updateFollowUpForm,
 } from "@/app/(workspace)/admin/acquisitie/actions";
 import { CommercialFollowUp } from "@/components/acquisition/commercial-follow-up";
+import { SentMails } from "@/components/acquisition/sent-mails";
 import { ManualReasonsForm } from "@/components/acquisition/manual-reasons-form";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
@@ -32,6 +33,7 @@ import {
   type ProductFit,
 } from "@/lib/acquisition-constants";
 import { isShortAcquisitionKind } from "@/lib/acquisition/follow-up";
+import { sentMailRecords } from "@/lib/acquisition/sent-mails";
 import { explainOutreachOffer } from "@/lib/acquisition/outreach-policy";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { ProspectContactEmailForm } from "../contact-email-form";
@@ -69,7 +71,9 @@ export default async function ProspectDetailPage({
     scanStatus: prospect.scan?.status,
     scanError: prospect.scan?.error_message,
   });
-  const mailSent = ["queued", "sent", "delivered"].includes(prospect.mail?.status ?? "");
+  const sentMails = sentMailRecords(prospect.mails);
+  const draftMail = prospect.mail?.status === "draft" ? prospect.mail : null;
+  const mailSent = sentMails.some((mail) => mail.kind === "acquisition_outreach");
   const showManualReasons = scanFailed && !mailSent && !mailHasFindings(prospect.mail);
   const showUnreachableCreate = scanFailed && Boolean(prospect.contact?.email) && !prospect.mail;
 
@@ -148,20 +152,22 @@ export default async function ProspectDetailPage({
 
       <CommercialFollowUp prospect={prospect} asOf={new Date().toISOString()} />
 
-      {prospect.mail ? (
+      <SentMails mails={sentMails} />
+
+      {draftMail ? (
         <MailEditor
-          key={`${prospect.mail.id}-${prospect.company_name ?? ""}`}
+          key={`${draftMail.id}-${prospect.company_name ?? ""}`}
           prospectId={prospect.id}
-          mailId={prospect.mail.id}
-          subject={prospect.mail.subject ?? ""}
-          body={prospect.mail.body_text ?? ""}
+          mailId={draftMail.id}
+          subject={draftMail.subject ?? ""}
+          body={draftMail.body_text ?? ""}
           companyName={prospect.company_name}
           domain={prospect.domain}
           mode={mode}
           intended={prospect.contact?.email ?? null}
           canSend={!blocked && Boolean(prospect.contact?.email)}
-          title={isShortAcquisitionKind(prospect.mail.kind) ? "Handmatige follow-up" : "Persoonlijke acquisitiemail"}
-          layout={isShortAcquisitionKind(prospect.mail.kind) ? "short" : "outreach"}
+          title={isShortAcquisitionKind(draftMail.kind) ? "Handmatige follow-up" : "Persoonlijke acquisitiemail"}
+          layout={isShortAcquisitionKind(draftMail.kind) ? "short" : "outreach"}
         />
       ) : showUnreachableCreate ? (
         <form action={createUnreachableMailForm} className="relative space-y-4 rounded-2xl border border-copper/25 bg-[#FBF6F2] p-5">
@@ -178,7 +184,7 @@ export default async function ProspectDetailPage({
             Maak mail voor onbereikbare site
           </SubmitButton>
         </form>
-      ) : showManualReasons ? null : (
+      ) : showManualReasons || sentMails.length ? null : (
         <section className="rounded-2xl border border-dashed border-ink/15 p-5 text-sm text-ink/50">
           De acquisitiemail verschijnt hier zodra de scan klaar is.
         </section>
