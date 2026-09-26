@@ -8,6 +8,7 @@ import {
   buildManualFollowUpBody,
   canScheduleAutoFollowUp,
   followUpBlockReason,
+  followUpDueAtFromSentAt,
   followUpOfferSentence,
   nurtureUntilFromChoice,
   showNoResponseChoices,
@@ -46,6 +47,11 @@ test("vier werkdagen slaan het weekend over", () => {
 
   const monday = new Date("2026-09-21T09:30:00.000Z");
   assert.equal(addBusinessDays(monday, 4).toISOString(), "2026-09-25T09:30:00.000Z");
+});
+
+test("een gemiste follow-up houdt de datum van de verzonden mail", () => {
+  assert.equal(followUpDueAtFromSentAt(new Date("2026-09-21T15:21:44.242Z")), "2026-09-25T15:21:44.242Z");
+  assert.equal(followUpDueAtFromSentAt(new Date("2026-09-26T08:45:48.243Z")), "2026-10-01T08:45:48.243Z");
 });
 
 test("automatische follow-up wordt maar één keer gepland", () => {
