@@ -368,15 +368,23 @@ export async function cancelPendingAutoFollowUp(prospectId: string, reason: stri
   return true;
 }
 
+export function followUpDueAtFromSentAt(sentAt: Date) {
+  return addBusinessDays(sentAt, AUTO_FOLLOW_UP_BUSINESS_DAYS).toISOString();
+}
+
 export async function scheduleAutoFollowUp(input: { prospectId: string; kind: string; sentAt?: Date }) {
   if (input.kind !== "acquisition_outreach") return { scheduled: false as const };
   const supabase = refreshClient();
   if (!supabase) return { scheduled: false as const };
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("prospects")
     .select("auto_follow_up_due_at, auto_follow_up_sent_at, auto_follow_up_cancelled_at")
     .eq("id", input.prospectId)
     .maybeSingle();
+  if (error) {
+    console.error("[kopvast] Follow-up plannen mislukt", error.message);
+    return { scheduled: false as const };
+  }
   if (
     !data ||
     !canScheduleAutoFollowUp({
@@ -388,8 +396,8 @@ export async function scheduleAutoFollowUp(input: { prospectId: string; kind: st
   ) {
     return { scheduled: false as const };
   }
-  const dueAt = addBusinessDays(input.sentAt ?? new Date(), AUTO_FOLLOW_UP_BUSINESS_DAYS).toISOString();
-  const { data: updated } = await supabase
+  const dueAt = followUpDueAtFromSentAt(input.sentAt ?? new Date());
+  const { data: updated, error: updateError } = await supabase
     .from("prospects")
     .update({ auto_follow_up_due_at: dueAt, updated_at: new Date().toISOString() })
     .eq("id", input.prospectId)
@@ -398,6 +406,10 @@ export async function scheduleAutoFollowUp(input: { prospectId: string; kind: st
     .is("auto_follow_up_cancelled_at", null)
     .select("id")
     .maybeSingle();
+  if (updateError) {
+    console.error("[kopvast] Follow-up plannen mislukt", updateError.message);
+    return { scheduled: false as const };
+  }
   if (!updated) return { scheduled: false as const };
   await logProspectActivity(supabase, {
     prospectId: input.prospectId,
@@ -697,6 +709,60 @@ export async function loadNurtureTodayActions(): Promise<DashboardAction[]> {
 
 export async function loadFollowUpCommercialFlags(prospectId: string, inboundLeadId: string | null) {
   return commercialFlags(prospectId, inboundLeadId);
+}
+
+export async function scheduleMissingAutoFollowUps(limit = 20) {
+  const supabase = refreshClient();
+  if (!supabase) return [];
+  const { data: mails, error } = await supabase
+    .from("email_messages")
+    .select("prospect_id, sent_at")
+    .eq("kind", "acquisition_outreach")
+    .in("status", ["sent", "delivered"])
+    .not("sent_at", "is", null)
+    .order("sent_at", { ascending: true })
+    .limit(200);
+  if (error) {
+    console.error("[kopvast] Ontbrekende follow-ups laden mislukt", error.message);
+    return [];
+  }
+
+  const earliestSentAt = new Map<string, string>();
+  for (const mail of mails ?? []) {
+    const prospectId = String(mail.prospect_id ?? "");
+    if (!prospectId || !mail.sent_at || earliestSentAt.has(prospectId)) continue;
+    earliestSentAt.set(prospectId, String(mail.sent_at));
+  }
+  const ids = [...earliestSentAt.keys()];
+  if (!ids.length) return [];
+
+  const { data: prospects, error: prospectError } = await supabase
+    .from("prospects")
+    .select("id")
+    .in("id", ids)
+    .is("auto_follow_up_due_at", null)
+    .is("auto_follow_up_sent_at", null)
+    .is("auto_follow_up_cancelled_at", null)
+    .eq("is_archived", false)
+    .limit(limit);
+  if (prospectError) {
+    console.error("[kopvast] Ontbrekende follow-ups laden mislukt", prospectError.message);
+    return [];
+  }
+
+  const scheduled: string[] = [];
+  for (const row of prospects ?? []) {
+    const prospectId = String(row.id);
+    const sentAt = earliestSentAt.get(prospectId);
+    if (!sentAt) continue;
+    const result = await scheduleAutoFollowUp({
+      prospectId,
+      kind: "acquisition_outreach",
+      sentAt: new Date(sentAt),
+    });
+    if (result.scheduled) scheduled.push(prospectId);
+  }
+  return scheduled;
 }
 
 export async function listDueAutoFollowUpIds(supabase: SupabaseClient, limit: number) {
