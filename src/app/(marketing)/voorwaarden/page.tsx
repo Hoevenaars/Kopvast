@@ -4,6 +4,8 @@ import { termsSections } from "@/lib/terms";
 
 export const metadata: Metadata = {
   title: "Voorwaarden",
+  description:
+    "Algemene voorwaarden worden voor publieke verkoop door een jurist beoordeeld. Tot die tijd gelden de productgrenzen als werkwijze, niet als volledig contract.",
 };
 
 export default function TermsPage() {

@@ -45,7 +45,7 @@ export function ScoutLoginForm({ next }: { next?: string }) {
           />
         </label>
       ) : null}
-      {state && !state.ok ? <p className="text-sm text-destructive">{state.message}</p> : null}
+      {state && !state.ok ? <p role="alert" className="text-sm text-destructive">{state.message}</p> : null}
       {state?.devCode ? (
         <p className="rounded-xl bg-white px-3 py-2 font-mono tracking-[0.18em]">{state.devCode}</p>
       ) : null}

@@ -3,6 +3,8 @@ import { PageHero } from "@/components/page-hero";
 
 export const metadata: Metadata = {
   title: "Cookies",
+  description:
+    "Deze site gebruikt geen advertentiecookies en geen onzichtbare opvolging op basis van geopende e-mails.",
 };
 
 export default function CookiesPage() {

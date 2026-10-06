@@ -23,10 +23,9 @@ export const metadata: Metadata = {
   },
   description: site.description,
   openGraph: {
-    title: `${site.name} · ${site.promise}`,
-    description: site.description,
     locale: "nl_NL",
     type: "website",
+    siteName: site.name,
   },
 };
 

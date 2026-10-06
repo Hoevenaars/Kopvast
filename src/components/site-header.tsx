@@ -14,6 +14,12 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-stone/40 bg-ivory/95 backdrop-blur-md">
+      <a
+        href="#inhoud"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[70] focus:bg-ivory focus:px-3 focus:py-2 focus:text-sm focus:text-ink focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-ink"
+      >
+        Ga naar inhoud
+      </a>
       <div className="container-page flex min-h-[4.25rem] items-center justify-between gap-4 py-2">
         <Link href={routes.home} className="flex items-center gap-3" onClick={() => setOpen(false)}>
           <span className="text-[1.05rem] font-semibold tracking-[0.22em] text-ink">
@@ -25,19 +31,20 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-7 lg:flex">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "text-sm text-ink/75 transition-colors hover:text-ink",
-                pathname === item.href || pathname.startsWith(`${item.href}/`) ? "text-ink" : ""
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav className="hidden items-center gap-7 lg:flex" aria-label="Hoofdmenu">
+          {nav.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={cn("text-sm text-ink/75 transition-colors hover:text-ink", active ? "text-ink" : "")}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -49,6 +56,8 @@ export function SiteHeader() {
           <button
             type="button"
             className="inline-flex size-10 items-center justify-center rounded-md text-ink lg:hidden"
+            aria-expanded={open}
+            aria-controls="mobiel-menu"
             aria-label={open ? "Menu sluiten" : "Menu openen"}
             onClick={() => setOpen((value) => !value)}
           >
@@ -59,21 +68,35 @@ export function SiteHeader() {
 
       {open ? (
         <div className="border-t border-stone/40 bg-ivory lg:hidden">
-          <nav className="container-page flex flex-col gap-1 py-4">
-            {nav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-md px-1 py-2 text-sm"
-                onClick={() => setOpen(false)}
-              >
-                {item.label}
-              </Link>
-            ))}
-            <Link href={routes.check} className="rounded-md px-1 py-2 text-sm" onClick={() => setOpen(false)}>
+          <nav id="mobiel-menu" className="container-page flex flex-col gap-1 py-4" aria-label="Mobiel menu">
+            {nav.map((item) => {
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className="rounded-md px-1 py-2 text-sm"
+                  onClick={() => setOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+            <Link
+              href={routes.check}
+              aria-current={pathname === routes.check ? "page" : undefined}
+              className="rounded-md px-1 py-2 text-sm"
+              onClick={() => setOpen(false)}
+            >
               Websitecheck
             </Link>
-            <Link href={routes.maatwerk} className="rounded-md px-1 py-2 text-sm" onClick={() => setOpen(false)}>
+            <Link
+              href={routes.maatwerk}
+              aria-current={pathname === routes.maatwerk ? "page" : undefined}
+              className="rounded-md px-1 py-2 text-sm"
+              onClick={() => setOpen(false)}
+            >
               Maatwerk
             </Link>
           </nav>

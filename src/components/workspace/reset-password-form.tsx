@@ -36,7 +36,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         />
       </Field>
       <p className="text-xs leading-5 text-olive">{passwordHint}</p>
-      {state && !state.ok ? <p className="text-sm text-destructive">{state.message}</p> : null}
+      {state && !state.ok ? <p role="alert" className="text-sm text-destructive">{state.message}</p> : null}
       <button
         type="submit"
         disabled={pending}

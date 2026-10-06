@@ -128,7 +128,7 @@ export function DomainInterestForm({ domain }: { domain: string | null }) {
             <span>Ik wil ook weten wat Kopvast voor de website kan betekenen</span>
           </label>
 
-          {state && !state.ok ? <p className="text-sm text-[#9f2d1f]">{state.message}</p> : null}
+          {state && !state.ok ? <p role="alert" className="text-sm text-[#9f2d1f]">{state.message}</p> : null}
 
           <button
             type="submit"

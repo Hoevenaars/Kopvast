@@ -4,6 +4,8 @@ import { site } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Privacy",
+  description:
+    "Kopvast verwerkt persoonsgegevens spaarzaam. Deze pagina is een praktische toelichting, geen vervanging van juridisch advies.",
 };
 
 export default function PrivacyPage() {

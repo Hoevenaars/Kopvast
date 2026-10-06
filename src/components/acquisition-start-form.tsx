@@ -97,7 +97,7 @@ export function AcquisitionStartForm({
         <span>{startConfirmLabel(offerPrice)}</span>
       </label>
 
-      {state && !state.ok ? <p className="text-sm text-destructive">{state.message}</p> : null}
+      {state && !state.ok ? <p role="alert" className="text-sm text-destructive">{state.message}</p> : null}
 
       <button
         type="submit"

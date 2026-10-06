@@ -30,7 +30,7 @@ export function ForgotPasswordForm() {
             className={fieldClass}
           />
         </Field>
-        {sendState && !sendState.ok ? <p className="text-sm text-destructive">{sendState.message}</p> : null}
+        {sendState && !sendState.ok ? <p role="alert" className="text-sm text-destructive">{sendState.message}</p> : null}
         {sendState?.ok ? (
           <p className="text-sm leading-6 text-olive">
             {sendState.emailed
@@ -92,7 +92,7 @@ export function ForgotPasswordForm() {
           </Field>
           <p className="text-xs leading-5 text-olive">{passwordHint}</p>
           {resetState && !resetState.ok ? (
-            <p className="text-sm text-destructive">{resetState.message}</p>
+            <p role="alert" className="text-sm text-destructive">{resetState.message}</p>
           ) : null}
           <button
             type="submit"
