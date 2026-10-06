@@ -14,10 +14,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-stone/40 bg-ivory/95 backdrop-blur-md">
-      <a
-        href="#inhoud"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[70] focus:bg-ivory focus:px-3 focus:py-2 focus:text-sm focus:text-ink focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-ink"
-      >
+      <a href="#inhoud" className="skip-link">
         Ga naar inhoud
       </a>
       <div className="container-page flex min-h-[4.25rem] items-center justify-between gap-4 py-2">
