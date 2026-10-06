@@ -31,7 +31,7 @@ export default async function CustomerPagesPage() {
       />
       {pages.outline ? (
         <section className="rounded-2xl border border-ink/10 bg-white p-5">
-          <h2 className="font-semibold">Afgesproken pagina's</h2>
+          <h2 className="font-semibold">Afgesproken pagina&apos;s</h2>
           <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-ink/70">{pages.outline}</p>
           <Link href={workspaceRoutes.consoleOnboarding} className="mt-4 inline-block text-sm underline underline-offset-4">
             Aanpassen in onboarding
@@ -40,7 +40,7 @@ export default async function CustomerPagesPage() {
       ) : (
         <EmptyState
           title="Nog geen pagina-overzicht"
-          text="Zet in onboarding welke pagina's de site moet hebben. Tekst op de live site wijzig je via een verzoek."
+          text="Zet in onboarding welke pagina&apos;s de site moet hebben. Tekst op de live site wijzig je via een verzoek."
         />
       )}
     </div>
