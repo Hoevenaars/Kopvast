@@ -54,7 +54,7 @@ export function LoginForm({ next, allowDev }: { next?: string; allowDev: boolean
           />
         </Field>
       ) : null}
-      {state && !state.ok ? <p className="text-sm text-destructive">{state.message}</p> : null}
+      {state && !state.ok ? <p role="alert" className="text-sm text-destructive">{state.message}</p> : null}
       {state?.ok && state.needsCode ? (
         <p className="text-sm leading-6 text-olive">
           {state.emailed

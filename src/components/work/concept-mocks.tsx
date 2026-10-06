@@ -4,9 +4,11 @@ import { BrowserFrame, PhoneFrame } from "@/components/work/frames";
 export function LindenhofDesktop({
   compact = false,
   tall = false,
+  priority = false,
 }: {
   compact?: boolean;
   tall?: boolean;
+  priority?: boolean;
 }) {
   return (
     <BrowserFrame url="lindenhof.nl">
@@ -20,7 +22,14 @@ export function LindenhofDesktop({
             compact ? "h-36" : tall ? "h-56 md:h-80" : "h-44 md:h-56"
           }`}
         >
-          <Image src="/images/venue.jpg" alt="" fill className="object-cover" />
+          <Image
+            src="/images/venue.jpg"
+            alt=""
+            fill
+            priority={priority}
+            sizes={compact ? "(min-width: 1024px) 22rem, 100vw" : "(min-width: 1024px) 36rem, 100vw"}
+            className="object-cover"
+          />
           <div className="absolute inset-0 bg-ink/25" />
           <div className="absolute inset-x-4 bottom-4 text-ivory">
             <p className="font-heading text-xl leading-tight md:text-2xl">Een plek met karakter.</p>
@@ -45,7 +54,7 @@ export function LindenhofMobile() {
       <div className="p-3">
         <p className="text-[10px] tracking-[0.18em] text-olive uppercase">Lindenhof</p>
         <div className="relative mt-2 h-28 overflow-hidden">
-          <Image src="/images/venue.jpg" alt="" fill className="object-cover" />
+          <Image src="/images/venue.jpg" alt="" fill sizes="11rem" className="object-cover" />
         </div>
         <p className="font-heading mt-3 text-lg leading-tight text-ink">Reserveer de locatie.</p>
         <p className="mt-1 text-[11px] leading-4 text-olive">Zes pagina’s. Eén aanvraagroute.</p>
@@ -90,7 +99,7 @@ export function SocialCard({
   return (
     <article className="overflow-hidden border border-stone/50 bg-ivory">
       <div className="relative h-28">
-        <Image src={image} alt="" fill className="object-cover" />
+        <Image src={image} alt="" fill sizes="(min-width: 1024px) 20rem, 100vw" className="object-cover" />
       </div>
       <div className="p-3">
         <p className="text-[10px] tracking-[0.16em] text-olive uppercase">{brand}</p>
@@ -114,7 +123,7 @@ export function ArdeaDesktop({ compact = false }: { compact?: boolean }) {
             <p className="mt-2 text-[11px] leading-4 text-olive">Voor teams die hun koers helder naar buiten willen brengen.</p>
           </div>
           <div className={`relative overflow-hidden ${compact ? "h-20" : "h-28"}`}>
-            <Image src="/images/evening.jpg" alt="" fill className="object-cover" />
+            <Image src="/images/evening.jpg" alt="" fill sizes="(min-width: 1024px) 16rem, 45vw" className="object-cover" />
           </div>
         </div>
       </div>
@@ -152,7 +161,7 @@ export function NoraDesktop({ compact = false }: { compact?: boolean }) {
           <span>Collectie · Verhaal · Atelier</span>
         </div>
         <div className={`relative mt-3 overflow-hidden ${compact ? "h-36" : "h-44 md:h-52"}`}>
-          <Image src="/images/house.jpg" alt="" fill className="object-cover" />
+          <Image src="/images/house.jpg" alt="" fill sizes="(min-width: 1024px) 36rem, 100vw" className="object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-ink/40 to-transparent" />
           <p className="font-heading absolute bottom-4 left-4 text-xl text-ivory">Lichter. Strakker. Herkenbaar.</p>
         </div>
@@ -189,7 +198,7 @@ export function FlyerCard() {
 export function HeroWork() {
   return (
     <div className="relative">
-      <LindenhofDesktop tall />
+      <LindenhofDesktop tall priority />
       <div className="mt-4 grid grid-cols-2 items-start gap-3 md:absolute md:-right-3 md:-bottom-8 md:mt-0 md:block md:w-[32%] lg:-right-5">
         <div className="md:hidden">
           <QuoteCard />

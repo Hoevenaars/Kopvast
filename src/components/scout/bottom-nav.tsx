@@ -13,7 +13,7 @@ const items = [
 export function ScoutBottomNav({ base }: { base: string }) {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-ivory/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+    <nav aria-label="Scout" className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-ivory/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       <ul className="mx-auto grid max-w-lg grid-cols-3">
         {items.map((item) => {
           const href = item.href === "/" ? base || "/" : `${base}${item.href}`;
@@ -23,6 +23,7 @@ export function ScoutBottomNav({ base }: { base: string }) {
             <li key={item.label}>
               <Link
                 href={href}
+                aria-current={active ? "page" : undefined}
                 className={`flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] tracking-[0.14em] uppercase ${
                   active ? "text-ink" : "text-olive/70"
                 }`}

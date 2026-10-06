@@ -49,6 +49,17 @@ export function proxy(request: NextRequest) {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (
+    path.startsWith("/api/") ||
+    path.startsWith("/admin") ||
+    path.startsWith("/klant") ||
+    path.startsWith("/console") ||
+    path.startsWith("/inloggen") ||
+    path.startsWith("/voorstel")
+  ) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  }
   return response;
 }
 

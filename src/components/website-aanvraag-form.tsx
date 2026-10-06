@@ -231,7 +231,7 @@ export function WebsiteAanvraagForm() {
         </div>
       ) : null}
 
-      {state && !state.ok ? <p className="text-sm text-destructive">{state.message}</p> : null}
+      {state && !state.ok ? <p role="alert" className="text-sm text-destructive">{state.message}</p> : null}
       <StepNav
         step={step}
         total={steps.length}

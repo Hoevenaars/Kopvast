@@ -47,14 +47,14 @@ export function ScanForm({ compact = false }: { compact?: boolean }) {
       </p>
 
       {result?.status === "invalid" || result?.status === "blocked" ? (
-        <div className="mt-8 rounded-xl border border-destructive/30 bg-ivory p-5">
+        <div role="alert" className="mt-8 rounded-xl border border-destructive/30 bg-ivory p-5">
           <p className="font-medium text-ink">Dit adres kunnen we niet controleren</p>
           <p className="mt-2 text-sm leading-6 text-olive">{result.message}</p>
         </div>
       ) : null}
 
       {result?.status === "unreachable" ? (
-        <div className="mt-8 rounded-xl border border-stone/70 bg-ivory p-5">
+        <div role="status" className="mt-8 rounded-xl border border-stone/70 bg-ivory p-5">
           <p className="font-medium text-ink">Deze website is nu niet bereikbaar</p>
           <p className="mt-2 text-sm leading-6 text-olive">{result.message}</p>
           <div className="mt-5">
