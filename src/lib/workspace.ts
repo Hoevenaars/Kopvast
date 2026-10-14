@@ -115,6 +115,7 @@ export type LeadRow = {
   scale: string | null;
   timing: string | null;
   prospect_id?: string | null;
+  source?: string | null;
 };
 
 export type MailRow = {

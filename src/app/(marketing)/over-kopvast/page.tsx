@@ -3,49 +3,51 @@ import { ArrowRight } from "lucide-react";
 import { ButtonLink } from "@/components/button-link";
 import { CtaBand } from "@/components/cta-band";
 import { PageHero } from "@/components/page-hero";
-import { cta, site } from "@/lib/site";
+import { cta, pageMeta, routes, site } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Over Kopvast",
-  description:
-    "Kopvast helpt ondernemers en organisaties professioneler en herkenbaarder naar buiten te komen.",
-};
+export const metadata: Metadata = pageMeta(
+  routes.over,
+  "Over Kopvast",
+  "Kopvast bestaat om ondernemers en organisaties sterker zichtbaar te maken en slimmer te laten werken. Heldere afspraken, concrete uitvoering."
+);
 
 export default function AboutPage() {
   return (
     <>
       <PageHero
         eyebrow="Over Kopvast"
-        title="Goed ondernemerschap verdient een sterke uitstraling."
-        text="Kopvast is opgericht vanuit één simpele frustratie: goede bedrijven worden online verrassend vaak minder sterk gepresenteerd dan ze in werkelijkheid zijn."
+        title="Goed werk verdient een sterke plek online."
+        text="Kopvast is er voor ondernemers en organisaties die professioneler zichtbaar willen zijn en hun werk slimmer willen organiseren."
       />
       <section className="container-page grid gap-12 py-16 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="max-w-xl">
-          <p className="text-base leading-7 text-olive">
-            Wij combineren strategie, ontwerp en een strak proces om websites en merken sneller,
-            consistenter en zonder onnodige overhead te realiseren.
+        <div className="max-w-xl space-y-4 text-base leading-7 text-olive">
+          <p>
+            Te vaak oogt een sterk bedrijf online zwakker dan het is. Of kost hetzelfde werk steeds opnieuw
+            handmatige stappen. Daar begint Kopvast.
           </p>
-          <p className="mt-4 text-base leading-7 text-olive">
-            Niet eindeloos praten. Eerst scherp krijgen wat klopt. Daarna bouwen.
+          <p>
+            Eerst scherp krijgen wat nodig is. Dan een richting en een voorstel. Dan ontwerp en realisatie.
+            Daarna alleen de ondersteuning die is afgesproken.
           </p>
-          <p className="mt-4 text-base leading-7 text-olive">
-            Slim georganiseerd. Menselijk beoordeeld. We werken efficiënt, zodat meer van je budget naar het
-            eindresultaat gaat.
+          <p>
+            Websites zijn voorlopig de meest gekozen eerste stap. Van daaruit volgen merk, marketing,
+            automatisering, hosting en beheer wanneer dat logisch is.
           </p>
-          <p className="mt-4 text-base leading-7 text-olive">
-            De eerste stap is meestal een website. Daarna volgen merkidentiteit, middelen en maatwerk wanneer
-            dat nodig is.
-          </p>
+          <p>{site.line}</p>
         </div>
         <div className="rounded-2xl border border-stone/50 p-6">
           <p className="text-xs tracking-[0.16em] text-olive uppercase">Contact</p>
-          <p className="mt-3 text-lg text-ink">{site.email}</p>
+          <p className="mt-3 text-lg text-ink">
+            <a className="underline-offset-4 hover:underline" href={`mailto:${site.email}`}>
+              {site.email}
+            </a>
+          </p>
           <p className="mt-4 text-sm leading-6 text-olive">
-            Geen anoniem formulier zonder gezicht. Je krijgt een bevestiging en een menselijke beoordeling.
+            Een bericht is een vraag, geen opdracht. Je krijgt een menselijke opvolging.
           </p>
           <div className="mt-6">
-            <ButtonLink href={cta.package.href}>
-              {cta.package.label}
+            <ButtonLink href={cta.discuss.href}>
+              {cta.discuss.label}
               <ArrowRight data-icon="inline-end" />
             </ButtonLink>
           </div>
@@ -55,16 +57,16 @@ export default function AboutPage() {
         <div className="container-page grid gap-6 py-16 md:grid-cols-3">
           {[
             {
-              title: "Scherp",
-              text: "Eerst helder krijgen wat nodig is. Geen ruis, geen extra lagen.",
+              title: "Scherp kijken",
+              text: "We beginnen bij de vraag, niet bij een standaardtraject.",
             },
             {
-              title: "Stevig",
-              text: "Vaste prijzen waar het kan. Een aparte aanpak waar het moet.",
+              title: "Helder afspreken",
+              text: "Scope en prijs staan in het voorstel. Niet in een verborgen stap.",
             },
             {
-              title: "Uitvoerend",
-              text: "We ontwerpen, bouwen en leveren middelen die je kunt gebruiken.",
+              title: "Goed uitvoeren",
+              text: "Ontwerp, website, middelen of een koppeling. Concreet en bruikbaar.",
             },
           ].map((item) => (
             <article key={item.title} className="rounded-2xl bg-ivory p-6">

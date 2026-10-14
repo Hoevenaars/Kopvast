@@ -5,24 +5,24 @@ import { CtaBand } from "@/components/cta-band";
 import { PageHero } from "@/components/page-hero";
 import { BrandRefreshCard, FlyerCard, NoraDesktop } from "@/components/work/concept-mocks";
 import { ConceptLabel } from "@/components/work/frames";
-import { cta, merkRefreshItems, products } from "@/lib/site";
+import { cta, merkRefreshItems, pageMeta, products, routes } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Merkidentiteit",
-  description:
-    "Heb je al een goede huisstijl? Dan gebruiken we die. Is je uitstraling verouderd of versnipperd? Dan scherpen we hem aan.",
-};
+export const metadata: Metadata = pageMeta(
+  routes.merk,
+  "Merk & ontwerp",
+  "Merkidentiteit, huisstijl, merkrefresh en visuele richting. Een bestaande stijl aanscherpen of een nieuwe identiteit ontwikkelen."
+);
 
 export default function MerkPage() {
   return (
     <>
       <PageHero
-        eyebrow="Merk"
-        title="Je website kan alleen zo sterk zijn als je merk."
-        text="Heb je al een goede huisstijl? Dan gebruiken we die. Is je uitstraling verouderd, versnipperd of niet meer passend bij het bedrijf dat je nu bent? Dan scherpen we hem aan."
+        eyebrow="Merk & ontwerp"
+        title="Een uitstraling die overal hetzelfde verhaal vertelt."
+        text="Merkidentiteit, huisstijl, een merkrefresh of een nieuwe visuele richting. We maken onderscheid tussen een bestaande stijl aanscherpen en een volledig nieuwe identiteit."
         actions={
-          <ButtonLink href={cta.refresh.href}>
-            {cta.refresh.label}
+          <ButtonLink href={cta.appearance.href}>
+            {cta.appearance.label}
             <ArrowRight data-icon="inline-end" />
           </ButtonLink>
         }
@@ -45,11 +45,11 @@ export default function MerkPage() {
             <p className="text-xs tracking-[0.18em] text-olive uppercase">{products.merkrefresh.name}</p>
             <h2 className="mt-3 text-3xl text-ink md:text-4xl">Geen onnodige rebranding.</h2>
             <p className="mt-4 max-w-xl text-base leading-7 text-olive">{products.merkrefresh.summary}</p>
-            <p className="mt-6 font-heading text-5xl text-ink">Vanaf {products.merkrefresh.price}</p>
+            <p className="mt-6 font-heading text-5xl text-ink">{products.merkrefresh.price}</p>
             <p className="mt-1 text-xs text-stone">{products.merkrefresh.cadence}</p>
             <div className="mt-8">
-              <ButtonLink href={`${cta.custom.href}?type=merk`}>
-                Bespreek de merkrefresh
+              <ButtonLink href={`${cta.appearance.href}&landing=/merk`}>
+                {cta.appearance.label}
                 <ArrowRight data-icon="inline-end" />
               </ButtonLink>
             </div>
@@ -91,7 +91,7 @@ export default function MerkPage() {
         <FlyerCard />
       </section>
 
-      <CtaBand title="Eerst het merk scherp. Daarna de middelen." />
+      <CtaBand title="Bespreek je uitstraling." primary={cta.appearance} />
     </>
   );
 }

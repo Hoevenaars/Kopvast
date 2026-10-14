@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { sendLeadNotification } from "@/lib/email";
 import { persistInboundLead } from "@/lib/inbound";
+import { stripUntrustedCommercialFields } from "@/lib/interest";
 
 export type StoredLead = {
   id: string;
@@ -76,7 +77,7 @@ export async function createLead(input: LeadInput): Promise<LeadResult> {
   const email = asString(input.email);
   const company = asString(input.company);
   const website = asString(input.website);
-  const details = input.details ?? {};
+  const details = stripUntrustedCommercialFields(input.details ?? {});
   const message = asString(input.message) || formatLeadDetails(details);
   const source = asString(input.source) || "aanvraag";
   const phone = asString(input.phone);

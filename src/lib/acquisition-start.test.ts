@@ -16,9 +16,9 @@ import {
   parseCompanyParam,
   parseOfferPrice,
   parseStartSearchParams,
-  startConfirmLabel,
   startLandingCopy,
 } from "./acquisition-start";
+import { bindingPriceFromPublicQuery } from "./interest";
 
 test("keuze uit de mail wordt een startpagina, geen brochure", () => {
   assert.equal(DEFAULT_CHOICE_A_URL, "https://kopvast.nl/start?keuze=voorstel");
@@ -28,7 +28,7 @@ test("keuze uit de mail wordt een startpagina, geen brochure", () => {
   assert.doesNotMatch(DEFAULT_CHOICE_B_URL, /\/websites/);
 });
 
-test("persoonlijke start-urls nemen website, bedrijf en prijs mee", () => {
+test("persoonlijke start-urls nemen website en bedrijf mee, geen prijs", () => {
   const urls = acquisitionChoiceUrls({
     domain: "https://www.FluweelEvents.nl/home",
     companyName: "Fluweel Events",
@@ -40,9 +40,10 @@ test("persoonlijke start-urls nemen website, bedrijf en prijs mee", () => {
   assert.equal(proposal.searchParams.get("keuze"), "voorstel");
   assert.equal(proposal.searchParams.get("website"), "fluweelevents.nl");
   assert.equal(proposal.searchParams.get("bedrijf"), "Fluweel Events");
-  assert.equal(proposal.searchParams.get("prijs"), "995");
+  assert.equal(proposal.searchParams.get("prijs"), null);
   assert.equal(info.searchParams.get("keuze"), "info");
   assert.equal(info.searchParams.get("website"), "fluweelevents.nl");
+  assert.doesNotMatch(urls.choiceAUrl, /prijs=/);
 });
 
 test("parst startquery veilig", () => {
@@ -70,34 +71,32 @@ test("parst startquery veilig", () => {
     choice: "info",
     website: "fluweelevents.nl",
     company: "Fluweel Events",
-    offerPrice: 995,
   });
   assert.equal(parseStartSearchParams({ website: "javascript:alert(1)" }).website, "");
-  assert.equal(parseStartSearchParams({ keuze: ["info", "voorstel"], prijs: ["995"] }).choice, "info");
-  assert.equal(parseStartSearchParams({ keuze: ["info", "voorstel"], prijs: ["995"] }).offerPrice, 995);
+  assert.equal(parseStartSearchParams({ keuze: ["info", "voorstel"], prijs: ["1"] }).choice, "info");
+  assert.equal(bindingPriceFromPublicQuery("1"), null);
+  assert.equal(bindingPriceFromPublicQuery("995"), null);
 });
 
-test("startkopij is meteen een koop, geen extra rondje website", () => {
+test("startkopij is interesse, geen koop en geen url-prijs", () => {
   const proposal = startLandingCopy({
     choice: "voorstel",
     website: "fluweelevents.nl",
     company: "Fluweel Events",
-    offerPrice: 995,
   });
   assert.match(proposal.title, /Fluweel Events/);
-  assert.match(proposal.text, /€995/);
-  assert.equal(proposal.submitLabel, "Start Kopvast Website");
+  assert.doesNotMatch(proposal.text, /€|excl\. btw|starten met Kopvast Website/);
+  assert.match(proposal.text, /geen akkoord/);
+  assert.equal(proposal.submitLabel, "Vraag een voorstel aan");
   assert.equal(formatOfferPrice(995), "€995");
-  assert.equal(startConfirmLabel(1495), "Ik wil starten met Kopvast Website voor €1.495 excl. btw.");
 
   const info = startLandingCopy({
     choice: "info",
     website: "",
     company: "",
-    offerPrice: 1495,
   });
-  assert.match(info.title, /meteen starten/);
-  assert.match(info.text, /€1.495/);
+  assert.match(info.title, /zonder verplichting/);
+  assert.doesNotMatch(`${info.title} ${info.text}`, /€/);
 });
 
 test("aanvraagbron blijft herkenbaar in admin en mail", () => {

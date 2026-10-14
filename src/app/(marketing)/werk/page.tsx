@@ -16,21 +16,21 @@ import {
   SocialCard,
 } from "@/components/work/concept-mocks";
 import { ConceptLabel } from "@/components/work/frames";
-import { conceptCases, cta } from "@/lib/site";
+import { conceptCases, cta, pageMeta, routes } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Werk",
-  description:
-    "Conceptcases van Kopvast. Geen verzonnen reviews of groeipercentages. Echte cases volgen na toestemming van klanten.",
-};
+export const metadata: Metadata = pageMeta(
+  routes.werk,
+  "Werk",
+  "Conceptcases van Kopvast. Duidelijk gelabeld als concept. Geen verzonnen reviews of resultaten. Echte projecten volgen na toestemming."
+);
 
 export default function WerkPage() {
   return (
     <>
       <PageHero
         eyebrow="Werk"
-        title="Eerst zichtbaar werk. Daarna echte cases."
-        text="Tot er echte klanten en toestemming zijn, laten we zien hoe Kopvast werkt. Elk voorbeeld is duidelijk gelabeld als conceptcase. Geen verzonnen reviews of groeipercentages."
+        title="Conceptwerk, duidelijk als concept."
+        text="Er staan nog geen gepubliceerde klantcases op deze pagina. De voorbeelden hieronder zijn conceptcases: ze laten zien hoe website, merk en middelen samen kunnen lopen. Geen testimonials en geen verzonnen resultaten."
       />
 
       <section id="lindenhof" className="container-page scroll-mt-24 space-y-8 py-16">

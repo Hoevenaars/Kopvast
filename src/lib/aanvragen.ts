@@ -22,6 +22,7 @@ import {
 import { isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
 import { findLatestProposalsForRequests, type ProposalRequestRef } from "@/lib/proposal-ops";
 import { refreshClient } from "@/lib/refresh";
+import { publicInterestNextAction } from "@/lib/interest";
 import { mutateStore, newId, nowIso, readLocalLeads, readStore } from "@/lib/workspace-store";
 
 export type AanvraagListQuery = {
@@ -171,13 +172,19 @@ async function localFromFormLeads(): Promise<AanvraagRecord[]> {
   const byId = new Map(store.aanvragen.map((item) => [item.id, item]));
   for (const lead of formLeads) {
     if (byId.has(lead.id)) continue;
+    const source = lead.source || (lead.type === "maatwerk" ? "maatwerk" : "website-aanvraag");
     byId.set(
       lead.id,
       mapLeadRow({
         ...lead,
-        source: lead.type === "maatwerk" ? "maatwerk" : "website-aanvraag",
+        source,
         product_fit: lead.type === "maatwerk" ? "CUSTOM_FIT" : "STANDARD_FIT",
-        payload: { source: lead.type === "maatwerk" ? "maatwerk" : "website-aanvraag" },
+        next_action: publicInterestNextAction({ source }),
+        next_action_at: lead.created_at,
+        payload: {
+          source,
+          dienst: lead.request_detail,
+        },
       })
     );
   }

@@ -24,8 +24,8 @@ export async function generateMetadata({
   const params = parseStartSearchParams(await searchParams);
   const who = params.company || params.website;
   return {
-    title: who ? `Start met Kopvast Website voor ${who}` : "Start met Kopvast Website",
-    description: "Vul je gegevens in en start met het websitepakket. Prijs en scope staan erbij.",
+    title: who ? `Interesse voor ${who}` : "Vrijblijvende interesse",
+    description: "Bevestig je interesse. Dit is geen opdracht en er staat geen prijs in deze stap.",
     robots,
     alternates: { canonical: `${site.url}/start` },
   };

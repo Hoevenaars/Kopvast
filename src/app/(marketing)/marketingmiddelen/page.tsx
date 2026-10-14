@@ -11,30 +11,44 @@ import {
   SocialCard,
 } from "@/components/work/concept-mocks";
 import { ConceptLabel } from "@/components/work/frames";
-import { cta, products } from "@/lib/site";
+import { cta, pageMeta, products, routes } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Marketingmiddelen",
-  description:
-    "Van offertes en presentaties tot social formats, flyers en campagnes. Alles in één herkenbare lijn.",
-};
+export const metadata: Metadata = pageMeta(
+  routes.marketing,
+  "Marketing & activatie",
+  "Presentaties, offertes, social formats, flyers, campagnes en landingspagina’s. Concrete middelen, geen onbeperkt bureau."
+);
 
 export default function MarketingPage() {
   return (
     <>
       <PageHero
-        eyebrow="Marketingmiddelen"
-        title="Een merk is pas sterk als je het kunt gebruiken."
-        text="Een goede huisstijl stopt niet bij je logo of website. Wij vertalen je merk door naar middelen die je dagelijks gebruikt."
+        eyebrow="Marketing & activatie"
+        title="Middelen die je bedrijf echt kan gebruiken."
+        text="Presentaties, offertes, flyers, social formats, e-mailtemplates, landingspagina’s en campagnes. Kopvast levert concrete middelen. Geen onbeperkt fullservice-bureau."
         actions={
-          <ButtonLink href={cta.templates.href}>
-            {cta.templates.label}
+          <ButtonLink href={cta.campaign.href}>
+            {cta.campaign.label}
             <ArrowRight data-icon="inline-end" />
           </ButtonLink>
         }
       />
 
-      <section id="sjablonen" className="container-page scroll-mt-24 py-16">
+      <section className="container-page grid gap-6 py-16 md:grid-cols-2 lg:grid-cols-4">
+        {[
+          ["Losse middelen", "Eén offerte, presentatie, flyer of social format."],
+          ["Pakketten", "Een set sjablonen in één herkenbare lijn."],
+          ["Campagnes", "Een moment, zoals een opening of nieuwe dienst, in meerdere middelen."],
+          ["Maatwerk", "Een vraag die niet in een bestaand middel past."],
+        ].map(([title, text]) => (
+          <article key={title} className="border-t border-stone/50 pt-5">
+            <h2 className="text-xl text-ink">{title}</h2>
+            <p className="mt-2 text-sm leading-6 text-olive">{text}</p>
+          </article>
+        ))}
+      </section>
+
+      <section id="sjablonen" className="container-page scroll-mt-24 pb-16">
         <div className="grid gap-6 md:grid-cols-2">
           <article className="rounded-2xl border border-stone/60 p-6 md:p-8">
             <p className="text-xs tracking-[0.16em] text-olive uppercase">Zakelijke set</p>
@@ -62,8 +76,8 @@ export default function MarketingPage() {
           {products.sjablonen.name}: {products.sjablonen.price} {products.sjablonen.cadence}.
         </p>
         <div className="mt-8">
-          <ButtonLink href={`${cta.custom.href}?type=sjablonen`}>
-            {cta.templates.label}
+          <ButtonLink href={`${routes.contact}?dienst=marketing&cta=sjablonen`}>
+            {cta.campaign.label}
             <ArrowRight data-icon="inline-end" />
           </ButtonLink>
         </div>
@@ -104,7 +118,7 @@ export default function MarketingPage() {
         <FlyerCard />
       </section>
 
-      <CtaBand title="Eerst een lijn. Daarna middelen die je kunt gebruiken." />
+      <CtaBand title="Bespreek je campagne of middel." primary={cta.campaign} />
     </>
   );
 }

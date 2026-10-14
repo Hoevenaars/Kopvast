@@ -208,7 +208,12 @@ export async function loadConfirmationCopy(
   source: string,
   vars: Record<string, string> = {}
 ): Promise<ConfirmationMailCopy> {
-  if (isDomainLandingSource(source)) {
+  if (
+    isDomainLandingSource(source) ||
+    source === "interesse" ||
+    source === "acquisitie-info" ||
+    source === "acquisitie-voorstel"
+  ) {
     return confirmationCopy(source);
   }
   const key: MailTemplateKey = source === "maatwerk" ? "confirm_maatwerk" : "confirm_website";
@@ -232,7 +237,12 @@ export async function loadNotificationIntro(input: {
   website?: string;
   details?: Record<string, string>;
 }) {
-  if (isDomainLandingSource(input.source)) {
+  if (
+    isDomainLandingSource(input.source) ||
+    input.source === "interesse" ||
+    input.source === "acquisitie-info" ||
+    input.source === "acquisitie-voorstel"
+  ) {
     return notificationIntro({ ...input, email: "" });
   }
   const key: MailTemplateKey = input.source === "maatwerk" ? "notify_maatwerk" : "notify_website";
