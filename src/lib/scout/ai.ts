@@ -1,3 +1,5 @@
+import { buildPersonalApproachLetter } from "@/lib/acquisition/outreach-policy";
+import type { OfferEvidence } from "@/lib/acquisition/special-offer-rules";
 import type { ScoutFinding, ScoutOpportunity } from "./types";
 import type { PageFacts } from "./scanner";
 import { heuristicScores } from "./scanner";
@@ -34,8 +36,6 @@ const SCHEMA = {
     "industry",
     "industry_inferred",
     "city",
-    "draft_subject",
-    "draft_message",
     "inferred_findings",
   ],
   properties: {
@@ -59,8 +59,6 @@ const SCHEMA = {
     industry: { type: ["string", "null"] },
     industry_inferred: { type: "boolean" },
     city: { type: ["string", "null"] },
-    draft_subject: { type: "string" },
-    draft_message: { type: "string" },
     inferred_findings: {
       type: "array",
       items: {
@@ -82,12 +80,30 @@ function clamp(value: unknown, fallback: number) {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
+function centralAcquisitionDraft(input: {
+  companyName: string | null;
+  domain: string;
+  place?: string | null;
+  contentEvidence?: OfferEvidence[];
+}) {
+  const letter = buildPersonalApproachLetter({
+    companyName: input.companyName,
+    domain: input.domain,
+    place: input.place,
+    contentEvidence: input.contentEvidence,
+    websitePresence: "HAS_WEBSITE",
+  });
+  return { draftSubject: letter.subject, draftMessage: letter.body, approach: letter };
+}
+
 export function fallbackCommercialCopy(input: {
   companyName: string | null;
   domain: string;
   note: string | null;
   facts: PageFacts;
   findings: ScoutFinding[];
+  place?: string | null;
+  contentEvidence?: OfferEvidence[];
 }): Pick<ScoutAiResult, "commercial_summary" | "biggest_opportunity" | "why_interesting" | "opportunities" | "draftSubject" | "draftMessage"> {
   const name = input.companyName || input.domain;
   const note = input.note?.trim();
@@ -103,11 +119,12 @@ export function fallbackCommercialCopy(input: {
       ? { title: "Conversiepad", detail: "Maak de volgende stap nog vanzelfsprekender, in de taal van het bedrijf." }
       : { title: "Contactroute", detail: "Bezoekers hebben nu geen vanzelfsprekende manier om contact te zoeken." },
   ].slice(0, 3);
-  const draftSubject = `Korte observatie over ${name}`;
-  const noteLine = note
-    ? `Ik kwam jullie tegen en noteerde voor mezelf: ${note} Dat gebruik ik alleen als context, niet als vaststaand feit.\n\n`
-    : "";
-  const draftMessage = `Beste ${name},\n\nIk kwam jullie website tegen en er vielen me een paar concrete zaken op waarmee de online uitstraling volgens mij beter kan aansluiten bij de organisatie die erachter zit.\n\n${noteLine}Met name de eerste indruk en de route naar contact kunnen scherper. Als het nuttig is, denk ik daar graag in één korte reactie over mee.\n\nMet vriendelijke groet,\nKopvast`;
+  const draft = centralAcquisitionDraft({
+    companyName: input.companyName,
+    domain: input.domain,
+    place: input.place,
+    contentEvidence: input.contentEvidence,
+  });
   return {
     commercial_summary: summary,
     biggest_opportunity: biggest,
@@ -115,8 +132,8 @@ export function fallbackCommercialCopy(input: {
       ? `Persoonlijke observatie: ${note}`
       : `Website van ${name} laat ruimte om de digitale uitstraling naar het organisatieniveau te tillen.`,
     opportunities,
-    draftSubject,
-    draftMessage,
+    draftSubject: draft.draftSubject,
+    draftMessage: draft.draftMessage,
   };
 }
 
@@ -127,6 +144,7 @@ export async function analyseScoutLead(input: {
   note: string | null;
   facts: PageFacts;
   findings: ScoutFinding[];
+  place?: string | null;
 }): Promise<ScoutAiResult> {
   const scores = heuristicScores(input.facts, input.findings);
   const fallback = fallbackCommercialCopy(input);
@@ -161,7 +179,7 @@ export async function analyseScoutLead(input: {
           {
             role: "system",
             content:
-              "Je bent de stille analist van Kopvast Scout. Je verzint geen feiten. Gevonden HTML-feiten blijven feiten. AI-lezingen markeer je als inferentie. De persoonlijke notitie van de gebruiker is context, geen geverifieerd feit. Schrijf acquisitieconcepten concreet, in het Nederlands, zonder generieke zinnen als 'wij maken websites en willen graag kennismaken'. Geen automatische verzending. Scores zijn Kopvast-prioritering, geen wetenschappelijke benchmark.",
+              "Je bent de stille analist van Kopvast Scout. Je verzint geen feiten. Gevonden HTML-feiten blijven feiten. AI-lezingen markeer je als inferentie. De persoonlijke notitie van de gebruiker is context, geen geverifieerd feit. Schrijf geen acquisitiemail en geen prijs. Geen automatische verzending. Scores zijn Kopvast-prioritering, geen wetenschappelijke benchmark.",
           },
           {
             role: "user",
@@ -228,6 +246,12 @@ export async function analyseScoutLead(input: {
         nextScores.content * 0.2,
       scores.overall
     );
+    const city = typeof parsed.city === "string" ? parsed.city : input.place ?? null;
+    const draft = centralAcquisitionDraft({
+      companyName: input.companyName,
+      domain: input.domain,
+      place: city,
+    });
     return {
       scores: nextScores,
       commercial_summary: String(parsed.commercial_summary || fallback.commercial_summary).slice(0, 800),
@@ -239,9 +263,9 @@ export async function analyseScoutLead(input: {
       findings: [...input.findings, ...extraFindings],
       industry: typeof parsed.industry === "string" ? parsed.industry : null,
       industryInferred: Boolean(parsed.industry_inferred),
-      city: typeof parsed.city === "string" ? parsed.city : null,
-      draftSubject: String(parsed.draft_subject || fallback.draftSubject).slice(0, 140),
-      draftMessage: String(parsed.draft_message || fallback.draftMessage).slice(0, 4000),
+      city,
+      draftSubject: draft.draftSubject,
+      draftMessage: draft.draftMessage,
       usedAi: true,
     };
   } catch (error) {

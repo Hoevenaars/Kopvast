@@ -191,6 +191,7 @@ export async function syncProspectFromScout(leadId: string): Promise<string | nu
     last_activity_at: nowIso(),
     updated_at: nowIso(),
   };
+  if (lead.city?.trim()) patch.city = lead.city.trim();
   if (!locked) {
     patch.status = nextStatus;
     if (draft && !SENT_MAIL_STATUSES.has(String(prospect.mail_status ?? ""))) {

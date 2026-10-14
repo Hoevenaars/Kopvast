@@ -4,6 +4,8 @@ import { parseOptionalManualEmail, pickLeadEmail } from "./contact-email";
 import { extractUrlFromShare, inferSource, parseScoutUrl } from "./scout/urls";
 import { findingsFromFacts, heuristicScores, type PageFacts } from "./scout/scanner";
 import { fallbackCommercialCopy } from "./scout/ai";
+import { buildPersonalApproachLetter } from "./acquisition/outreach-policy";
+import { CONTENT_REASON_PRIORITY } from "./acquisition/special-offer-rules";
 import { sendApprovedOutreach } from "./scout/resend";
 import { isScoutHostname, originAllowed } from "./scout/config";
 
@@ -65,8 +67,83 @@ test("acquisitieconcept gebruikt notitie als context, niet als feit", () => {
     findings: [],
   });
   assert.match(copy.why_interesting, /Persoonlijke observatie/);
-  assert.match(copy.draftMessage, /showroom|notitie|observatie|website/i);
+  assert.doesNotMatch(copy.draftMessage, /showroom/);
+  assert.match(copy.draftMessage, /Zal ik een keer kort laten zien/);
+  assert.doesNotMatch(copy.draftMessage, /€|995|korting|pakket/i);
   assert.doesNotMatch(copy.draftMessage, /wij maken websites en willen graag kennismaken/i);
+});
+
+test("Scout en Admin maken bij gelijke input dezelfde eerste mail", () => {
+  const places = [
+    { place: "Groesbeek", municipality: "Berg en Dal" },
+    { place: "Persingen", municipality: "Berg en Dal" },
+    { place: "Nijmegen", municipality: "Nijmegen" },
+  ];
+  for (const item of places) {
+    const admin = buildPersonalApproachLetter({
+      companyName: "Voorbeeld Organisatie",
+      domain: "voorbeeld.nl",
+      place: item.place,
+      municipality: item.municipality,
+    });
+    const scout = fallbackCommercialCopy({
+      companyName: "Voorbeeld Organisatie",
+      domain: "voorbeeld.nl",
+      note: "Mooie zaak, maar dat is nog geen bewijs.",
+      facts: { forms: 0, mailto: false, tel: false } as PageFacts,
+      findings: [],
+      place: item.place,
+    });
+    assert.equal(scout.draftSubject, admin.subject);
+    assert.equal(scout.draftMessage, admin.body);
+    assert.doesNotMatch(scout.draftMessage, /Mooie zaak/);
+  }
+
+  for (const reason of CONTENT_REASON_PRIORITY) {
+    const evidence = [
+      {
+        reason,
+        evidence: `Het controleerbare feit voor ${reason} staat op de eigen pagina.`,
+        confidence: 0.9,
+        sourceUrl: "https://voorbeeld.nl/over",
+        sourceKind: "website" as const,
+      },
+    ];
+    const admin = buildPersonalApproachLetter({
+      companyName: "Voorbeeld Organisatie",
+      domain: "voorbeeld.nl",
+      place: "Amsterdam",
+      contentEvidence: evidence,
+    });
+    const scout = fallbackCommercialCopy({
+      companyName: "Voorbeeld Organisatie",
+      domain: "voorbeeld.nl",
+      note: null,
+      facts: { forms: 1, mailto: true, tel: true } as PageFacts,
+      findings: [],
+      place: "Amsterdam",
+      contentEvidence: evidence,
+    });
+    assert.equal(scout.draftMessage, admin.body);
+    assert.equal(admin.openingAxis, "content");
+    assert.doesNotMatch(admin.body, /€/);
+  }
+
+  const empty = buildPersonalApproachLetter({
+    companyName: "Voorbeeld Organisatie",
+    domain: "voorbeeld.nl",
+    place: "Amsterdam",
+  });
+  const scoutEmpty = fallbackCommercialCopy({
+    companyName: "Voorbeeld Organisatie",
+    domain: "voorbeeld.nl",
+    note: null,
+    facts: { forms: 0, mailto: false, tel: false } as PageFacts,
+    findings: [],
+    place: "Amsterdam",
+  });
+  assert.equal(empty.sufficient, false);
+  assert.equal(scoutEmpty.draftMessage, empty.body);
 });
 
 test("Resend-versturen blijft uit", async () => {

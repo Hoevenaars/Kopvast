@@ -44,7 +44,7 @@ const PRICE_PARAGRAPH =
 const FOLLOW_UP_PRICE =
   /^Voor jullie staat mijn aanbod van €\s*(?:995|1[.,]?495) excl\. btw\. nog steeds\.$/;
 const INSERT_BEFORE =
-  /^(?:Wat heeft jullie voorkeur|Ja, doe me een voorstel|Stuur me eerst meer info|Met vriendelijke groet|Als het nu niet speelt)\b/i;
+  /^(?:Wat heeft jullie voorkeur|Ja, doe me een voorstel|Stuur me eerst meer info|Met vriendelijke groet|Als het nu niet speelt|Zal ik een keer)\b/i;
 
 function isReplaceablePriceBlock(block: string) {
   const collapsed = collapseWhitespace(block);

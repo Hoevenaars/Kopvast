@@ -19,8 +19,8 @@ function sampleBody() {
 
 test("handmatige plaatsreden zet de €995-alinea in een mail zonder automatische korting", () => {
   const body = sampleBody();
-  assert.match(body, /€1\.495/);
-  assert.doesNotMatch(body, /€995/);
+  assert.doesNotMatch(body, /€1\.495|€995/);
+  assert.match(body, /Zal ik een keer kort laten zien/);
 
   const offer = paragraphForManualDiscount({
     geographicReason: "GROESBEEK",
@@ -34,10 +34,8 @@ test("handmatige plaatsreden zet de €995-alinea in een mail zonder automatisch
   assert.equal(applied.ok, true);
   if (!applied.ok) return;
   assert.match(applied.body, /€995 excl\. btw/);
-  assert.match(applied.body, /prijs=995/);
-  assert.doesNotMatch(applied.body, /prijs=1495/);
-  assert.match(applied.body, /Twee dingen vielen direct op/);
-  assert.match(applied.body, /eerste indruk kan sterker/);
+  assert.match(applied.body, /Zal ik een keer kort laten zien/);
+  assert.equal(applied.body.match(/€995/g)?.length, 1);
 });
 
 test("zonder reden blijft de normale prijs staan", () => {
@@ -58,7 +56,6 @@ test("zonder reden blijft de normale prijs staan", () => {
   if (!restored.ok) return;
   assert.match(restored.body, /kost €1\.495 excl\. btw/);
   assert.doesNotMatch(restored.body, /€995/);
-  assert.match(restored.body, /prijs=1495/);
 });
 
 test("scherpe uitzondering is alleen de launch-reden", () => {

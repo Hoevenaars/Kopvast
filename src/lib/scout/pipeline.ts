@@ -111,6 +111,7 @@ export async function runLeadPipeline(leadId: string) {
       note: record.note,
       facts,
       findings,
+      place: enrichment.city.value,
     });
 
     if (analysis.industry) {

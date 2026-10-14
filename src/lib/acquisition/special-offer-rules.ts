@@ -16,11 +16,20 @@ export type ContentOfferReason =
   | "CULTURE_OR_HISTORY"
   | null;
 
+export const CONTENT_CONFIDENCE_THRESHOLD = 0.75;
+
+export const APPROACH_SOURCE_KINDS = ["website", "manual_note", "project_description", "company_profile"] as const;
+
+export type ApproachSourceKind = (typeof APPROACH_SOURCE_KINDS)[number];
+
+export type WebsitePresence = "HAS_WEBSITE" | "NO_WEBSITE";
+
 export type OfferEvidence = {
   reason: Exclude<ContentOfferReason, null>;
   evidence: string;
   confidence: number;
   sourceUrl?: string;
+  sourceKind?: ApproachSourceKind;
 };
 
 export type SpecialOfferInput = {
@@ -67,6 +76,16 @@ const CONTENT_REASON_SET = new Set<string>(CONTENT_REASON_PRIORITY);
 
 export function isContentOfferReason(value: string): value is Exclude<ContentOfferReason, null> {
   return CONTENT_REASON_SET.has(value);
+}
+
+export function isApproachSourceKind(value: string): value is ApproachSourceKind {
+  return (APPROACH_SOURCE_KINDS as readonly string[]).includes(value);
+}
+
+const GEOGRAPHIC_REASON_SET = new Set<string>(["GROESBEEK", "BERG_EN_DAL", "REGION_NIJMEGEN"]);
+
+export function isGeographicOfferReason(value: string): value is Exclude<GeographicOfferReason, null> {
+  return GEOGRAPHIC_REASON_SET.has(value);
 }
 
 function normalizeLocation(value?: string | null): string {
@@ -154,7 +173,7 @@ function geographicReasonCopy(reason: GeographicOfferReason): string | null {
 
 export function determineContentReason(evidence: OfferEvidence[] = []): ContentOfferReason {
   const validEvidence = evidence.filter(
-    (item) => item.confidence >= 0.75 && item.evidence && item.evidence.trim().length > 0
+    (item) => item.confidence >= CONTENT_CONFIDENCE_THRESHOLD && item.evidence && item.evidence.trim().length > 0
   );
 
   for (const priority of CONTENT_REASON_PRIORITY) {
@@ -184,6 +203,101 @@ function contentReasonCopy(reason: ContentOfferReason): string | null {
     default:
       return null;
   }
+}
+
+export type PersonalApproachSelection = {
+  websitePresence: WebsitePresence;
+  geographicReason: GeographicOfferReason;
+  contentReason: ContentOfferReason;
+  /** De ene reden die in de mailopening gebruikt wordt. */
+  openingAxis: "geographic" | "content" | null;
+  evidence: string | null;
+  sourceUrl: string | null;
+  sourceKind: ApproachSourceKind | null;
+  confidence: number | null;
+  sufficient: boolean;
+};
+
+function usableContentEvidence(item: OfferEvidence, manual: boolean) {
+  if (!item.evidence?.trim()) return false;
+  if (manual) return true;
+  return item.confidence >= CONTENT_CONFIDENCE_THRESHOLD;
+}
+
+/**
+ * Persoonlijke aanleiding. Zelfde plaats- en inhoudsclassificatie als het
+ * commerciële aanbod, maar zonder prijs. Een gekozen reden maakt de mail
+ * niet automatisch kortingsgerechtigd.
+ */
+export function selectPersonalApproach(input: {
+  place?: string | null;
+  municipality?: string | null;
+  contentEvidence?: OfferEvidence[];
+  manualReasons?: {
+    geographicReason: GeographicOfferReason;
+    contentReason: ContentOfferReason;
+  };
+  websitePresence?: WebsitePresence;
+}): PersonalApproachSelection {
+  const websitePresence = input.websitePresence ?? "HAS_WEBSITE";
+  const evidence = input.contentEvidence ?? [];
+  const manual = Boolean(input.manualReasons);
+  const geographicReason = manual
+    ? input.manualReasons!.geographicReason
+    : determineGeographicReason(input.place, input.municipality);
+  const contentReason = manual ? input.manualReasons!.contentReason : determineContentReason(evidence);
+  const support = contentReason
+    ? (evidence
+        .filter((item) => item.reason === contentReason && usableContentEvidence(item, manual))
+        .sort((a, b) => b.confidence - a.confidence)[0] ?? null)
+    : null;
+  const contentReady = Boolean(contentReason && support);
+  const openingAxis: PersonalApproachSelection["openingAxis"] = contentReady
+    ? "content"
+    : geographicReason
+      ? "geographic"
+      : null;
+
+  if (openingAxis === "content" && support && contentReason) {
+    return {
+      websitePresence,
+      geographicReason,
+      contentReason,
+      openingAxis,
+      evidence: support.evidence.trim(),
+      sourceUrl: support.sourceUrl?.trim() || null,
+      sourceKind: support.sourceKind ?? (websitePresence === "HAS_WEBSITE" ? "website" : null),
+      confidence: support.confidence,
+      sufficient: true,
+    };
+  }
+
+  if (openingAxis === "geographic" && geographicReason) {
+    const place = input.place?.trim() || input.municipality?.trim() || null;
+    return {
+      websitePresence,
+      geographicReason,
+      contentReason,
+      openingAxis,
+      evidence: place,
+      sourceUrl: null,
+      sourceKind: null,
+      confidence: null,
+      sufficient: true,
+    };
+  }
+
+  return {
+    websitePresence,
+    geographicReason,
+    contentReason,
+    openingAxis: null,
+    evidence: null,
+    sourceUrl: null,
+    sourceKind: null,
+    confidence: null,
+    sufficient: false,
+  };
 }
 
 const LAUNCH_REASON =

@@ -20,6 +20,7 @@ import {
   type ProductFit,
 } from "./acquisition-constants";
 import { explicitOfferPriceInText } from "./acquisition-start";
+import { parseStoredPersonalApproach } from "./acquisition/outreach-policy";
 import { isStructuredAcquisitionBody } from "./mail-body";
 import { isEmail, normalizeEmail } from "./product";
 import {
@@ -105,6 +106,9 @@ export function evaluatePreSend(input: {
   const hasFindings = Array.isArray(used) ? used.length > 0 : Boolean(used);
   const scoutCapture = isScoutCaptureMail(input.mail);
   const shortFollowUp = isShortAcquisitionKind(input.mail?.kind);
+  const websiteUrl = "website_url" in input.prospect ? input.prospect.website_url : undefined;
+  const personalNoWebsite =
+    input.mail?.prompt_version === MAIL_PROMPT_VERSION && typeof websiteUrl === "string" && websiteUrl.trim() === "";
   const unreachable =
     isUnreachableSiteMail(input.mail?.body_text) ||
     (isUnreachableProspect({
@@ -114,7 +118,7 @@ export function evaluatePreSend(input: {
     }) &&
       !hasFindings &&
       input.mail?.prompt_version !== MANUAL_REASONS_PROMPT_VERSION);
-  if (input.mail && !input.mail.scan_id && !unreachable && !hasFindings && !scoutCapture && !shortFollowUp) {
+  if (input.mail && !input.mail.scan_id && !unreachable && !hasFindings && !scoutCapture && !shortFollowUp && !personalNoWebsite) {
     issues.push({ code: "missing_scan", message: "De mail is niet aan een scan gekoppeld." });
   }
   if (input.auto && !unreachable && input.mail && !hasFindings) {
@@ -150,13 +154,17 @@ export async function storeGeneratedMail(
   }
 ) {
   let place = input.place;
-  if (place === undefined) {
-    const { data: location } = await supabase
-      .from("prospects")
-      .select("city")
-      .eq("id", input.prospectId)
-      .maybeSingle();
-    place = location?.city ?? null;
+  let manualNote: string | null = null;
+  let websitePresence: "HAS_WEBSITE" | "NO_WEBSITE" | undefined;
+  const { data: location } = await supabase
+    .from("prospects")
+    .select("city, notes, website_url")
+    .eq("id", input.prospectId)
+    .maybeSingle();
+  if (place === undefined) place = (location?.city as string | null) ?? null;
+  manualNote = typeof location?.notes === "string" ? location.notes : null;
+  if (location && "website_url" in location) {
+    websitePresence = String(location.website_url ?? "").trim() ? "HAS_WEBSITE" : "NO_WEBSITE";
   }
 
   const generated = await generateAcquisitionMail({
@@ -165,6 +173,8 @@ export async function storeGeneratedMail(
     fit: input.fit,
     findings: input.findings,
     place,
+    manualNote,
+    websitePresence,
   });
   let html: string;
   let body = generated.body;
@@ -237,7 +247,20 @@ export async function storeGeneratedMail(
     eventType: ACTIVITY.MAIL_GENERATED,
     actorType: input.actorType ?? "agent",
     actorId: input.actorId ?? "kopvast.nl",
-    metadata: { mailId: created?.id, prompt: MAIL_PROMPT_VERSION, template: MAIL_TEMPLATE_VERSION },
+    metadata: {
+      mailId: created?.id,
+      prompt: MAIL_PROMPT_VERSION,
+      template: MAIL_TEMPLATE_VERSION,
+      approach: {
+        geographicReason: generated.approach.geographicReason,
+        contentReason: generated.approach.contentReason,
+        evidence: generated.approach.evidence,
+        sourceUrl: generated.approach.sourceUrl,
+        sourceKind: generated.approach.sourceKind,
+        websitePresence: generated.approach.websitePresence,
+        opening: generated.approach.opening,
+      },
+    },
   });
   return created?.id ?? null;
 }
@@ -533,7 +556,20 @@ export async function storeManualReasonsMail(
     eventType: ACTIVITY.MAIL_GENERATED,
     actorType: "human",
     actorId: input.actorEmail,
-    metadata: { mailId: created?.id, prompt: MANUAL_REASONS_PROMPT_VERSION, template: generated.templateVersion },
+    metadata: {
+      mailId: created?.id,
+      prompt: MANUAL_REASONS_PROMPT_VERSION,
+      template: generated.templateVersion,
+      approach: {
+        geographicReason: generated.approach.geographicReason,
+        contentReason: generated.approach.contentReason,
+        evidence: generated.approach.evidence,
+        sourceUrl: generated.approach.sourceUrl,
+        sourceKind: generated.approach.sourceKind,
+        websitePresence: generated.approach.websitePresence,
+        opening: generated.approach.opening,
+      },
+    },
   });
   await syncScoutDraftFromMail(input.prospectId, generated.subject, body);
   return created?.id ?? null;
@@ -657,6 +693,7 @@ export async function saveProspectMailDraft(input: {
   subject: string;
   body: string;
   actorEmail: string;
+  approach?: unknown;
 }) {
   const supabase = refreshClient();
   if (!supabase) return { ok: false as const, message: "Website Refresh is niet geconfigureerd." };
@@ -706,12 +743,16 @@ export async function saveProspectMailDraft(input: {
     .eq("prospect_id", input.prospectId)
     .eq("status", "draft");
   if (error) return { ok: false as const, message: error.message };
+  const approach = parseStoredPersonalApproach({ approach: input.approach });
   await logProspectActivity(supabase, {
     prospectId: input.prospectId,
     eventType: ACTIVITY.MAIL_EDITED,
     actorType: "human",
     actorId: input.actorEmail,
-    metadata: { mailId: input.mailId },
+    metadata: {
+      mailId: input.mailId,
+      ...(approach ? { approach } : {}),
+    },
   });
   return { ok: true as const };
 }

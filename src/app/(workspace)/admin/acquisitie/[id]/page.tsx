@@ -34,7 +34,7 @@ import {
 } from "@/lib/acquisition-constants";
 import { isShortAcquisitionKind } from "@/lib/acquisition/follow-up";
 import { sentMailRecords } from "@/lib/acquisition/sent-mails";
-import { explainOutreachOffer } from "@/lib/acquisition/outreach-policy";
+import { explainOutreachOffer, personalApproachForProspect } from "@/lib/acquisition/outreach-policy";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { ProspectContactEmailForm } from "../contact-email-form";
 import { ProspectCompanyNameForm } from "../company-name-form";
@@ -168,6 +168,19 @@ export default async function ProspectDetailPage({
           canSend={!blocked && Boolean(prospect.contact?.email)}
           title={isShortAcquisitionKind(draftMail.kind) ? "Handmatige follow-up" : "Persoonlijke acquisitiemail"}
           layout={isShortAcquisitionKind(draftMail.kind) ? "short" : "outreach"}
+          place={prospect.city}
+          note={prospect.notes}
+          approach={
+            isShortAcquisitionKind(draftMail.kind)
+              ? null
+              : personalApproachForProspect({
+                  companyName: prospect.company_name,
+                  domain: prospect.domain,
+                  place: prospect.city,
+                  websiteUrl: prospect.website_url,
+                  activities: prospect.activities,
+                })
+          }
         />
       ) : showUnreachableCreate ? (
         <form action={createUnreachableMailForm} className="relative space-y-4 rounded-2xl border border-copper/25 bg-[#FBF6F2] p-5">
@@ -297,6 +310,7 @@ function OfferCard({ fit, city }: { fit: ProductFit | null; city: string | null 
       <h2 className="text-2xl font-semibold">{copy.title}</h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-ink/60">{copy.text}</p>
       {copy.price ? <p className="mt-4 text-sm font-semibold">{copy.price}</p> : null}
+      <p className="mt-2 text-xs text-ink/45">Dit aanbod staat niet automatisch in de eerste acquisitiemail.</p>
       {copy.reasonLabels.length ? (
         <p className="mt-2 text-xs text-ink/45">Reden: {copy.reasonLabels.join(" · ")}</p>
       ) : null}

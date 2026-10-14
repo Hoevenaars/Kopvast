@@ -7,15 +7,25 @@ import { MailPreview } from "@/app/(workspace)/admin/acquisitie/mail-preview";
 import { areaClass, fieldClass, Field } from "@/components/form-fields";
 import { applyManualOfferToMailBody, paragraphForManualDiscount } from "@/lib/acquisition/manual-offer";
 import {
+  APPROACH_SOURCE_LABELS,
   CONTENT_REASON_LABELS,
   GEOGRAPHIC_REASON_LABELS,
+  approachSourceLabel,
+  buildPersonalApproachLetter,
+  replacePersonalOpening,
 } from "@/lib/acquisition/outreach-policy";
-import type { ContentOfferReason, GeographicOfferReason } from "@/lib/acquisition/special-offer-rules";
+import type { PersonalApproachLetter } from "@/lib/acquisition/outreach-policy";
+import type {
+  ApproachSourceKind,
+  ContentOfferReason,
+  GeographicOfferReason,
+} from "@/lib/acquisition/special-offer-rules";
 import type { EmailMode } from "@/lib/email-mode";
 
 type ActionResult = { ok: boolean; message?: string; skippedDuplicate?: boolean };
 type GeoChoice = Exclude<GeographicOfferReason, null>;
 type ContentChoice = Exclude<ContentOfferReason, null>;
+type SourceChoice = ApproachSourceKind;
 
 const GEO_OPTIONS: Array<{ value: "" | GeoChoice; label: string }> = [
   { value: "", label: "Geen plaatselijke reden" },
@@ -44,6 +54,10 @@ export function MailEditor({
   canSend,
   title = "Persoonlijke acquisitiemail",
   layout = "outreach",
+  approach,
+  note,
+  place,
+  municipality,
 }: {
   prospectId: string;
   mailId: string;
@@ -56,6 +70,10 @@ export function MailEditor({
   canSend: boolean;
   title?: string;
   layout?: "outreach" | "short";
+  approach?: PersonalApproachLetter | null;
+  note?: string | null;
+  place?: string | null;
+  municipality?: string | null;
 }) {
   const router = useRouter();
   const [subject, setSubject] = useState(initialSubject);
@@ -66,12 +84,27 @@ export function MailEditor({
   const [geographic, setGeographic] = useState<"" | GeoChoice>("");
   const [content, setContent] = useState<"" | ContentChoice>("");
   const [launch, setLaunch] = useState(false);
+  const [approachGeo, setApproachGeo] = useState<"" | GeoChoice>(approach?.geographicReason ?? "");
+  const [approachContent, setApproachContent] = useState<"" | ContentChoice>(approach?.contentReason ?? "");
+  const [approachEvidence, setApproachEvidence] = useState(approach?.evidence ?? "");
+  const [approachSourceUrl, setApproachSourceUrl] = useState(approach?.sourceUrl ?? "");
+  const [approachSourceKind, setApproachSourceKind] = useState<"" | SourceChoice>(approach?.sourceKind ?? "");
+  const [opening, setOpening] = useState(approach?.opening ?? "");
+  const hasWebsite = approach?.websitePresence !== "NO_WEBSITE";
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [actionPending, startAction] = useTransition();
   const lock = useRef(false);
+  const approachSnapshot = useRef({
+    geographic: approach?.geographicReason ?? ("" as "" | GeoChoice),
+    content: approach?.contentReason ?? ("" as "" | ContentChoice),
+    evidence: approach?.evidence ?? "",
+    sourceUrl: approach?.sourceUrl ?? "",
+    sourceKind: approach?.sourceKind ?? ("" as "" | SourceChoice),
+  });
 
   const pending = actionPending || Boolean(busyLabel);
+  const openingAxis = approachContent && approachEvidence.trim() ? "content" : approachGeo ? "geographic" : null;
   const dirty = subject !== savedSubject || body !== savedBody;
 
   function run(
@@ -89,6 +122,20 @@ export function MailEditor({
     data.set("mailId", mailId);
     data.set("subject", subject);
     data.set("body", body);
+    if (layout !== "short" && opening.trim()) {
+      data.set(
+        "approach",
+        JSON.stringify({
+          geographicReason: approachGeo || null,
+          contentReason: approachContent || null,
+          evidence: approachEvidence.trim() || null,
+          sourceUrl: approachSourceUrl.trim() || null,
+          sourceKind: approachSourceKind || null,
+          websitePresence: hasWebsite ? "HAS_WEBSITE" : "NO_WEBSITE",
+          opening,
+        })
+      );
+    }
     startAction(async () => {
       try {
         const result = await action(data);
@@ -106,6 +153,63 @@ export function MailEditor({
         lock.current = false;
         setBusyLabel(null);
       }
+    });
+  }
+
+  function applyApproach(next: {
+    geographic: "" | GeoChoice;
+    content: "" | ContentChoice;
+    evidence: string;
+    sourceUrl: string;
+    sourceKind: "" | SourceChoice;
+  }) {
+    const previous = approachSnapshot.current;
+    if (
+      previous.geographic === next.geographic &&
+      previous.content === next.content &&
+      previous.evidence === next.evidence &&
+      previous.sourceUrl === next.sourceUrl &&
+      previous.sourceKind === next.sourceKind
+    ) {
+      return;
+    }
+    approachSnapshot.current = next;
+    const letter = buildPersonalApproachLetter({
+      companyName,
+      domain,
+      place,
+      municipality,
+      websitePresence: hasWebsite ? "HAS_WEBSITE" : "NO_WEBSITE",
+      manualReasons: {
+        geographicReason: next.geographic || null,
+        contentReason: next.content || null,
+      },
+      contentEvidence:
+        next.content && next.evidence.trim()
+          ? [
+              {
+                reason: next.content,
+                evidence: next.evidence.trim(),
+                confidence: 1,
+                sourceUrl: next.sourceUrl.trim() || undefined,
+                sourceKind: next.sourceKind || undefined,
+              },
+            ]
+          : [],
+    });
+    setApproachGeo(next.geographic);
+    setApproachContent(next.content);
+    setApproachEvidence(next.evidence);
+    setApproachSourceUrl(next.sourceUrl);
+    setApproachSourceKind(next.sourceKind);
+    setOpening(letter.opening);
+    setBody((current) => replacePersonalOpening(current, opening, letter.opening));
+    setPhase("concept");
+    setMessage({
+      ok: true,
+      text: letter.sufficient
+        ? "Aanleiding staat in de opening. Werk het concept bij om het te bewaren. Er is geen prijs toegevoegd."
+        : "Nog onvoldoende bewijs. De opening blijft neutraal en er is geen prijs toegevoegd.",
     });
   }
 
@@ -161,6 +265,173 @@ export function MailEditor({
         </p>
       </div>
 
+      {layout !== "short" ? (
+        <div className="max-w-3xl space-y-3 rounded-xl border border-ink/10 bg-ivory px-4 py-4">
+          <div>
+            <h3 className="text-sm font-semibold">Persoonlijke aanleiding</h3>
+            <p className="mt-1 text-sm leading-6 text-ink/60">
+              Dit is waarom Kopvast contact zoekt. Hooguit één plaats en één inhoudelijke reden, en bij voorkeur één
+              daarvan in de opening. Een aanleiding zet geen prijs of korting in de mail.
+            </p>
+          </div>
+          <p className="text-sm text-ink/80">
+            Geselecteerd:{" "}
+            {[
+              approachGeo ? GEOGRAPHIC_REASON_LABELS[approachGeo] : null,
+              approachContent ? CONTENT_REASON_LABELS[approachContent] : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "Geen controleerbare aanleiding"}
+            {openingAxis === "content"
+              ? " · opening gebruikt de inhoudelijke reden"
+              : openingAxis === "geographic"
+                ? " · opening gebruikt de plaats"
+                : " · neutrale opening"}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field id="approach-geo" label="Plaatselijke aanleiding">
+              <select
+                id="approach-geo"
+                className={fieldClass}
+                value={approachGeo}
+                disabled={pending}
+                onChange={(event) =>
+                  applyApproach({
+                    geographic: event.target.value as "" | GeoChoice,
+                    content: approachContent,
+                    evidence: approachEvidence,
+                    sourceUrl: approachSourceUrl,
+                    sourceKind: approachSourceKind,
+                  })
+                }
+              >
+                {GEO_OPTIONS.map((option) => (
+                  <option key={`approach-${option.value || "none"}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field id="approach-content" label="Inhoudelijke aanleiding">
+              <select
+                id="approach-content"
+                className={fieldClass}
+                value={approachContent}
+                disabled={pending}
+                onChange={(event) =>
+                  applyApproach({
+                    geographic: approachGeo,
+                    content: event.target.value as "" | ContentChoice,
+                    evidence: approachEvidence,
+                    sourceUrl: approachSourceUrl,
+                    sourceKind: approachSourceKind,
+                  })
+                }
+              >
+                {CONTENT_OPTIONS.map((option) => (
+                  <option key={`approach-${option.value || "none"}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <Field id="approach-evidence" label="Onderbouwing">
+            <textarea
+              id="approach-evidence"
+              className={`${areaClass} min-h-24`}
+              value={approachEvidence}
+              disabled={pending}
+              placeholder="Alleen een controleerbaar feit. Zonder bewijs blijft de opening neutraal."
+              onChange={(event) => setApproachEvidence(event.target.value)}
+              onBlur={() =>
+                applyApproach({
+                  geographic: approachGeo,
+                  content: approachContent,
+                  evidence: approachEvidence,
+                  sourceUrl: approachSourceUrl,
+                  sourceKind: approachSourceKind,
+                })
+              }
+            />
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field id="approach-source-kind" label="Bron">
+              <select
+                id="approach-source-kind"
+                className={fieldClass}
+                value={approachSourceKind}
+                disabled={pending}
+                onChange={(event) => {
+                  const sourceKind = event.target.value as "" | SourceChoice;
+                  applyApproach({
+                    geographic: approachGeo,
+                    content: approachContent,
+                    evidence: approachEvidence,
+                    sourceUrl: approachSourceUrl,
+                    sourceKind,
+                  });
+                }}
+              >
+                <option value="">Geen bron</option>
+                {(Object.entries(APPROACH_SOURCE_LABELS) as Array<[SourceChoice, string]>)
+                  .filter(([value]) => hasWebsite || value !== "website")
+                  .map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Field id="approach-source-url" label="Bronadres">
+              <input
+                id="approach-source-url"
+                className={fieldClass}
+                value={approachSourceUrl}
+                disabled={pending}
+                placeholder="https://…"
+                onChange={(event) => setApproachSourceUrl(event.target.value)}
+                onBlur={() =>
+                  applyApproach({
+                    geographic: approachGeo,
+                    content: approachContent,
+                    evidence: approachEvidence,
+                    sourceUrl: approachSourceUrl,
+                    sourceKind: approachSourceKind,
+                  })
+                }
+              />
+            </Field>
+          </div>
+          <p className="text-sm text-ink/60">
+            Bron:{" "}
+            {approachSourceLabel({
+              sourceKind: approachSourceKind || null,
+              sourceUrl: approachSourceUrl,
+              openingAxis,
+            })}
+          </p>
+          {note?.trim() ? (
+            <p className="text-sm leading-6 text-ink/60">
+              Beschikbare notitie, nog geen automatische reden: {note.trim()}
+            </p>
+          ) : null}
+          <Field id="approach-opening" label="Voorgestelde opening">
+            <textarea
+              id="approach-opening"
+              className={`${areaClass} min-h-28`}
+              value={opening}
+              disabled={pending}
+              onChange={(event) => {
+                const next = event.target.value;
+                setBody((current) => replacePersonalOpening(current, opening, next));
+                setOpening(next);
+              }}
+            />
+          </Field>
+        </div>
+      ) : null}
+
       {phase === "concept" ? (
         <div className="max-w-xl">
           <MailPreview subject={subject} body={body} companyName={companyName} domain={domain} layout={layout} />
@@ -191,10 +462,10 @@ export function MailEditor({
       {phase === "concept" ? (
         <div className="max-w-xl space-y-3 rounded-xl border border-ink/10 bg-ivory px-4 py-4">
           <div>
-            <h3 className="text-sm font-semibold">Korting</h3>
+            <h3 className="text-sm font-semibold">Commercieel aanbod</h3>
             <p className="mt-1 text-sm leading-6 text-ink/60">
-              Jij kiest per mail of er een korting in komt, ook als de mail nog geen prijs noemt. Hooguit één plaats en
-              één inhoudelijke reden. De zin komt uit de spelregels. Zonder reden blijft €1.495 staan.
+              Apart van de persoonlijke aanleiding. Zet hier alleen een prijs in als de commerciële situatie daarom
+              vraagt. Hooguit één plaats en één inhoudelijke reden. Zonder reden blijft €1.495 staan.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

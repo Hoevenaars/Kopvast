@@ -16,6 +16,12 @@ import { ScoutContactEmailForm } from "@/components/scout/contact-email-form";
 import { ScoutCompanyNameForm } from "@/components/scout/company-name-form";
 import { LeadDraftTools } from "@/components/scout/draft-tools";
 import { buildUnreachableSiteMail, isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
+import {
+  CONTENT_REASON_LABELS,
+  GEOGRAPHIC_REASON_LABELS,
+  approachSourceLabel,
+  buildPersonalApproachLetter,
+} from "@/lib/acquisition/outreach-policy";
 import { resolveEmailSettings } from "@/lib/email-mode";
 
 export default async function ScoutLeadDetailPage({
@@ -41,8 +47,18 @@ export default async function ScoutLeadDetailPage({
     lead.email && scanFailed && (!draft || isUnreachableSiteMail(draft.message))
       ? buildUnreachableSiteMail({ domain: lead.domain, companyName: lead.company_name })
       : null;
-  const subject = draft?.subject ?? generated?.subject ?? "";
-  const message = draft?.message ?? generated?.body ?? "";
+  const approach = buildPersonalApproachLetter({
+    companyName: lead.company_name,
+    domain: lead.domain,
+    place: lead.city,
+    websitePresence: "HAS_WEBSITE",
+  });
+  const approachLabels = [
+    approach.geographicReason ? GEOGRAPHIC_REASON_LABELS[approach.geographicReason] : null,
+    approach.contentReason ? CONTENT_REASON_LABELS[approach.contentReason] : null,
+  ].filter(Boolean);
+  const subject = draft?.subject ?? generated?.subject ?? approach.subject;
+  const message = draft?.message ?? generated?.body ?? approach.body;
   const canEditMail = Boolean(draft);
   const showManualReasons = scanFailed && (!draft || isUnreachableSiteMail(draft.message));
 
@@ -115,6 +131,26 @@ export default async function ScoutLeadDetailPage({
 
       <section>
         <h2 className="text-xs tracking-[0.18em] text-olive uppercase">Acquisitieconcept</h2>
+        <div className="mt-3 space-y-2 rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm leading-6 text-ink">
+          <p>
+            Persoonlijke aanleiding: {approachLabels.join(" · ") || "Geen controleerbare aanleiding"}
+            {approach.openingAxis === "content"
+              ? " · opening gebruikt de inhoudelijke reden"
+              : approach.openingAxis === "geographic"
+                ? " · opening gebruikt de plaats"
+                : " · neutrale opening"}
+          </p>
+          <p>Onderbouwing: {approach.evidence || "Onvoldoende bewijs. De opening blijft neutraal."}</p>
+          <p>
+            Bron:{" "}
+            {approachSourceLabel({
+              sourceKind: approach.sourceKind,
+              sourceUrl: approach.sourceUrl,
+              openingAxis: approach.openingAxis,
+            })}
+          </p>
+          <p className="text-olive">Een notitie is context en wordt niet vanzelf een aanleiding. De eerste mail noemt geen prijs.</p>
+        </div>
         {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
         {showManualReasons ? (
           <div className="mt-3">

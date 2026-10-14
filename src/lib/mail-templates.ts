@@ -138,7 +138,7 @@ export const MAIL_TEMPLATE_META: Array<Omit<MailTemplateRecord, "values">> = [
   {
     key: "acquisition",
     title: "Acquisitie-outreach",
-    help: "Aanhef, ondertekening en maatwerkaanbod. Opening, bevindingen, prijs en korting volgen de spelregels persoonlijke benadering hierboven.",
+    help: "Aanhef en ondertekening. De eerste acquisitiemail volgt de spelregels persoonlijke benadering en noemt geen prijs. Korting blijft een aparte commerciële keuze.",
     placeholders: "{{domain}} {{company}} {{price}}",
     fields: acquisitionFields(),
   },
