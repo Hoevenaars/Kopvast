@@ -45,7 +45,8 @@ test("acquisitietemplate houdt de standaardaanhef en prijs", () => {
     { ...template, greeting: "Beste ondernemer," }
   );
   assert.match(body, /Beste ondernemer/);
-  assert.match(body, /€1.495|1.495/);
+  assert.doesNotMatch(body, /€1\.495|€995/);
+  assert.match(template.offerStandard, /\{\{price\}\}/);
 });
 
 test("standaardtemplates bevatten bevestiging en acquisitie", () => {

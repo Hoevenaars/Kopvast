@@ -37,12 +37,10 @@ test("twee aangeklikte redenen worden een gewone acquisitiemail", () => {
     fit: "REVIEW_REQUIRED",
     findings,
   });
-  assert.match(mail.body, /kort bekeken/);
-  assert.match(mail.body, /Twee dingen vielen direct op/);
-  assert.match(mail.body, /eerste indruk kan sterker/);
-  assert.match(mail.body, /route naar contact kan directer/);
-  assert.equal(isUnreachableSiteMail(mail.body), false);
+  assert.match(mail.body, /Zal ik een keer kort laten zien/);
+  assert.doesNotMatch(mail.body, /€|kort bekeken|Twee dingen vielen direct op/);
   assert.equal(mail.findingsUsed.length, 2);
+  assert.equal(isUnreachableSiteMail(mail.body), false);
   for (const pattern of FORBIDDEN_MAIL_CLAIMS) {
     assert.equal(pattern.test(mail.body), false, String(pattern));
   }

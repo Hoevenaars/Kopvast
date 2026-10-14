@@ -126,19 +126,11 @@ test("acquisitiemail gebruikt findings en vermijdt verboden claims", () => {
   });
   assert.equal(mail.subject, "Even gekeken naar nova-advies.nl");
   assert.match(mail.body, /Goedendag/);
-  assert.match(mail.body, /Ik kwam nova-advies.nl tegen en heb de website kort bekeken/);
-  assert.match(mail.body, /€1.495|1.495/);
-  assert.doesNotMatch(mail.body, /vanaf\s*€?\s*995/i);
-  assert.doesNotMatch(mail.body, /Voor jullie maak ik daar €995/);
-  assert.match(mail.body, /Wat heeft jullie voorkeur/);
-  assert.match(mail.body, /Ja, doe me een voorstel/);
-  assert.match(mail.body, /Stuur me eerst meer info/);
-  assert.match(mail.body, /\/start\?keuze=voorstel/);
-  assert.match(mail.body, /\/start\?keuze=info/);
-  assert.match(mail.body, /website=nova-advies.nl/);
-  assert.doesNotMatch(mail.body, /A — Laat zien hoe jullie dit zouden aanpakken/);
-  assert.doesNotMatch(mail.body, /Wat wil je eerst zien/);
-  assert.match(mail.body, /meer karakter dan er nu online uitkomt/);
+  assert.match(mail.body, /Ik kwam Nova Advies tegen/);
+  assert.match(mail.body, /Zal ik een keer kort laten zien/);
+  assert.doesNotMatch(mail.body, /€|995|1[.,]495|korting|pakket/i);
+  assert.doesNotMatch(mail.body, /heb de website kort bekeken/);
+  assert.doesNotMatch(mail.body, /Twee dingen vielen direct op/);
   assert.doesNotMatch(mail.body, /meer in zich/);
   for (const pattern of FORBIDDEN_MAIL_CLAIMS) {
     assert.equal(pattern.test(mail.body), false, String(pattern));
@@ -149,8 +141,8 @@ test("acquisitiemail gebruikt findings en vermijdt verboden claims", () => {
     findings,
     points: ["De belangrijkste diensten kunnen duidelijker naar voren komen."],
   });
-  assert.match(composed, /buiten het vaste websitepakket|Op aanvraag|mee/);
-  assert.doesNotMatch(composed, /€995/);
+  assert.match(composed, /Goedendag/);
+  assert.doesNotMatch(composed, /€995|websitepakket/);
   assert.doesNotMatch(composed, /verliezen omzet/);
 });
 
@@ -529,38 +521,26 @@ test("acquisitiemail voor Persingen is persoonlijk en minimaal", async () => {
   });
   assert.equal(mail.subject, "Even gekeken naar kerkjepersingen.nl");
   assert.match(mail.body, /Kerkje van Persingen/);
-  assert.match(mail.body, /Twee dingen vielen direct op/);
-  assert.match(mail.body, /€995/);
+  assert.match(mail.body, /bijzondere of historische plek/);
+  assert.match(mail.body, /Zal ik een keer kort laten zien/);
+  assert.equal(mail.approach.openingAxis, "content");
+  assert.equal(mail.approach.contentReason, "HERITAGE_SPECIAL_PLACE");
+  assert.equal(mail.approach.geographicReason, "BERG_EN_DAL");
+  assert.doesNotMatch(mail.body, /€|995|korting|pakket|Groesbeek/i);
   assert.doesNotMatch(mail.body, /scan|algoritme|opportunity score|digitale aanwezigheid/i);
+  assert.equal((mail.body.match(/\?/g) ?? []).length, 1);
 
-  const parsed = parseOutreachBody(mail.body, "kerkjepersingen.nl");
-  assert.match(parsed.openingObservation ?? "", /karakter|Kerkje/i);
-  assert.equal(parsed.finding1?.title, persingenFindings[0].title);
-  assert.equal(parsed.finding2?.title, persingenFindings[1].title);
-  assert.equal(buildAcquisitionPlainText(parsed as never).includes("kerkjepersingen.nl"), true);
-
-  const html = await render(
-    createElement(AcquisitionOutreachEmail, {
-      ...mail.emailProps,
-      body: mail.body,
-    })
-  );
-  assert.match(html, /KOPVAST/);
-  assert.match(html, /Even gekeken naar kerkjepersingen.nl/);
-  assert.match(html, /Ja, doe me een voorstel/);
-  assert.match(html, /Stuur me eerst meer info/);
-  assert.doesNotMatch(html, /A — Laat zien hoe jullie dit zouden aanpakken/);
-  assert.doesNotMatch(html, /Wat wil je eerst zien/);
-  assert.match(html, /\/start\?keuze=voorstel/);
-  assert.match(html, /\/start\?keuze=info/);
-  assert.match(html, /website=kerkjepersingen.nl/);
-  assert.match(html, /prijs=995/);
-  assert.doesNotMatch(html, /\/werkwijze/);
-  assert.match(html, /#ffffff|rgb\(255,\s*255,\s*255\)/i);
-  assert.doesNotMatch(html, /Bekijk het websitepakket/);
-  assert.doesNotMatch(html, /bg-ivory|#f3f0e8/i);
-  assert.doesNotMatch(html, /Newsreader/);
-  const visible = visibleEmailTextFromHtml(html);
+  const prepared = await prepareAcquisitionEmail({
+    domain: "kerkjepersingen.nl",
+    companyName: "Kerkje van Persingen",
+    subject: mail.subject,
+    body: mail.body,
+  });
+  assert.match(prepared.html, /KOPVAST/);
+  assert.match(prepared.html, /bijzondere of historische plek/);
+  assert.doesNotMatch(prepared.html, /€995|prijs=995|Twee dingen vielen direct op/);
+  assert.doesNotMatch(prepared.html, /Newsreader/);
+  const visible = visibleEmailTextFromHtml(prepared.html);
   assert.equal(findDuplicatedAcquisitionContent(visible), null);
   assert.equal((visible.match(/KOPVAST/g) ?? []).length, 1);
 });
@@ -583,39 +563,25 @@ test("offerparagraaf bevat alleen prijs en reden", () => {
 test("HTML rendert de mailbody niet een tweede keer via de offerparagraaf", async () => {
   const trackingA = "https://kopvast.nl/r/proposal-fluweel";
   const trackingB = "https://kopvast.nl/r/info-fluweel";
-  const mail = fallbackAcquisitionMail({
+  const data = buildOutreachMailData({
     companyName: "Fluweel Events",
     domain: "fluweelevents.nl",
-    fit: "STANDARD_FIT",
-    findings: [
-      {
-        finding_type: "FACT",
-        category: "visual",
-        title: "De eerste indruk kan sterker.",
-        description: "Wat jullie onderscheidt komt nu nog te weinig naar voren.",
-        severity: "important",
-      },
-      {
-        finding_type: "FACT",
-        category: "conversion",
-        title: "De route naar contact kan directer.",
-        description: "Een bezoeker moet nu te veel zoeken voordat de volgende stap duidelijk is.",
-        severity: "important",
-      },
-      {
-        finding_type: "FACT",
-        category: "accessibility",
-        title: "Beeld is slecht toegankelijk.",
-        description: "Afbeeldingen missen alt-teksten.",
-        severity: "critical",
-      },
-    ],
     place: "Groesbeek",
     municipality: "Berg en Dal",
+    productFit: "STANDARD_FIT",
+    openingObservation: "Fluweel Events heeft duidelijk meer karakter dan er nu online uitkomt.",
+    finding1: {
+      title: "De eerste indruk kan sterker.",
+      description: "Wat jullie onderscheidt komt nu nog te weinig naar voren.",
+    },
+    finding2: {
+      title: "De route naar contact kan directer.",
+      description: "Een bezoeker moet nu te veel zoeken voordat de volgende stap duidelijk is.",
+    },
+    choiceAUrl: trackingA,
+    choiceBUrl: trackingB,
   });
-  mail.emailProps.choiceAUrl = trackingA;
-  mail.emailProps.choiceBUrl = trackingB;
-  const body = buildAcquisitionPlainText(mail.emailProps);
+  const body = buildAcquisitionPlainText({ ...data.props, choiceAUrl: trackingA, choiceBUrl: trackingB });
   const parsedOffer = extractOfferParagraph(body);
   assert.equal(parsedOffer?.includes("KOPVAST"), false);
   assert.equal(parsedOffer?.includes("Goedendag"), false);

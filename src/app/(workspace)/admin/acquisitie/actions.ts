@@ -147,12 +147,22 @@ async function persistDraftIfPresent(formData: FormData, actorEmail: string) {
   const subject = String(formData.get("subject") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   if (!subject || !body) return { ok: true as const };
+  const approachRaw = String(formData.get("approach") ?? "").trim();
+  let approach: unknown;
+  if (approachRaw) {
+    try {
+      approach = JSON.parse(approachRaw) as unknown;
+    } catch {
+      approach = undefined;
+    }
+  }
   return saveProspectMailDraft({
     prospectId: String(formData.get("prospectId") ?? ""),
     mailId: String(formData.get("mailId") ?? ""),
     subject,
     body,
     actorEmail,
+    approach,
   });
 }
 

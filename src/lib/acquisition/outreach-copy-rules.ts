@@ -5,7 +5,11 @@ BELANGRIJK:
 
 De ontvanger mag NIET merken dat de tekst automatisch of door AI is gemaakt.
 
-Schrijf alsof iemand de website zelf kort heeft bekeken.
+De eerste mail verkoopt geen product en noemt geen prijs.
+
+Als er een website is, schrijf alsof iemand die zelf kort heeft bekeken.
+
+Als er geen website is, claim nooit dat een website is bekeken.
 
 DOEL:
 
@@ -54,7 +58,9 @@ Noem nooit:
 - opportunity score
 - product fit
 
-Schrijf geen prijzen en geen korting. Die komen later in de mail.
+Schrijf geen prijzen, geen korting en geen pakketoverzicht. Die horen niet in de eerste mail.
+
+Gebruik bij voorkeur één controleerbare aanleiding. Verzin geen reden.
 
 --------------------------------------------------
 FINDINGS
@@ -218,7 +224,25 @@ De organisatie heeft aantoonbaar een culturele, historische of erfgoedfunctie.
 
 Geef alleen redenen waarvoor daadwerkelijk bewijs aanwezig is.
 
-Voeg ze toe als "reasons" in dezelfde JSON-output.
+Voeg ze toe als "reasons":
+
+{
+  "reasons": [
+    {
+      "reason": "HERITAGE_SPECIAL_PLACE",
+      "evidence": "Letterlijk citaat of controleerbaar feit.",
+      "confidence": 0.9,
+      "sourceUrl": "https://example.nl/over",
+      "sourceKind": "website"
+    }
+  ]
+}
+
+sourceKind is één van: website, manual_note, project_description, company_profile.
+
+Bij een prospect zonder website mag sourceKind niet "website" zijn. Een handmatige notitie, projectbeschrijving of gecontroleerd bedrijfsprofiel mag dan de bron zijn, maar alleen als het feit daar letterlijk in staat.
+
+confidence is een getal tussen 0 en 1. Onder 0.75 wordt de reden niet gebruikt.
 
 Bij onvoldoende bewijs:
 
@@ -231,4 +255,5 @@ Verzin NOOIT:
 - erfgoed
 - grootte van de organisatie
 - toeristische functie
+- dat een website is bekeken wanneer er geen website is
 `;

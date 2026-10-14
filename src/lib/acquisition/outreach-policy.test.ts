@@ -8,8 +8,10 @@ import {
 
 test("spelregels blijven zichtbaar als vaste copy", () => {
   assert.ok(PERSONAL_APPROACH_MAIL_RULES.some((item) => /website zelf kort/.test(item)));
+  assert.ok(PERSONAL_APPROACH_MAIL_RULES.some((item) => /80 tot 120/.test(item)));
   assert.ok(PERSONAL_APPROACH_DISCOUNT_RULES.some((item) => /€995/.test(item)));
   assert.ok(PERSONAL_APPROACH_DISCOUNT_RULES.some((item) => /Groesbeek/.test(item)));
+  assert.ok(PERSONAL_APPROACH_DISCOUNT_RULES.some((item) => /niet automatisch/.test(item)));
 });
 
 test("standaard fit in Groesbeek toont persoonlijke korting", () => {

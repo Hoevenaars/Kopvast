@@ -2,8 +2,8 @@ import type { RefreshStatus } from "./acquire-map";
 
 export const SCANNER_VERSION = "kopvast-1.0";
 export const SCORE_VERSION = "v1.1.0";
-export const MAIL_PROMPT_VERSION = "kopvast-acquisition-mail-v3";
-export const MAIL_TEMPLATE_VERSION = "acquisition-outreach-v3";
+export const MAIL_PROMPT_VERSION = "kopvast-acquisition-mail-v4";
+export const MAIL_TEMPLATE_VERSION = "acquisition-outreach-v4";
 export const SCOUT_MAIL_PROMPT_VERSION = "kopvast-scout";
 export const SCOUT_MAIL_TEMPLATE_VERSION = "scout-capture";
 export const PUBLIC_CHECK_PATH = "/check";

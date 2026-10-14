@@ -10,9 +10,15 @@ import { FORBIDDEN_MAIL_CLAIMS, MAIL_PROMPT_VERSION, MAIL_TEMPLATE_VERSION, type
 import { OUTREACH_COPY_RULES, SPECIAL_OFFER_CLASSIFICATION_PROMPT } from "./acquisition/outreach-copy-rules";
 import { MANUAL_MAIL_REASONS } from "./acquisition/manual-reasons";
 import {
+  buildPersonalApproachLetter,
+  type PersonalApproachLetter,
+} from "./acquisition/outreach-policy";
+import {
   buildSpecialOffer,
+  isApproachSourceKind,
   isContentOfferReason,
   type OfferEvidence,
+  type WebsitePresence,
 } from "./acquisition/special-offer-rules";
 import { formatPrice, REGIONAL_ACQUISITION_PRICE_EX_VAT, standardWebsitePriceSentence } from "@/lib/products";
 import {
@@ -40,6 +46,7 @@ export type GeneratedAcquisitionMail = {
   promptVersion: string;
   templateVersion: string;
   emailProps: AcquisitionOutreachEmailProps;
+  approach: PersonalApproachLetter;
 };
 
 const CATEGORY_PRIORITY: Record<string, number> = {
@@ -368,13 +375,26 @@ export function composeAcquisitionBody(
     municipality?: string | null;
     contentEvidence?: OfferEvidence[];
     allowLaunchOffer?: boolean;
+    websitePresence?: WebsitePresence;
     choiceAUrl?: string;
     choiceBUrl?: string;
     unsubscribeUrl?: string | null;
   },
   template: AcquisitionMailTemplate = defaultAcquisitionMailTemplate()
 ): string {
-  return buildAcquisitionPlainText(buildOutreachEmailProps({ ...input, template }));
+  const vars = acquisitionVars(input);
+  return buildPersonalApproachLetter({
+    companyName: input.companyName,
+    domain: input.domain,
+    place: input.place,
+    municipality: input.municipality,
+    contentEvidence: input.contentEvidence,
+    websitePresence: input.websitePresence,
+    greeting: fill(template.greeting, vars),
+    signatureName: fill(template.signatureName, vars),
+    signatureTagline: fill(template.signatureTagline, vars),
+    openingOverride: input.opening,
+  }).body;
 }
 
 export function chooseSubject(input: { companyName?: string | null; domain: string; findings?: MailFinding[] }) {
@@ -391,28 +411,43 @@ export function fallbackAcquisitionMail(
     municipality?: string | null;
     contentEvidence?: OfferEvidence[];
     allowLaunchOffer?: boolean;
+    websitePresence?: WebsitePresence;
+    opening?: string;
   },
   template: AcquisitionMailTemplate = defaultAcquisitionMailTemplate()
 ): GeneratedAcquisitionMail {
   const used = pickMailFindings(input.findings);
+  const vars = acquisitionVars(input);
+  const approach = buildPersonalApproachLetter({
+    companyName: input.companyName,
+    domain: input.domain,
+    place: input.place,
+    municipality: input.municipality,
+    contentEvidence: input.contentEvidence,
+    websitePresence: input.websitePresence,
+    greeting: fill(template.greeting, vars),
+    signatureName: fill(template.signatureName, vars),
+    signatureTagline: fill(template.signatureTagline, vars),
+    openingOverride: input.opening,
+  });
   const emailProps = buildOutreachEmailProps({
     companyName: input.companyName,
     domain: input.domain,
     fit: input.fit,
     findings: used,
+    opening: approach.opening,
     place: input.place,
     municipality: input.municipality,
-    contentEvidence: input.contentEvidence,
-    allowLaunchOffer: input.allowLaunchOffer,
     template,
   });
   return {
-    subject: buildAcquisitionSubject(input.domain),
-    body: buildAcquisitionPlainText(emailProps),
+    subject: approach.subject,
+    body: approach.body,
     findingsUsed: used,
     promptVersion: MAIL_PROMPT_VERSION,
     templateVersion: MAIL_TEMPLATE_VERSION,
     emailProps,
+    approach,
   };
 }
 
@@ -420,7 +455,7 @@ const MAIL_SYSTEM_PROMPT = `${OUTREACH_COPY_RULES}
 
 ${SPECIAL_OFFER_CLASSIFICATION_PROMPT}
 
-Schrijf geen prijzen, geen korting en geen product-fit in opening of findings.
+Classificeer alleen redenen. Schrijf geen mail, geen prijs en geen korting.
 `;
 
 function parseContentEvidence(raw: unknown): OfferEvidence[] {
@@ -439,18 +474,11 @@ function parseContentEvidence(raw: unknown): OfferEvidence[] {
         evidence,
         confidence,
         sourceUrl: typeof row.sourceUrl === "string" ? row.sourceUrl : undefined,
+        sourceKind:
+          typeof row.sourceKind === "string" && isApproachSourceKind(row.sourceKind) ? row.sourceKind : undefined,
       },
     ];
   });
-}
-
-function parseFinding(raw: unknown): AcquisitionOutreachFinding | null {
-  if (!raw || typeof raw !== "object") return null;
-  const row = raw as Record<string, unknown>;
-  const title = stripForbiddenClaims(String(row.title ?? "")).trim();
-  const description = stripForbiddenClaims(String(row.description ?? "")).trim();
-  if (!title || !description) return null;
-  return { title: oneSentence(title), description: oneSentence(description) };
 }
 
 export async function generateAcquisitionMail(input: {
@@ -462,11 +490,13 @@ export async function generateAcquisitionMail(input: {
   place?: string | null;
   municipality?: string | null;
   allowLaunchOffer?: boolean;
+  contentEvidence?: OfferEvidence[];
+  websitePresence?: WebsitePresence;
+  manualNote?: string | null;
 }): Promise<GeneratedAcquisitionMail> {
   const template = await loadAcquisitionMailTemplate();
-  const fallback = fallbackAcquisitionMail(input, template);
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return fallback;
+  if (!apiKey) return fallbackAcquisitionMail(input, template);
 
   const usable = pickMailFindings(input.findings);
   try {
@@ -478,7 +508,7 @@ export async function generateAcquisitionMail(input: {
       },
       body: JSON.stringify({
         model: input.model || process.env.OPENAI_MODEL || "gpt-4.1-mini",
-        temperature: 0.3,
+        temperature: 0.2,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: MAIL_SYSTEM_PROMPT },
@@ -488,6 +518,9 @@ export async function generateAcquisitionMail(input: {
               domain: input.domain,
               company_name: input.companyName ?? null,
               place: input.place ?? null,
+              municipality: input.municipality ?? null,
+              websitePresence: input.websitePresence ?? "HAS_WEBSITE",
+              manualNote: input.manualNote?.trim() || null,
               findings: usable.map((item) => ({
                 type: item.finding_type,
                 category: item.category,
@@ -501,51 +534,20 @@ export async function generateAcquisitionMail(input: {
     });
     if (!response.ok) {
       console.error("[kopvast] Mailgeneratie-fout", response.status, await response.text());
-      return fallback;
+      return fallbackAcquisitionMail(input, template);
     }
     const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const content = payload.choices?.[0]?.message?.content;
-    if (!content) return fallback;
-    const parsed = JSON.parse(content) as {
-      openingObservation?: string;
-      opening?: string;
-      finding1?: unknown;
-      finding2?: unknown;
-      points?: string[];
-      reasons?: unknown;
-    };
-    const finding1 = parseFinding(parsed.finding1);
-    const finding2 = parseFinding(parsed.finding2);
-    const points = Array.isArray(parsed.points)
-      ? parsed.points.map((item) => stripForbiddenClaims(String(item))).filter(Boolean).slice(0, 2)
-      : [];
-    const opening = stripForbiddenClaims(String(parsed.openingObservation || parsed.opening || "")).trim();
-    const emailProps = buildOutreachEmailProps({
-      companyName: input.companyName,
-      domain: input.domain,
-      fit: input.fit,
-      findings: usable,
-      opening: opening || undefined,
-      finding1: finding1 ?? undefined,
-      finding2: finding2 ?? undefined,
-      points: !finding1 && points.length ? points : undefined,
-      place: input.place,
-      municipality: input.municipality,
-      contentEvidence: parseContentEvidence(parsed.reasons),
-      allowLaunchOffer: input.allowLaunchOffer,
-      template,
-    });
-    return {
-      subject: buildAcquisitionSubject(input.domain),
-      body: buildAcquisitionPlainText(emailProps),
-      findingsUsed: usable,
-      promptVersion: MAIL_PROMPT_VERSION,
-      templateVersion: MAIL_TEMPLATE_VERSION,
-      emailProps,
-    };
+    if (!content) return fallbackAcquisitionMail(input, template);
+    const parsed = JSON.parse(content) as { reasons?: unknown };
+    const classified = parseContentEvidence(parsed.reasons).filter((item) =>
+      input.websitePresence === "NO_WEBSITE" ? Boolean(item.sourceKind && item.sourceKind !== "website") : true
+    );
+    const contentEvidence = classified.length ? classified : input.contentEvidence;
+    return fallbackAcquisitionMail({ ...input, findings: usable, contentEvidence }, template);
   } catch (error) {
     console.error("[kopvast] Mailgeneratie mislukt", error instanceof Error ? error.message : error);
-    return fallback;
+    return fallbackAcquisitionMail(input, template);
   }
 }
 
