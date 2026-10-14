@@ -216,7 +216,7 @@ test("NO_WEBSITE concept blijft contact- en suppressiechecks houden", () => {
     status: "NEW",
     contact: { email: "info@dehorst.example", do_not_contact: false },
     do_not_contact: false,
-    contact_status: "UNKNOWN",
+    contact_status: "OTHER_VALID_BASIS",
     suppression: null,
     auto_outreach_blocked: false,
   };
@@ -239,6 +239,13 @@ test("NO_WEBSITE concept blijft contact- en suppressiechecks houden", () => {
     false
   );
   assert.equal(open.length, 0);
+
+  const unknown = evaluatePreSend({
+    prospect: { ...base, contact_status: "UNKNOWN" } as never,
+    mail: draft as never,
+    live: true,
+  });
+  assert.ok(unknown.some((item) => item.code === "contact_rule"));
 
   const suppressed = evaluatePreSend({
     prospect: {

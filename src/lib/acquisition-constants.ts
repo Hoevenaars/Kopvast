@@ -208,7 +208,6 @@ export const FORBIDDEN_MAIL_CLAIMS = [
 ];
 
 export const CONTACT_STATUSES_ALLOWED_TO_SEND: ContactStatus[] = [
-  "UNKNOWN",
   "CONSENTED",
   "EXISTING_CUSTOMER",
   "OTHER_VALID_BASIS",

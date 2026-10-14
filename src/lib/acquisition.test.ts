@@ -16,7 +16,6 @@ import {
   extractOfferParagraph,
   findDuplicatedAcquisitionContent,
   MORE_INFO_CTA_LABEL,
-  parseOutreachBody,
   PROPOSAL_CTA_LABEL,
   validateOfferParagraph,
   visibleEmailTextFromHtml,
@@ -250,7 +249,7 @@ test("pre-send checks blokkeren suppression en ontbrekende mail", () => {
   assert.ok(blocked.some((item) => item.code === "missing_mail"));
 
   const open = evaluatePreSend({
-    prospect: { ...prospect, suppression: null } as never,
+    prospect: { ...prospect, suppression: null, contact_status: "OTHER_VALID_BASIS" } as never,
     mail: {
       id: "m1",
       prospect_id: "p1",
@@ -277,6 +276,57 @@ test("pre-send checks blokkeren suppression en ontbrekende mail", () => {
     live: true,
   });
   assert.equal(open.length, 0);
+
+  const unknown = evaluatePreSend({
+    prospect: { ...prospect, suppression: null, contact_status: "UNKNOWN" } as never,
+    mail: {
+      id: "m1",
+      prospect_id: "p1",
+      contact_id: "c1",
+      scan_id: "scan1",
+      analysis_id: "a1",
+      subject: "Kort gekeken naar Nova",
+      body_text: "Goedendag,",
+      status: "draft",
+      kind: "acquisition_outreach",
+      email_mode: "LIVE",
+      intended_to_email: "info@nova-advies.nl",
+      to_email: "info@nova-advies.nl",
+      provider_message_id: null,
+      template_version: "acquisition-outreach-v4",
+      prompt_version: "kopvast-acquisition-mail-v4",
+      findings_used: [{ title: "Mobiel" }],
+      last_error: null,
+      created_at: new Date().toISOString(),
+      sent_at: null,
+      delivered_at: null,
+      failed_at: null,
+    },
+    live: true,
+  });
+  assert.ok(unknown.some((item) => item.code === "contact_rule"));
+
+  for (const reason of ["UNSUBSCRIBED", "COMPLAINT", "LEGAL_BLOCK", "MANUAL_BLOCK", "BOUNCED"] as const) {
+    const suppressed = evaluatePreSend({
+      prospect: {
+        ...prospect,
+        contact_status: "CONSENTED",
+        suppression: { ...prospect.suppression, reason },
+      } as never,
+      mail: {
+        subject: "Even gekeken naar nova-advies.nl",
+        body_text: "Goedendag,",
+        scan_id: "scan1",
+        status: "draft",
+        findings_used: [{ title: "Mobiel" }],
+      } as never,
+      live: true,
+    });
+    assert.ok(
+      suppressed.some((item) => item.code === "suppressed"),
+      reason
+    );
+  }
 
   const mailWithoutFindings = {
     id: "m2",
