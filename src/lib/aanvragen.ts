@@ -22,7 +22,7 @@ import {
 import { isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
 import { findLatestProposalsForRequests, type ProposalRequestRef } from "@/lib/proposal-ops";
 import { refreshClient } from "@/lib/refresh";
-import { publicInterestNextAction } from "@/lib/interest";
+import { parseInterestSubject, publicInterestNextAction } from "@/lib/interest";
 import { mutateStore, newId, nowIso, readLocalLeads, readStore } from "@/lib/workspace-store";
 
 export type AanvraagListQuery = {
@@ -143,27 +143,50 @@ async function logActivity(input: {
   leadId: string;
   eventType: string;
   actorEmail?: string | null;
+  actorType?: "human" | "system";
+  prospectId?: string | null;
   metadata?: Record<string, unknown>;
 }) {
-  const row = {
-    inbound_lead_id: input.leadId,
-    event_type: input.eventType,
-    actor_type: "human" as const,
-    actor_id: input.actorEmail ?? "kopvast.nl",
-    metadata: input.metadata ?? {},
-  };
+  const actorType = input.actorType ?? "human";
+  const actorId = input.actorEmail ?? "kopvast.nl";
+  const metadata = input.metadata ?? {};
   const supabase = refreshClient();
   if (supabase) {
-    const { error } = await supabase.from("kopvast_lead_activities").insert(row);
+    const { error } = await supabase.from("activity_logs").insert({
+      entity_type: "inbound_lead",
+      entity_id: input.leadId,
+      prospect_id: input.prospectId ?? null,
+      event_type: input.eventType,
+      actor_type: actorType,
+      actor_id: actorId,
+      metadata,
+    });
     if (error) console.error("[kopvast] Aanvraag-activiteit opslaan mislukt", error.message);
     return;
   }
   await mutateStore((store) => {
     store.aanvraagActivities.unshift({
-      ...row,
       id: newId(),
+      inbound_lead_id: input.leadId,
+      event_type: input.eventType,
+      actor_type: actorType,
+      actor_id: actorId,
+      metadata,
       created_at: nowIso(),
     });
+  });
+}
+
+export async function recordPublicRequestActivity(input: {
+  leadId: string;
+  source: string;
+  dienst?: string;
+}) {
+  await logActivity({
+    leadId: input.leadId,
+    eventType: AANVRAAG_ACTIVITY.REQUEST_CREATED,
+    actorType: "system",
+    metadata: { source: input.source, dienst: input.dienst ?? "" },
   });
 }
 
@@ -173,17 +196,18 @@ async function localFromFormLeads(): Promise<AanvraagRecord[]> {
   for (const lead of formLeads) {
     if (byId.has(lead.id)) continue;
     const source = lead.source || (lead.type === "maatwerk" ? "maatwerk" : "website-aanvraag");
+    const subject = parseInterestSubject(lead.request_detail);
     byId.set(
       lead.id,
       mapLeadRow({
         ...lead,
         source,
         product_fit: lead.type === "maatwerk" ? "CUSTOM_FIT" : "STANDARD_FIT",
-        next_action: publicInterestNextAction({ source }),
+        next_action: publicInterestNextAction({ source, subject: subject?.value }),
         next_action_at: lead.created_at,
         payload: {
           source,
-          dienst: lead.request_detail,
+          dienst: subject?.value ?? "",
         },
       })
     );
@@ -253,7 +277,13 @@ export async function loadAanvraag(id: string): Promise<AanvraagDetail | null> {
   if (!data) return null;
 
   const [{ data: activities }, proposalRefs] = await Promise.all([
-    supabase.from("kopvast_lead_activities").select("*").eq("inbound_lead_id", id).order("created_at", { ascending: false }).limit(40),
+    supabase
+      .from("activity_logs")
+      .select("*")
+      .eq("entity_type", "inbound_lead")
+      .eq("entity_id", id)
+      .order("created_at", { ascending: false })
+      .limit(40),
     findLatestProposalsForRequests([id]),
   ]);
 

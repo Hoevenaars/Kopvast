@@ -57,6 +57,8 @@ test("automatisering wordt geen standaard websiteaanvraag", () => {
   assert.equal(row.payload.dienst, "automatisering");
   assert.equal(row.payload.has_website, "nee");
   assert.equal(row.next_action, NEXT_ACTIONS.CALL_CLIENT);
+  assert.equal(row.consent, false);
+  assert.equal(row.payload.consent, false);
   assert.equal(JSON.stringify(row.payload).includes("€1"), false);
   assert.match(String(row.request_detail), /Automatisering/);
 });
@@ -77,6 +79,7 @@ test("een voorstelvraag uit acquisitie blijft een voorstelactie, geen order", ()
   });
   assert.equal(row.type, "website");
   assert.equal(row.next_action, NEXT_ACTIONS.MAKE_PROPOSAL);
+  assert.equal(row.consent, false);
   assert.equal(row.payload.has_website, "ja");
 });
 

@@ -8,8 +8,25 @@ import { confirmationCopy, humanizeValue, notificationFields, notificationIntro 
 import { DOMAIN_LANDING_SOURCE } from "./domain-landing";
 import { fromAddress } from "./email";
 import { inboundType, mapInboundLead } from "./inbound";
-import { formatLeadDetails } from "./leads";
+import { createLead, formatLeadDetails } from "./leads";
 import { webhookTypeToStatus } from "./email-log";
+
+test("weigert een te lang veld en een prijs wordt niet verplicht", async () => {
+  const huge = await createLead({
+    name: "A".repeat(121),
+    email: "eva@example.com",
+    message: "Kort",
+  });
+  assert.equal(huge.ok, false);
+  const priced = await createLead({
+    name: "Eva",
+    email: "eva-prijs-test@example.com",
+    source: "interesse",
+    message: "Vraag",
+    details: { Prijs: "1", Dienst: "website-nieuw" },
+  });
+  assert.equal(priced.ok, true);
+});
 
 test("zet formulierdetails om naar leesbare tekst", () => {
   const text = formatLeadDetails({

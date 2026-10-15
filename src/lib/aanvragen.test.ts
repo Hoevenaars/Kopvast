@@ -66,6 +66,7 @@ test("bronlabels blijven herkenbaar", () => {
   assert.equal(bronLabel("kopvast-acquisitie"), "Acquisitie");
   assert.equal(bronLabel("acquisitie-voorstel"), "Acquisitie · voorstel");
   assert.equal(bronLabel("acquisitie-info"), "Acquisitie · meer info");
+  assert.equal(bronLabel("interesse"), "Vrijblijvende interesse");
   assert.equal(bronLabel("domain_landingspage"), "Domeininteresse");
   assert.equal(requestBron({ source: "kopvast", payload: { source: "website-aanvraag" } }), "Websiteformulier");
 });

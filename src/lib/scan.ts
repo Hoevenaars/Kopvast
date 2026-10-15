@@ -204,9 +204,17 @@ export async function scanWebsite(input: string): Promise<ScanResult> {
   try {
     await assertPublicHostname(url.hostname);
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Dit adres is niet toegestaan.";
+    if (message === "Dit domein is niet bereikbaar.") {
+      return {
+        status: "unreachable",
+        message:
+          "Deze website is nu niet bereikbaar of blokkeert automatische controle. Dat is een technische status, geen oordeel over je bedrijf.",
+      };
+    }
     return {
       status: "blocked",
-      message: error instanceof Error ? error.message : "Dit adres is niet toegestaan.",
+      message,
     };
   }
 

@@ -50,6 +50,15 @@ export function ScanForm({ compact = false }: { compact?: boolean }) {
         <div role="alert" className="mt-8 rounded-xl border border-destructive/30 bg-ivory p-5">
           <p className="font-medium text-ink">Dit adres kunnen we niet controleren</p>
           <p className="mt-2 text-sm leading-6 text-olive">{result.message}</p>
+          <p className="mt-2 text-sm leading-6 text-olive">
+            Controleer het adres, of stel je vraag zonder website.
+          </p>
+          <div className="mt-5">
+            <ButtonLink href={cta.discuss.href} variant="olive">
+              Bespreek je vraag
+              <ArrowRight data-icon="inline-end" />
+            </ButtonLink>
+          </div>
         </div>
       ) : null}
 

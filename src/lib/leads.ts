@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { recordPublicRequestActivity } from "@/lib/aanvragen";
 import { sendLeadNotification } from "@/lib/email";
 import { persistInboundLead } from "@/lib/inbound";
 import { stripUntrustedCommercialFields } from "@/lib/interest";
@@ -40,6 +41,21 @@ function asString(value: unknown): string {
 
 function isEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+const FIELD_LIMITS = {
+  name: 120,
+  email: 180,
+  company: 160,
+  website: 300,
+  phone: 40,
+  message: 4000,
+  detail: 2000,
+  detailKeys: 25,
+} as const;
+
+function tooLong(value: string, max: number) {
+  return value.length > max;
 }
 
 export function formatLeadDetails(details: Record<string, string>): string {
@@ -85,6 +101,18 @@ export async function createLead(input: LeadInput): Promise<LeadResult> {
   if (!name || !isEmail(email)) {
     return { ok: false, message: "Naam en een geldig e-mailadres zijn verplicht." };
   }
+  if (
+    tooLong(name, FIELD_LIMITS.name) ||
+    tooLong(email, FIELD_LIMITS.email) ||
+    tooLong(company, FIELD_LIMITS.company) ||
+    tooLong(website, FIELD_LIMITS.website) ||
+    tooLong(phone, FIELD_LIMITS.phone) ||
+    tooLong(message, FIELD_LIMITS.message) ||
+    Object.keys(details).length > FIELD_LIMITS.detailKeys ||
+    Object.values(details).some((value) => tooLong(value, FIELD_LIMITS.detail))
+  ) {
+    return { ok: false, message: "Een van de velden is te lang. Kort de tekst in en probeer het opnieuw." };
+  }
 
   const lead: StoredLead = {
     id: crypto.randomUUID(),
@@ -107,6 +135,14 @@ export async function createLead(input: LeadInput): Promise<LeadResult> {
   const inboundId = await persistInboundLead(lead).catch((error) => {
     console.error("[kopvast] Inbound lead opslaan mislukt", error);
     return null;
+  });
+
+  await recordPublicRequestActivity({
+    leadId: inboundId ?? lead.id,
+    source,
+    dienst: details.Dienst,
+  }).catch((error) => {
+    console.error("[kopvast] Aanvraag-activiteit opslaan mislukt", error);
   });
 
   try {

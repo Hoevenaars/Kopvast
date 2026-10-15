@@ -2,8 +2,10 @@
 
 import { after } from "next/server";
 import { acquireLead } from "@/lib/acquire";
-import { stripUntrustedCommercialFields } from "@/lib/interest";
+import { parseInterestSubject, stripUntrustedCommercialFields } from "@/lib/interest";
 import { createLead, type LeadResult } from "@/lib/leads";
+
+const INTEREST_SOURCES = new Set(["interesse", "acquisitie-info", "acquisitie-voorstel"]);
 
 export async function submitAanvraag(
   _previous: LeadResult | null,
@@ -24,6 +26,13 @@ export async function submitAanvraag(
     }
   }
   const safeDetails = stripUntrustedCommercialFields(details);
+  const note = String(formData.get("message") ?? "").trim();
+
+  if (INTEREST_SOURCES.has(source.trim())) {
+    if (!company.trim()) return { ok: false, message: "Vul de bedrijfsnaam in." };
+    if (!parseInterestSubject(safeDetails.Dienst)) return { ok: false, message: "Kies een onderwerp." };
+    if (note.length < 3) return { ok: false, message: "Schrijf een korte toelichting." };
+  }
 
   const result = await createLead({
     name,

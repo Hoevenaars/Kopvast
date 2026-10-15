@@ -75,7 +75,7 @@ export function mapInboundLead(lead: InboundLeadInput) {
     functionality: functionality || null,
     scale: scale || null,
     timing: timing || null,
-    consent: true,
+    consent: false,
     source: lead.source || "kopvast",
     ...(nextAction ? { next_action: nextAction, next_action_at: new Date().toISOString() } : {}),
     payload: {
@@ -94,7 +94,7 @@ export function mapInboundLead(lead: InboundLeadInput) {
       functionality,
       scale,
       timing,
-      consent: true,
+      consent: false,
       status,
       product_fit: productFit,
       dienst: context.dienst,

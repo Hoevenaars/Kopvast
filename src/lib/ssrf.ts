@@ -226,7 +226,12 @@ export async function assertPublicHostname(hostname: string): Promise<void> {
     return;
   }
 
-  const records = await lookup(host, { all: true, verbatim: true });
+  let records;
+  try {
+    records = await lookup(host, { all: true, verbatim: true });
+  } catch {
+    throw new Error("Dit domein is niet bereikbaar.");
+  }
   if (!records.length) {
     throw new Error("Dit domein is niet bereikbaar.");
   }

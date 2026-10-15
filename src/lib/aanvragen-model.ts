@@ -206,6 +206,7 @@ export function bronLabel(source: string | null | undefined): string {
   if (value === "kopvast-acquisitie" || value === "acquisitie") return "Acquisitie";
   if (value === "acquisitie-voorstel") return "Acquisitie · voorstel";
   if (value === "acquisitie-info") return "Acquisitie · meer info";
+  if (value === "interesse") return "Vrijblijvende interesse";
   if (value === "websitecheck") return "Websitecheck";
   if (value === "domain_landingspage") return "Domeininteresse";
   return value;
