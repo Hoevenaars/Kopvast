@@ -317,22 +317,45 @@ export function snapshotFromDetail(
   };
 }
 
-async function commercialFlags(prospectId: string, inboundLeadId: string | null) {
-  const supabase = refreshClient();
-  if (!supabase) return { error: "Website Refresh is niet geconfigureerd." as const };
+type FlagRow = { id: string };
+type FlagResult = { data: FlagRow[] | null; error: { message: string } | null };
+
+export type FollowUpFlagClient = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        limit: (count: number) => PromiseLike<FlagResult>;
+      };
+    };
+  };
+};
+
+export async function readFollowUpCommercialFlags(
+  supabase: FollowUpFlagClient,
+  prospectId: string,
+  inboundLeadId: string | null,
+): Promise<{ error: string } | { hasProposal: boolean; hasCustomer: boolean }> {
   const proposal = supabase.from("proposals").select("id").eq("prospect_id", prospectId).limit(1);
   const leadProposal = inboundLeadId
-    ? supabase.from("proposals").select("id").eq("inbound_lead_id", inboundLeadId).limit(1)
-    : Promise.resolve({ data: [], error: null });
+    ? supabase.from("proposals").select("id").eq("request_id", inboundLeadId).limit(1)
+    : Promise.resolve({ data: [] as FlagRow[], error: null });
   const customer = supabase.from("kopvast_organizations").select("id").eq("prospect_id", prospectId).limit(1);
   const [proposalRes, leadProposalRes, customerRes] = await Promise.all([proposal, leadProposal, customer]);
   if (proposalRes.error || leadProposalRes.error || customerRes.error) {
-    return { error: proposalRes.error?.message || leadProposalRes.error?.message || customerRes.error?.message || "Controle mislukt." };
+    const message =
+      proposalRes.error?.message || leadProposalRes.error?.message || customerRes.error?.message || "Controle mislukt.";
+    return { error: message };
   }
   return {
     hasProposal: Boolean(proposalRes.data?.length || leadProposalRes.data?.length),
     hasCustomer: Boolean(customerRes.data?.length),
   };
+}
+
+async function commercialFlags(prospectId: string, inboundLeadId: string | null) {
+  const supabase = refreshClient();
+  if (!supabase) return { error: "Website Refresh is niet geconfigureerd." as const };
+  return readFollowUpCommercialFlags(supabase as unknown as FollowUpFlagClient, prospectId, inboundLeadId);
 }
 
 export async function cancelPendingAutoFollowUp(prospectId: string, reason: string) {
