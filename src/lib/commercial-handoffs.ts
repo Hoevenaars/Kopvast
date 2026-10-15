@@ -37,8 +37,9 @@ async function logLeadActivity(input: {
 }) {
   const supabase = refreshClient();
   if (!supabase) return;
-  await supabase.from("kopvast_lead_activities").insert({
-    inbound_lead_id: input.leadId,
+  await supabase.from("activity_logs").insert({
+    entity_type: "inbound_lead",
+    entity_id: input.leadId,
     event_type: input.eventType,
     actor_type: "system",
     actor_id: input.actor ?? "kopvast.nl",
