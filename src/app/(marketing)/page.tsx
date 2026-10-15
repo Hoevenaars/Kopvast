@@ -3,61 +3,85 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ButtonLink } from "@/components/button-link";
 import { CtaBand } from "@/components/cta-band";
-import { MaatwerkBlock } from "@/components/maatwerk-block";
 import { ScanForm } from "@/components/scan-form";
-import { WebsitePackage } from "@/components/website-package";
 import { ConceptLabel } from "@/components/work/frames";
-import {
-  ArdeaDesktop,
-  BrandRefreshCard,
-  FlyerCard,
-  HeroWork,
-  LindenhofDesktop,
-  NoraDesktop,
-  PresentationCard,
-  QuoteCard,
-  SignatureCard,
-  SocialCard,
-} from "@/components/work/concept-mocks";
-import { conceptCases, cta, processSteps, products, propositions, routes, site } from "@/lib/site";
+import { ArdeaDesktop, LindenhofDesktop, NoraDesktop } from "@/components/work/concept-mocks";
+import { conceptCases, cta, needs, pageMeta, processSteps, reasons, routes, services, site } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: site.promise,
-  description: site.description,
-};
+export const metadata: Metadata = pageMeta(routes.home, site.promise, site.description);
+
+const previews = [
+  { frame: LindenhofDesktop, caption: "Website, offerte en social" },
+  { frame: ArdeaDesktop, caption: "Website, presentatie en handtekening" },
+  { frame: NoraDesktop, caption: "Merkrefresh, website en flyer" },
+];
 
 export default function HomePage() {
   return (
     <>
       <section className="bg-ivory">
-        <div className="container-page grid items-center gap-12 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16 lg:py-20">
+        <div className="container-page grid items-center gap-12 py-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16 lg:py-20">
           <div>
-            <h1 className="font-heading text-[2.35rem] leading-[1.08] text-ink sm:text-5xl lg:text-[4rem]">
-              Je bedrijf staat ergens voor.
+            <p className="text-xs tracking-[0.18em] text-olive uppercase">{site.tagline}</p>
+            <h1 className="font-heading mt-4 text-[2.5rem] leading-[1.05] text-ink sm:text-5xl lg:text-[4.25rem]">
+              Sterk zichtbaar.
               <br />
-              <em className="italic">Laat dat zien.</em>
+              <em className="italic">Slim geregeld.</em>
             </h1>
-            <p className="mt-6 max-w-xl text-base leading-7 text-olive">
-              Websites, merken en middelen die laten zien wat je bedrijf waard is.
+            <p className="mt-6 max-w-xl text-base leading-7 text-olive md:text-lg">
+              Kopvast helpt ondernemers en organisaties met websites, merken, marketing en slimme
+              automatisering die echt iets toevoegen.
             </p>
-            <p className="mt-3 max-w-xl text-base leading-7 text-olive">
-              Duidelijke pakketten waar het kan. Maatwerk waar het nodig is.
-            </p>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-olive">{site.line}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <ButtonLink href={cta.package.href}>
-                {cta.package.label}
+              <ButtonLink href={cta.discover.href}>
+                {cta.discover.label}
                 <ArrowRight data-icon="inline-end" />
               </ButtonLink>
-              <Link href={cta.custom.href} className="inline-flex items-center border-b border-ink pb-0.5 text-sm text-ink">
-                {cta.custom.label}
+              <Link href={cta.work.href} className="inline-flex items-center border-b border-ink pb-0.5 text-sm text-ink">
+                {cta.work.label}
               </Link>
             </div>
-            <p className="mt-6 text-sm text-olive">Vaste prijzen · Heldere afspraken · Premium uitvoering</p>
-            <p className="mt-2 text-sm text-olive">Website {products.website.priceLabel}</p>
           </div>
-          <div className="pb-16 md:pb-20">
-            <HeroWork />
-            <ConceptLabel className="mt-12 md:mt-16" />
+          <div>
+            <LindenhofDesktop priority />
+            <ConceptLabel className="mt-4" />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-stone/40 bg-[#f7f4ec]">
+        <div className="container-page py-16 lg:py-20">
+          <h2 className="max-w-2xl text-3xl leading-tight text-ink md:text-4xl">Herkenbaar?</h2>
+          <ul className="mt-8 grid gap-4 md:grid-cols-2">
+            {needs.map((item) => (
+              <li key={item} className="rounded-2xl border border-stone/50 bg-ivory px-5 py-4 text-lg text-ink">
+                {item}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-8 max-w-2xl text-base leading-7 text-olive">
+            Kopvast helpt om dit praktisch en professioneel op te lossen.
+          </p>
+        </div>
+      </section>
+
+      <section className="bg-ivory">
+        <div className="container-page py-16 lg:py-20">
+          <p className="text-xs tracking-[0.18em] text-olive uppercase">Diensten</p>
+          <h2 className="mt-3 max-w-2xl text-3xl text-ink md:text-4xl">Vier manieren waarop we meewerken.</h2>
+          <div className="mt-10 grid gap-6 md:grid-cols-2">
+            {services.map((item) => (
+              <article key={item.href} className="flex flex-col rounded-2xl border border-stone/50 p-6">
+                <h3 className="text-2xl text-ink">{item.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-olive">{item.text}</p>
+                <p className="mt-4 flex-1 text-sm leading-6 text-ink">{item.result}</p>
+                <Link href={item.href} className="mt-5 inline-flex items-center gap-1 text-sm text-ink hover:underline">
+                  Bekijk {item.label.toLowerCase()}
+                  <ArrowRight className="size-4" />
+                </Link>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -67,106 +91,50 @@ export default function HomePage() {
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
               <p className="text-xs tracking-[0.18em] text-olive uppercase">Werk</p>
-              <h2 className="mt-3 text-3xl text-ink md:text-4xl">Wat Kopvast maakt</h2>
+              <h2 className="mt-3 text-3xl text-ink md:text-4xl">Voorbeelden van de aanpak</h2>
             </div>
             <Link href={routes.werk} className="inline-flex items-center gap-1 text-sm text-ink hover:underline">
-              Bekijk alle conceptcases
+              Bekijk de conceptcases
               <ArrowRight className="size-4" />
             </Link>
           </div>
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
-            <article className="rounded-2xl border border-stone/50 p-4">
-              <LindenhofDesktop compact />
-              <p className="mt-4 text-sm font-medium text-ink">Website + offerte + social</p>
-              <ConceptLabel className="mt-2" />
-            </article>
-            <article className="rounded-2xl border border-stone/50 p-4">
-              <ArdeaDesktop compact />
-              <p className="mt-4 text-sm font-medium text-ink">Website + presentatie + handtekening</p>
-              <ConceptLabel className="mt-2" />
-            </article>
-            <article className="rounded-2xl border border-stone/50 p-4">
-              <NoraDesktop compact />
-              <p className="mt-4 text-sm font-medium text-ink">Merkrefresh + website + flyer</p>
-              <ConceptLabel className="mt-2" />
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-ivory">
-        <div className="container-page grid gap-8 py-16 md:grid-cols-3 lg:py-20">
-          {propositions.map((item) => (
-            <article key={item.href} className="flex flex-col border-t border-stone/50 pt-6">
-              <p className="text-xs tracking-[0.16em] text-olive uppercase">{item.label}</p>
-              <h2 className="mt-3 text-2xl leading-snug text-ink">{item.title}</h2>
-              <p className="mt-3 flex-1 text-sm leading-6 text-olive">{item.text}</p>
-              {"price" in item && item.price ? <p className="mt-4 text-sm text-ink">{item.price}</p> : null}
-              <Link href={item.href} className="mt-5 inline-flex items-center gap-1 text-sm text-ink hover:underline">
-                {item.cta}
-                <ArrowRight className="size-4" />
-              </Link>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <WebsitePackage />
-      <MaatwerkBlock />
-
-      <section className="bg-ivory">
-        <div className="container-page py-16 lg:py-20">
-          <p className="text-xs tracking-[0.18em] text-olive uppercase">Cases</p>
-          <h2 className="font-heading mt-3 max-w-2xl text-4xl leading-tight text-ink">
-            Eerst zichtbaar werk. Daarna echte klantcases.
-          </h2>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-olive">
-            Tot er toestemming is voor echte cases laten we zien hoe Kopvast werkt. Elk voorbeeld is een
-            conceptcase, geen verzonnen resultaat.
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-olive">
+            Dit is conceptwerk. Geen klantresultaat en geen testimonial.
           </p>
+          <div className="mt-10 grid gap-6 lg:grid-cols-3">
+            {previews.map((item) => {
+              const Frame = item.frame;
+              return (
+                <article key={item.caption} className="rounded-2xl border border-stone/50 p-4">
+                  <Frame compact />
+                  <p className="mt-4 text-sm font-medium text-ink">{item.caption}</p>
+                  <ConceptLabel className="mt-2" />
+                </article>
+              );
+            })}
+          </div>
           <div className="mt-10 grid gap-8 lg:grid-cols-3">
             {conceptCases.map((item) => (
               <Link key={item.slug} href={`${routes.werk}#${item.slug}`} className="group">
                 <p className="text-xs tracking-[0.16em] text-olive uppercase">{item.sector}</p>
                 <h3 className="mt-2 text-2xl text-ink group-hover:underline">{item.name}</h3>
                 <p className="mt-2 text-sm leading-6 text-olive">{item.title}</p>
-                <ConceptLabel className="mt-4" />
               </Link>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="border-y border-stone/40 bg-[#f7f4ec]">
-        <div className="container-page grid gap-12 py-16 lg:grid-cols-2 lg:py-20">
-          <div>
-            <p className="text-xs tracking-[0.18em] text-olive uppercase">Merk & middelen</p>
-            <h2 className="mt-3 text-3xl leading-tight text-ink md:text-4xl">
-              Een uitstraling die je ook kunt gebruiken.
-            </h2>
-            <p className="mt-4 text-base leading-7 text-olive">
-              Heb je al een sterke huisstijl? Dan bouwen we daarop voort. Loopt je uitstraling achter? Dan
-              scherpen we kleur, typografie, beeldtaal en merkgebruik aan.
-            </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Link href={routes.merk} className="inline-flex items-center gap-1 text-sm text-ink hover:underline">
-                Bekijk merkidentiteit
-                <ArrowRight className="size-4" />
-              </Link>
-              <Link href={routes.marketing} className="inline-flex items-center gap-1 text-sm text-ink hover:underline">
-                Bekijk marketingmiddelen
-                <ArrowRight className="size-4" />
-              </Link>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <BrandRefreshCard />
-            <QuoteCard />
-            <PresentationCard />
-            <div className="grid gap-4">
-              <SignatureCard />
-              <SocialCard brand="Lindenhof" title="Een datum aanvragen, zonder ruis." image="/images/venue.jpg" />
-            </div>
+      <section className="bg-[#f7f4ec]">
+        <div className="container-page py-16 lg:py-20">
+          <h2 className="text-3xl text-ink md:text-4xl">Waarom Kopvast?</h2>
+          <div className="mt-8 grid gap-6 md:grid-cols-2">
+            {reasons.map((item) => (
+              <article key={item.title}>
+                <h3 className="text-xl text-ink">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-olive">{item.text}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -175,12 +143,12 @@ export default function HomePage() {
         <div className="container-page grid gap-12 py-16 lg:grid-cols-[0.9fr_1.1fr] lg:py-20">
           <div>
             <p className="text-xs tracking-[0.18em] text-olive uppercase">Werkwijze</p>
-            <h2 className="font-heading mt-3 text-4xl leading-tight text-ink">Van inzicht naar resultaat.</h2>
+            <h2 className="font-heading mt-3 text-4xl leading-tight text-ink">Van kennismaken tot oplevering.</h2>
             <p className="mt-4 max-w-md text-base leading-7 text-olive">
-              Slim georganiseerd. Menselijk beoordeeld. Je ziet vooraf wat je krijgt.
+              Dezelfde vier stappen voor websites, merk, marketing en automatisering.
             </p>
-            <Link href={cta.package.href} className="mt-6 inline-flex items-center gap-1 text-sm text-ink hover:underline">
-              {cta.package.label}
+            <Link href={routes.werkwijze} className="mt-6 inline-flex items-center gap-1 text-sm text-ink hover:underline">
+              Bekijk de werkwijze
               <ArrowRight className="size-4" />
             </Link>
           </div>
@@ -199,39 +167,17 @@ export default function HomePage() {
       <section className="border-y border-stone/40 bg-ivory">
         <div className="container-page grid gap-10 py-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <h2 className="font-heading text-4xl leading-tight text-ink">Benieuwd wat wij zien?</h2>
+            <h2 className="font-heading text-4xl leading-tight text-ink">Al een website?</h2>
             <p className="mt-4 max-w-md text-base leading-7 text-olive">
-              Vul je websiteadres in. Je krijgt maximaal drie concrete aandachtspunten.
+              Vul je adres in. Je krijgt maximaal drie concrete aandachtspunten, of een eerlijke status als de
+              check niet lukt.
             </p>
           </div>
           <ScanForm compact />
         </div>
       </section>
 
-      <section className="bg-ivory">
-        <div className="container-page grid gap-10 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <div>
-            <p className="text-xs tracking-[0.18em] text-olive uppercase">Over Kopvast</p>
-            <h2 className="font-heading mt-3 text-4xl leading-tight text-ink">
-              Goed ondernemerschap verdient een sterke uitstraling.
-            </h2>
-            <p className="mt-5 max-w-xl text-base leading-7 text-olive">
-              Kopvast helpt ondernemers en organisaties professioneler en herkenbaarder naar buiten te komen.
-              Niet eindeloos praten. Eerst scherp krijgen wat klopt. Daarna bouwen.
-            </p>
-            <p className="mt-4 max-w-xl text-base leading-7 text-olive">
-              We werken efficiënt, zodat meer van je budget naar het eindresultaat gaat.
-            </p>
-            <Link href={routes.over} className="mt-6 inline-flex items-center gap-1 text-sm text-ink hover:underline">
-              Over Kopvast
-              <ArrowRight className="size-4" />
-            </Link>
-          </div>
-          <FlyerCard />
-        </div>
-      </section>
-
-      <CtaBand />
+      <CtaBand primary={cta.discuss} />
     </>
   );
 }

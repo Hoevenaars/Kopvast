@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { MaatwerkForm } from "@/components/maatwerk-form";
-import { routes } from "@/lib/site";
+import { pageMeta, routes } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Maatwerk",
-  description: "Bespreek een grotere website, webshop, campagne of specifieke koppeling. Geen automatische vaste prijs.",
-};
+export const metadata: Metadata = pageMeta(
+  routes.maatwerk,
+  "Maatwerk",
+  "Voor een grotere of specifiekere vraag: webshop, portaal, koppeling of campagne. Geen automatische vaste prijs."
+);
 
 export default function CustomPage() {
   return (
@@ -17,13 +18,14 @@ export default function CustomPage() {
           Meer nodig? Dan kijken we verder.
         </h1>
         <p className="mt-5 text-base leading-7 text-olive">
-          Grotere website, webshop, reserveringssysteem, klantomgeving of specifieke koppeling? We maken een
-          passende aanpak en prijs. Maatwerk valt buiten de vaste pakketprijs.
+          Maatwerk is voor een grotere of specifiekere vraag: extra pagina’s, een webshop, een klantomgeving,
+          een campagne of een koppeling. We maken een passende aanpak en prijs. Er is geen automatische
+          pakketprijs.
         </p>
         <p className="mt-4 text-sm leading-6 text-olive">
-          Zoek je het standaard websitepakket?{" "}
-          <a className="underline underline-offset-4" href={routes.aanvraag}>
-            Start met Kopvast Website
+          Weet je nog niet of het maatwerk is?{" "}
+          <a className="underline underline-offset-4" href={routes.contact}>
+            Stel eerst een vrijblijvende vraag
           </a>
           .
         </p>

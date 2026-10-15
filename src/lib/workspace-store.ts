@@ -40,6 +40,8 @@ import type {
   TodoLabelRow,
   TodoRow,
 } from "@/lib/todos";
+import { defaultStatusForSource } from "@/lib/aanvragen-model";
+import { parseInterestSubject, requestTypeForInterest } from "@/lib/interest";
 import type { AssetRow, LeadRow, MailRow, OrganizationRow, ProjectRow, RequestRow } from "@/lib/workspace";
 
 export type MemberRow = {
@@ -278,26 +280,32 @@ export async function readLocalLeads(): Promise<LeadRow[]> {
       message: string;
       source: string;
       phone: string;
+      details?: Record<string, string>;
     }>;
-    return rows.map((row) => ({
-      id: row.id,
-      created_at: row.createdAt,
-      type: row.source === "maatwerk" ? "maatwerk" : "website",
-      status: "NIEUW",
-      company_name: row.company || null,
-      website: row.website || null,
-      name: row.name,
-      email: row.email,
-      phone: row.phone || null,
-      pages: null,
-      has_brand: null,
-      notes: row.message || null,
-      request_detail: null,
-      functionality: null,
-      scale: null,
-      timing: null,
-      prospect_id: null,
-    }));
+    return rows.map((row) => {
+      const subject = parseInterestSubject(row.details?.Dienst);
+      const type = requestTypeForInterest(row.source, subject?.value);
+      return {
+        id: row.id,
+        created_at: row.createdAt,
+        type,
+        status: defaultStatusForSource(row.source, type),
+        company_name: row.company || null,
+        website: row.website || null,
+        name: row.name,
+        email: row.email,
+        phone: row.phone || null,
+        pages: null,
+        has_brand: null,
+        notes: row.message || null,
+        request_detail: subject?.label || row.message || null,
+        functionality: null,
+        scale: null,
+        timing: row.details?.Timing || null,
+        prospect_id: null,
+        source: row.source,
+      };
+    });
   } catch {
     return [];
   }

@@ -3,21 +3,23 @@ import { routes, site } from "@/lib/site";
 
 const columns = [
   {
-    title: "Kopvast",
+    title: "Diensten",
     intro: true,
     links: [
       { href: routes.websites, label: "Websites" },
-      { href: routes.merk, label: "Merk" },
-      { href: routes.marketing, label: "Marketingmiddelen" },
-      { href: routes.maatwerk, label: "Maatwerk" },
+      { href: routes.merk, label: "Merk & ontwerp" },
+      { href: routes.marketing, label: "Marketing & activatie" },
+      { href: routes.automatisering, label: "Automatisering & AI" },
+      { href: `${routes.websites}#hosting`, label: "Hosting en beheer" },
     ],
   },
   {
-    title: "Starten",
+    title: "Beginnen",
     links: [
-      { href: routes.websites, label: "Websitepakket" },
+      { href: routes.contact, label: "Bespreek je idee" },
       { href: routes.check, label: "Websitecheck" },
-      { href: routes.maatwerk, label: "Maatwerk aanvragen" },
+      { href: routes.maatwerk, label: "Specifieke vraag" },
+      { href: routes.werkwijze, label: "Werkwijze" },
     ],
   },
   {

@@ -2,6 +2,12 @@ import { refreshClient } from "@/lib/refresh";
 import type { EmailStatus } from "@/lib/email-log";
 import { defaultProductFitForSource, defaultStatusForSource } from "@/lib/aanvragen-model";
 import {
+  interestContext,
+  isPublicInterestSource,
+  publicInterestNextAction,
+  requestTypeForInterest,
+} from "@/lib/interest";
+import {
   DOMAIN_LANDING_SOURCE,
   isDomainLandingSource,
   parseBidAmount,
@@ -23,15 +29,19 @@ export type InboundLeadInput = {
 
 export type InboundEmailKind = "internal_notification" | "customer_confirmation";
 
-export function inboundType(source: string): "website" | "maatwerk" {
-  return source === "maatwerk" ? "maatwerk" : "website";
+export function inboundType(source: string, details?: Record<string, string>): "website" | "maatwerk" {
+  return requestTypeForInterest(source, details?.Dienst);
 }
 
 export function mapInboundLead(lead: InboundLeadInput) {
   const domainLead = isDomainLandingSource(lead.source);
-  const type = inboundType(lead.source);
+  const type = inboundType(lead.source, lead.details);
   const status = defaultStatusForSource(lead.source, type);
   const productFit = defaultProductFitForSource(lead.source, type);
+  const context = interestContext({ ...lead.details, website: lead.website });
+  const nextAction = isPublicInterestSource(lead.source)
+    ? publicInterestNextAction({ source: lead.source, subject: lead.details.Dienst })
+    : null;
   const pages = lead.details["Pagina's"] || "";
   const hasBrand = lead.details.Merkstatus || "";
   const domain = domainLead ? parseDomainParam(lead.details.Domein || lead.website) || lead.website : "";
@@ -40,7 +50,9 @@ export function mapInboundLead(lead: InboundLeadInput) {
   const wantsWebsite = domainLead ? lead.details["Website interesse"] === "Ja" : false;
   const requestDetail = domainLead
     ? lead.details.Type || "Domeininteresse"
-    : lead.details.Idee || lead.message || "";
+    : context.dienstLabel
+      ? [context.dienstLabel, lead.details.Toelichting || lead.message].filter(Boolean).join(" — ")
+      : lead.details.Idee || lead.message || "";
   const functionality = domainLead ? lead.details.Bod || "" : lead.details.Functionaliteit || "";
   const scale = domainLead ? (wantsWebsite ? "website-interesse" : "") : lead.details.Omvang || "";
   const timing = lead.details.Timing || "";
@@ -65,6 +77,7 @@ export function mapInboundLead(lead: InboundLeadInput) {
     timing: timing || null,
     consent: true,
     source: lead.source || "kopvast",
+    ...(nextAction ? { next_action: nextAction, next_action_at: new Date().toISOString() } : {}),
     payload: {
       id: lead.id,
       type,
@@ -84,6 +97,13 @@ export function mapInboundLead(lead: InboundLeadInput) {
       consent: true,
       status,
       product_fit: productFit,
+      dienst: context.dienst,
+      has_website: context.hasWebsite,
+      landing: context.landing,
+      cta: context.cta,
+      utm_source: context.utmSource,
+      utm_medium: context.utmMedium,
+      utm_campaign: context.utmCampaign,
       ...(domainLead
         ? {
             domain,

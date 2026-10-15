@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { ScanForm } from "@/components/scan-form";
+import { pageMeta, routes } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Websitecheck",
-  description: "Vul je websiteadres in en ontvang maximaal drie concrete aandachtspunten.",
-};
+export const metadata: Metadata = pageMeta(
+  routes.check,
+  "Websitecheck",
+  "Vul je websiteadres in. Je krijgt maximaal drie concrete aandachtspunten, of een duidelijke status als de check niet lukt."
+);
 
 export default function WebsiteCheckPage() {
   return (

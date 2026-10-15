@@ -1,11 +1,5 @@
 import { AcquisitionStartForm } from "@/components/acquisition-start-form";
-import {
-  formatOfferPrice,
-  startLandingCopy,
-  startPackageItems,
-  type AcquisitionStartParams,
-} from "@/lib/acquisition-start";
-import { products } from "@/lib/site";
+import { startLandingCopy, type AcquisitionStartParams } from "@/lib/acquisition-start";
 
 export function AcquisitionStartCopy({
   params,
@@ -15,28 +9,23 @@ export function AcquisitionStartCopy({
   heading?: "h1" | "h2";
 }) {
   const copy = startLandingCopy(params);
-  const price = formatOfferPrice(params.offerPrice);
+  const who = params.company || params.website;
 
   return (
     <div>
       <p className="text-xs tracking-[0.18em] text-olive uppercase">{copy.eyebrow}</p>
       <Heading className="font-heading mt-4 text-3xl leading-tight text-ink md:text-5xl">{copy.title}</Heading>
       <p className="mt-5 text-base leading-7 text-olive">{copy.text}</p>
-      <div className="mt-8 rounded-2xl border border-stone/50 bg-white p-6">
-        <p className="text-sm text-olive">{products.website.name}</p>
-        <p className="mt-2 font-heading text-5xl text-ink">{price}</p>
-        <p className="mt-1 text-xs text-stone">{products.website.cadence}</p>
-        <ul className="mt-6 grid gap-2">
-          {startPackageItems().map((item) => (
-            <li key={item} className="text-sm leading-6 text-olive">
-              · {item}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-6 text-sm leading-6 text-olive">
-          {products.beheer.name} is optioneel vanaf livegang: {products.beheer.price} {products.beheer.cadence}.
+      {who ? (
+        <p className="mt-4 text-sm leading-6 text-olive">
+          We herkennen {who}. Je hoeft alleen te bevestigen dat je verder wilt praten.
         </p>
-      </div>
+      ) : null}
+      <ul className="mt-8 space-y-3 text-sm leading-6 text-olive">
+        <li>Geen koopverplichting in deze stap.</li>
+        <li>Geen prijs uit een link of formulier.</li>
+        <li>Een voorstel volgt pas nadat de vraag helder is.</li>
+      </ul>
     </div>
   );
 }

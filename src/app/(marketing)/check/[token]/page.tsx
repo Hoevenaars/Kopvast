@@ -60,9 +60,9 @@ export default async function PublicCheckPage({ params }: { params: Promise<{ to
           href={check.proposalHref}
           className="inline-flex h-12 items-center justify-center rounded-md bg-copper-dark px-5 text-sm text-ivory"
         >
-          Doe me een voorstel
+          Bespreek een richting
         </Link>
-        <p className="self-center text-xs text-olive">{site.name} · geen extra formulier nodig</p>
+        <p className="self-center text-xs text-olive">{site.name} · vrijblijvend, nog geen opdracht</p>
       </div>
     </section>
   );

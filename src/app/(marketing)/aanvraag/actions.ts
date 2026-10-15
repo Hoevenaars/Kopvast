@@ -2,6 +2,7 @@
 
 import { after } from "next/server";
 import { acquireLead } from "@/lib/acquire";
+import { stripUntrustedCommercialFields } from "@/lib/interest";
 import { createLead, type LeadResult } from "@/lib/leads";
 
 export async function submitAanvraag(
@@ -17,10 +18,12 @@ export async function submitAanvraag(
   const details: Record<string, string> = {};
   for (const [key, value] of formData.entries()) {
     if (["name", "email", "company", "website", "phone", "source", "message"].includes(key)) continue;
+    if (key.startsWith("$")) continue;
     if (typeof value === "string" && value.trim()) {
       details[key] = details[key] ? `${details[key]}, ${value}` : value;
     }
   }
+  const safeDetails = stripUntrustedCommercialFields(details);
 
   const result = await createLead({
     name,
@@ -29,7 +32,7 @@ export async function submitAanvraag(
     website,
     phone,
     source,
-    details,
+    details: safeDetails,
     message: String(formData.get("message") ?? ""),
   });
   if (result.ok && website.trim()) {

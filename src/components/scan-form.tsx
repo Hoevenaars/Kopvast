@@ -5,7 +5,7 @@ import { ArrowRight, LoaderCircle } from "lucide-react";
 import { runScan } from "@/app/(marketing)/websitecheck/actions";
 import { ButtonLink } from "@/components/button-link";
 import { buttonVariants } from "@/components/ui/button";
-import { cta, products } from "@/lib/site";
+import { cta, routes } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
@@ -58,7 +58,7 @@ export function ScanForm({ compact = false }: { compact?: boolean }) {
           <p className="font-medium text-ink">Deze website is nu niet bereikbaar</p>
           <p className="mt-2 text-sm leading-6 text-olive">{result.message}</p>
           <div className="mt-5">
-            <ButtonLink href={cta.custom.href} variant="olive">
+            <ButtonLink href={cta.discuss.href} variant="olive">
               Bespreek je vraag
               <ArrowRight data-icon="inline-end" />
             </ButtonLink>
@@ -103,34 +103,24 @@ export function ScanForm({ compact = false }: { compact?: boolean }) {
 
           <div className="rounded-2xl bg-ink p-6 text-ivory md:p-8">
             <p className="text-xs tracking-[0.16em] text-stone uppercase">Daarna</p>
-            <h3 className="font-heading mt-2 text-3xl">Een vaste prijs. Een afgebakende website.</h3>
+            <h3 className="font-heading mt-2 text-3xl">Wil je hier verder over praten?</h3>
             <p className="mt-3 max-w-xl text-sm leading-6 text-ivory/75">
-              We werken met vaste bouwstenen en een strak proces. Daardoor blijft de prijs scherp zonder dat
-              de uitstraling goedkoop wordt.
+              De check stopt bij deze aandachtspunten. Een vervolg is vrijblijvend. Er volgt geen pakket en geen
+              prijs tot er een voorstel is.
             </p>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border border-white/10 p-4">
-                <p className="text-sm text-stone">{products.website.name}</p>
-                <p className="mt-1 font-heading text-3xl">{products.website.price}</p>
-                <p className="text-xs text-stone">{products.website.cadence}</p>
-              </div>
-              <div className="rounded-xl border border-white/10 p-4">
-                <p className="text-sm text-stone">{products.beheer.name}</p>
-                <p className="mt-1 font-heading text-3xl">{products.beheer.price}</p>
-                <p className="text-xs text-stone">{products.beheer.cadence}</p>
-              </div>
-            </div>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href={`${cta.start.href}?website=${encodeURIComponent(result.url)}`}>
-                {cta.start.label}
+              <ButtonLink
+                href={`${routes.contact}?dienst=website-vernieuwen&website=${encodeURIComponent(result.url)}&cta=websitecheck`}
+              >
+                Bespreek deze punten
                 <ArrowRight data-icon="inline-end" />
               </ButtonLink>
               <ButtonLink
-                href={cta.custom.href}
+                href={cta.discuss.href}
                 variant="outline"
                 className="border-white/20 bg-transparent text-ivory hover:bg-white/10"
               >
-                {cta.custom.label}
+                {cta.discuss.label}
               </ButtonLink>
             </div>
           </div>

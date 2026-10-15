@@ -1,27 +1,23 @@
 import type { Metadata } from "next";
-import { ArrowRight } from "lucide-react";
-import { AcquisitionStartBlock } from "@/components/acquisition-start-block";
 import { ButtonLink } from "@/components/button-link";
 import { CtaBand } from "@/components/cta-band";
 import { PageHero } from "@/components/page-hero";
-import { WEBSITE_LIST_PRICE_EX_VAT } from "@/lib/products";
-import { cta, processSteps } from "@/lib/site";
+import { ArrowRight } from "lucide-react";
+import { cta, pageMeta, processSteps, routes, services } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Werkwijze",
-  description: "Van inzicht naar resultaat. Vier duidelijke stappen, zonder eeuwig traject.",
-};
+export const metadata: Metadata = pageMeta(
+  routes.werkwijze,
+  "Werkwijze",
+  "Eerst verkennen, dan scope en voorstel, dan uitvoering. Dezelfde werkwijze voor websites, merk, marketing en automatisering."
+);
 
 export default function ProcessPage() {
   return (
     <>
       <PageHero
         eyebrow="Werkwijze"
-        title="Van inzicht naar resultaat."
-        text="Eerst scherp krijgen wat klopt. Daarna bouwen. Je ziet op elk moment wat klaar is, wat jij moet doen en wat buiten de vaste prijs valt."
-      />
-      <AcquisitionStartBlock
-        params={{ choice: "voorstel", website: "", company: "", offerPrice: WEBSITE_LIST_PRICE_EX_VAT }}
+        title="Eerst begrijpen. Dan een voorstel. Dan maken."
+        text="De werkwijze geldt voor websites, merk en ontwerp, marketing en automatisering. Eerst verkennen, dan een concrete scope, dan een voorstel, dan de uitvoering."
       />
       <section className="container-page grid gap-6 py-16 md:grid-cols-2">
         {processSteps.map((step) => (
@@ -34,14 +30,23 @@ export default function ProcessPage() {
       </section>
       <section className="border-y border-stone/40 bg-[#f7f4ec]">
         <div className="container-page py-16">
-          <h2 className="text-3xl text-ink">Wat we niet doen</h2>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-olive">
-            Geen publicatie zonder akkoord. Geen verzonnen resultaten. Geen automatische opvolging zonder
-            toestemming. Geen rebranding omdat het sneller klinkt.
+          <h2 className="text-3xl text-ink">Geldt voor elke dienst</h2>
+          <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+            {services.map((item) => (
+              <li key={item.href}>
+                <a className="text-sm text-ink underline-offset-4 hover:underline" href={item.href}>
+                  {item.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-8 max-w-2xl text-base leading-7 text-olive">
+            Hosting, beheer of een volgende opdracht volgt alleen als dat is afgesproken. Een eerste gesprek
+            is geen koop.
           </p>
           <div className="mt-8">
-            <ButtonLink href={cta.package.href}>
-              {cta.package.label}
+            <ButtonLink href={cta.discuss.href}>
+              {cta.discuss.label}
               <ArrowRight data-icon="inline-end" />
             </ButtonLink>
           </div>

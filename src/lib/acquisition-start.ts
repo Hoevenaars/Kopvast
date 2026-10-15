@@ -4,7 +4,7 @@ import {
   REGIONAL_ACQUISITION_PRICE_EX_VAT,
   WEBSITE_LIST_PRICE_EX_VAT,
 } from "@/lib/products";
-import { includedWebsite, products, site } from "@/lib/site";
+import { includedWebsite, site } from "@/lib/site";
 
 export const ACQUISITION_START_PATH = "/start";
 export const ACQUISITION_PROPOSAL_SOURCE = "acquisitie-voorstel";
@@ -22,7 +22,6 @@ export type AcquisitionStartParams = {
   choice: AcquisitionChoice;
   website: string;
   company: string;
-  offerPrice: AcquisitionOfferPrice;
 };
 
 function firstQueryValue(raw: unknown): string {
@@ -80,11 +79,11 @@ export function parseStartSearchParams(input: {
   bedrijf?: string | string[];
   prijs?: string | string[];
 }): AcquisitionStartParams {
+  void input.prijs;
   return {
     choice: parseAcquisitionChoice(input.keuze),
     website: parseDomainParam(firstQueryValue(input.website)) ?? "",
     company: parseCompanyParam(input.bedrijf),
-    offerPrice: parseOfferPrice(input.prijs),
   };
 }
 
@@ -97,19 +96,13 @@ export function acquisitionChoiceUrls(
 ) {
   const website = parseDomainParam(input.domain) ?? "";
   const company = parseCompanyParam(input.companyName);
-  const offerPrice =
-    input.offerPrice === REGIONAL_ACQUISITION_PRICE_EX_VAT
-      ? REGIONAL_ACQUISITION_PRICE_EX_VAT
-      : input.offerPrice === WEBSITE_LIST_PRICE_EX_VAT
-        ? WEBSITE_LIST_PRICE_EX_VAT
-        : null;
+  void input.offerPrice;
 
   function href(choice: AcquisitionChoice) {
     const params = new URLSearchParams();
     params.set("keuze", choice);
     if (website) params.set("website", website);
     if (company) params.set("bedrijf", company);
-    if (offerPrice) params.set("prijs", String(offerPrice));
     return `${site.url}${ACQUISITION_START_PATH}?${params.toString()}`;
   }
 
@@ -132,33 +125,24 @@ export function isAcquisitionStartSource(source: string | null | undefined) {
 
 export function startLandingCopy(params: AcquisitionStartParams) {
   const who = params.company || params.website;
-  const price = formatOfferPrice(params.offerPrice);
-  const priceLine =
-    params.offerPrice === REGIONAL_ACQUISITION_PRICE_EX_VAT
-      ? `Een complete Kopvast Website kost normaal ${products.website.price} excl. btw. Voor jullie staat ${price} excl. btw.`
-      : `${products.website.name} kost ${price} ${products.website.cadence}.`;
 
   if (params.choice === "info") {
     return {
       eyebrow: "Meer info",
-      title: "Dit is het websitepakket. Je kunt meteen starten.",
-      text: `${priceLine} Wat erin zit staat hiernaast. Als het past, vul je je gegevens in en koop je het pakket.`,
-      submitLabel: "Start Kopvast Website",
+      title: who ? `Meer horen over wat Kopvast voor ${who} kan doen.` : "Meer horen, zonder verplichting.",
+      text: "Dit is een vrijblijvende interesse. Geen pakketkoop en geen opdracht. Een prijs volgt pas als er een voorstel is.",
+      submitLabel: "Bevestig je interesse",
     };
   }
 
   return {
-    eyebrow: "Voorstel",
-    title: who ? `Een voorstel voor ${who}.` : "Dan zetten we het voorstel klaar.",
-    text: `${priceLine} Vul dit in. We zetten het websitepakket klaar — geen extra gesprek nodig als de scope past.`,
-    submitLabel: "Start Kopvast Website",
+    eyebrow: "Voorstel bespreken",
+    title: who ? `Een richting voor ${who}.` : "Laten we een richting bespreken.",
+    text: "Je vraagt een voorstel aan. Dat is nog geen akkoord. De afgesproken prijs staat pas in het voorstel.",
+    submitLabel: "Vraag een voorstel aan",
   };
 }
 
 export function startPackageItems() {
   return includedWebsite;
-}
-
-export function startConfirmLabel(price: AcquisitionOfferPrice) {
-  return `Ik wil starten met Kopvast Website voor ${formatOfferPrice(price)} excl. btw.`;
 }

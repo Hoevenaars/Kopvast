@@ -35,10 +35,15 @@ export type EmailField = {
 export function sourceLabel(source: string) {
   if (source === "maatwerk") return "Maatwerk";
   if (source === "website-aanvraag") return "Kopvast Website";
+  if (source === "interesse") return "Vrijblijvende interesse";
   if (source === "acquisitie-voorstel") return "Acquisitie · voorstel";
   if (source === "acquisitie-info") return "Acquisitie · meer info";
   if (isDomainLandingSource(source)) return "DOMEININTERESSE";
   return "Aanvraag";
+}
+
+function isOpenInterest(source: string) {
+  return source === "interesse" || source === "acquisitie-info" || source === "acquisitie-voorstel";
 }
 
 export function confirmationCopy(source: string) {
@@ -49,6 +54,18 @@ export function confirmationCopy(source: string) {
       title: "We hebben je idee ontvangen.",
       text: "We hebben je maatwerkvraag ontvangen. We beoordelen wat nodig is en nemen contact met je op. Dit is nog geen opdracht en geen vaste prijs.",
       preview: "We beoordelen wat nodig is en nemen contact met je op.",
+      ctaLabel: "Naar kopvast.nl",
+      ctaHref: site.url,
+    };
+  }
+
+  if (isOpenInterest(source)) {
+    return {
+      eyebrow: "Kopvast",
+      subject: "Kopvast heeft je vraag ontvangen",
+      title: "We hebben je vraag ontvangen.",
+      text: "Bedankt. Dit is een vrijblijvende aanvraag, geen opdracht. We nemen contact op om de volgende stap te bespreken.",
+      preview: "We nemen contact op. Dit is nog geen opdracht.",
       ctaLabel: "Naar kopvast.nl",
       ctaHref: site.url,
     };
@@ -150,6 +167,10 @@ export function notificationIntro(lead: LeadEmailFields) {
   }
   if (lead.source === "maatwerk") {
     return `Er staat een nieuwe maatwerkvraag klaar. Antwoord op deze mail om ${lead.name} te bereiken.`;
+  }
+  if (lead.source === "interesse" || lead.source === "acquisitie-info" || lead.source === "acquisitie-voorstel") {
+    const dienst = lead.details?.Dienst || "een vraag";
+    return `Nieuwe vrijblijvende interesse: ${dienst}. Antwoord op deze mail om ${lead.name} te bereiken. Dit is nog geen opdracht.`;
   }
   return `Er staat een nieuwe aanvraag voor Kopvast Website klaar. Antwoord op deze mail om ${lead.name} te bereiken.`;
 }

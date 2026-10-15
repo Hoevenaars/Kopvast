@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { commercialPriceLabel, formatPrice, getProduct, priceCadence } from "@/lib/products";
 
 function catalogDisplay(id: string) {
@@ -15,18 +16,37 @@ function catalogDisplay(id: string) {
 export const site = {
   name: "Kopvast",
   tagline: "Scherp denken. Sterk uitvoeren.",
-  promise: "Je bedrijf staat ergens voor. Laat dat zien.",
+  promise: "Sterk zichtbaar. Slim geregeld.",
+  line: "Persoonlijk waar het telt. Efficiënt waar het kan.",
   url: "https://kopvast.nl",
   email: "contact@kopvast.nl",
   description:
-    "Websites, merken en middelen die laten zien wat je bedrijf waard is. Duidelijke pakketten waar het kan. Maatwerk waar het nodig is.",
+    "Kopvast helpt ondernemers en organisaties vooruit met professionele websites, sterke merken, praktische marketing en slimme automatisering.",
 };
+
+export function pageMeta(path: string, title: string, description: string): Metadata {
+  const url = path === "/" ? site.url : `${site.url}${path}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      locale: "nl_NL",
+      type: "website",
+      siteName: site.name,
+    },
+  };
+}
 
 export const routes = {
   home: "/",
   websites: "/websites",
   merk: "/merk",
   marketing: "/marketingmiddelen",
+  automatisering: "/automatisering",
   werk: "/werk",
   over: "/over-kopvast",
   werkwijze: "/werkwijze",
@@ -42,21 +62,29 @@ export const routes = {
 
 export const nav = [
   { href: routes.websites, label: "Websites" },
-  { href: routes.merk, label: "Merk" },
-  { href: routes.marketing, label: "Marketingmiddelen" },
+  { href: routes.merk, label: "Merk & ontwerp" },
+  { href: routes.marketing, label: "Marketing & activatie" },
+  { href: routes.automatisering, label: "Automatisering & AI" },
   { href: routes.werk, label: "Werk" },
   { href: routes.over, label: "Over Kopvast" },
 ];
 
 export const cta = {
-  package: { href: routes.websites, label: "Bekijk het websitepakket" },
-  start: { href: routes.aanvraag, label: "Start met Kopvast Website" },
-  custom: { href: routes.maatwerk, label: "Bespreek je maatwerkvraag" },
-  customIdea: { href: routes.maatwerk, label: "Bespreek mijn idee" },
+  discuss: { href: routes.contact, label: "Bespreek je idee" },
+  discover: { href: `${routes.contact}?cta=ontdek`, label: "Ontdek wat mogelijk is" },
+  work: { href: routes.werk, label: "Bekijk ons werk" },
+  website: { href: `${routes.contact}?dienst=website-nieuw&cta=website`, label: "Bespreek jouw website" },
+  websiteScope: { href: `${routes.websites}#pakket`, label: "Bekijk wat inbegrepen is" },
+  appearance: { href: `${routes.contact}?dienst=merk&cta=merk`, label: "Bespreek je uitstraling" },
+  campaign: { href: `${routes.contact}?dienst=marketing&cta=marketing`, label: "Bespreek je campagne of middel" },
+  automation: { href: `${routes.contact}?dienst=automatisering&cta=automatisering`, label: "Bespreek wat slimmer kan" },
   check: { href: routes.check, label: "Doe de websitecheck" },
-  campaign: { href: `${routes.maatwerk}?type=campagne`, label: "Bespreek je campagne" },
-  merk: { href: routes.merk, label: "Bekijk merkidentiteit" },
-  marketing: { href: routes.marketing, label: "Bekijk marketingmiddelen" },
+  custom: { href: routes.maatwerk, label: "Bespreek een specifieke vraag" },
+  package: { href: routes.websites, label: "Bekijk websites" },
+  start: { href: `${routes.contact}?dienst=website-nieuw&cta=website`, label: "Bespreek jouw website" },
+  customIdea: { href: routes.contact, label: "Bespreek je idee" },
+  merk: { href: routes.merk, label: "Bekijk merk en ontwerp" },
+  marketing: { href: routes.marketing, label: "Bekijk marketing en activatie" },
   templates: { href: `${routes.marketing}#sjablonen`, label: "Bekijk de sjablonen" },
   refresh: { href: `${routes.merk}#merkrefresh`, label: "Bekijk de merkrefresh" },
 };
@@ -66,7 +94,7 @@ const websiteProduct = catalogDisplay("website_standard");
 export const products = {
   website: {
     ...websiteProduct,
-    priceLabel: `vanaf ${websiteProduct.price}`,
+    priceLabel: websiteProduct.price,
   },
   hosting: catalogDisplay("hosting"),
   hostingPlus: catalogDisplay("hosting_plus"),
@@ -101,53 +129,103 @@ export const merkRefreshItems = [
   "compacte merkset",
 ];
 
+export const excludedWebsite = [
+  "meer dan zes kernpagina’s",
+  "extra talen",
+  "webshop, reserveringen of een klantomgeving",
+  "koppelingen met andere software",
+  "een volledige nieuwe merkidentiteit",
+  "hosting en beheer, tenzij dat apart in het voorstel staat",
+];
+
+export const needs = [
+  "Nog geen goede website?",
+  "Je uitstraling kan sterker?",
+  "Je marketingmiddelen passen niet bij elkaar?",
+  "Te veel handmatig werk en dubbele administratie?",
+];
+
+export const reasons = [
+  {
+    title: "Scherp kijken",
+    text: "Eerst wat echt nodig is. Geen traject dat groter wordt dan de vraag.",
+  },
+  {
+    title: "Een consistente uitstraling",
+    text: "Website, merk en middelen sluiten op elkaar aan.",
+  },
+  {
+    title: "Efficiënte uitvoering",
+    text: "Heldere stappen, zonder onnodige lagen.",
+  },
+  {
+    title: "Heldere afspraken",
+    text: "Scope en prijs staan in het voorstel. Maatwerk blijft apart.",
+  },
+];
+
 export const processSteps = [
   {
     n: "01",
     title: "Inzicht",
-    text: "We brengen scherp in beeld wat er beter kan en wat je echt nodig hebt.",
+    text: "We leren het bedrijf kennen en bepalen wat er nodig is.",
   },
   {
     n: "02",
-    title: "Plan",
-    text: "Je ontvangt een concreet voorstel met scope, prijs en planning.",
+    title: "Richting",
+    text: "Je krijgt een concrete scope en, als dat past, een voorstel.",
   },
   {
     n: "03",
     title: "Realisatie",
-    text: "We ontwerpen en bouwen. Jij kijkt mee op de momenten die ertoe doen.",
+    text: "We ontwerpen en maken het. Jij kijkt mee op de momenten die ertoe doen.",
   },
   {
     n: "04",
-    title: "Live",
-    text: "Na jouw akkoord gaat het live. Daarna kunnen we beheer en verdere uitbouw verzorgen.",
+    title: "Oplevering en vervolg",
+    text: "Na akkoord leveren we op. Hosting, beheer of een volgende stap alleen als dat is afgesproken.",
   },
 ];
 
-export const propositions = [
+export const services = [
   {
     href: routes.websites,
-    title: "Een website op het niveau van je bedrijf.",
     label: "Websites",
-    text: "Professioneel, duidelijk en gebouwd om vertrouwen om te zetten in contact.",
-    cta: "Bekijk het websitepakket",
-    price: products.website.priceLabel,
+    title: "Websites",
+    text: "Nieuwe websites, een bestaande site vernieuwen en maatwerk waar de standaard niet past.",
+    result: "Een professionele online uitstraling die vertrouwen wekt en contact eenvoudig maakt.",
   },
   {
     href: routes.merk,
-    title: "Een uitstraling die overal klopt.",
-    label: "Merk",
-    text: "We bouwen voort op wat goed is en scherpen aan wat beter kan. Van kleur en typografie tot beeldstijl en merkgebruik.",
-    cta: "Bekijk merkidentiteit",
+    label: "Merk & ontwerp",
+    title: "Merk & ontwerp",
+    text: "Merkidentiteit, huisstijl, een merkrefresh of een nieuwe visuele richting.",
+    result: "Een herkenbare uitstraling die consequent wordt toegepast.",
   },
   {
     href: routes.marketing,
-    title: "Een merk is pas sterk als je het kunt gebruiken.",
-    label: "Marketingmiddelen",
-    text: "Offertes, presentaties, social formats, flyers en campagnes in één herkenbare lijn.",
-    cta: "Bekijk marketingmiddelen",
+    label: "Marketing & activatie",
+    title: "Marketing & activatie",
+    text: "Presentaties, offertes, flyers, social formats, landingspagina’s en andere middelen.",
+    result: "Middelen die een bedrijf daadwerkelijk kan gebruiken om zich sterker te presenteren.",
+  },
+  {
+    href: routes.automatisering,
+    label: "Automatisering & AI",
+    title: "Automatisering & AI",
+    text: "Terugkerend werk slimmer organiseren, systemen koppelen en AI inzetten waar dat helpt.",
+    result: "Minder dubbel werk, minder handmatige handelingen en meer grip op processen.",
   },
 ];
+
+export const propositions = services.map((item) => ({
+  href: item.href,
+  title: item.title,
+  label: item.label,
+  text: item.text,
+  result: item.result,
+  cta: "Bekijk de dienst",
+}));
 
 export const conceptCases = [
   {

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { site } from "@/lib/site";
+import { services, site } from "@/lib/site";
 
 const structuredData = {
   "@context": "https://schema.org",
@@ -19,6 +19,17 @@ const structuredData = {
       url: site.url,
       inLanguage: "nl-NL",
       description: site.description,
+    },
+    {
+      "@type": "ItemList",
+      name: "Diensten",
+      itemListElement: services.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.title,
+        url: `${site.url}${item.href}`,
+        description: item.text,
+      })),
     },
   ],
 };
