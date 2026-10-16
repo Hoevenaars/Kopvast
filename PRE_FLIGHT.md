@@ -1,56 +1,72 @@
-# PRE_FLIGHT — audit van de actuele repo
+# PRE_FLIGHT — audit tegen brief 2.1
 
-Datum: 16 oktober 2026. Bron: de checkout van `Hoevenaars/Kopvast` op `main` (`cbbf602`), plus `START_HIER_CURSOR`. De historisch bedoelde stack is niet overgenomen; onderstaande komt uit `package.json`, de routes en de code.
+Datum: 16 oktober 2026. Deze agent draait in `Hoevenaars/Kopvast`. De brief beschrijft het ticketproduct KERKLICHT. Dat is een andere repository. Besluit volgens §0.5: **STOP**. Concept A is niet gebouwd.
 
-## Wat deze repo werkelijk is
+## 1. Deze checkout
 
-Dit is **Kopvast**: publieke site van een digitaal bureau, plus adminconsole, klantportaal, voorstellen en de Scout-PWA. Er is geen product voor voorstellingen, capaciteit, verkoopfases, tickets of een publieke checkout.
-
-| Onderdeel | Actueel |
+| Feit | Waarde |
 | --- | --- |
-| Framework | Next.js 16.3.5 (App Router, route groups), React 19.2.8, TypeScript 5 |
-| Styling | Tailwind CSS 4, shadcn / Base UI, Lucide |
-| Data | Supabase (project Website Refresh). Migraties staan in `supabase/migrations/` en zijn niet gedraaid |
-| Mail | Resend + React Email. Lokaal blijft `EMAIL_MODE=TEST` tenzij expliciet anders |
-| Auth | Eigen sessies (`KOPVAST_SESSION_SECRET`), scrypt-wachtwoorden, Scout-allowlist |
-| Hosting | Vercel. Crons: `/api/scout/jobs` en `/api/acquisition/jobs` |
-| Dev | `npm run dev` op poort **43127** |
-| Tests | `npm test` via `tsx --test` op `src/lib` |
+| Remote | `Hoevenaars/Kopvast` |
+| Branch bij audit | `main` |
+| Commit | `cbbf602` |
+| Working tree | schoon, daarna alleen dit document |
+| Stack | Next.js 16.3.5, React 19.2.8, Tailwind CSS 4, Supabase, Resend |
+| Dev | `npm run dev` op poort 43127 |
+| Deploy | Vercel. Crons: `/api/scout/jobs`, `/api/acquisition/jobs` |
 
-Publieke marketingroutes komen uit `src/lib/site.ts`: `/`, `/websites`, `/merk`, `/marketingmiddelen`, `/automatisering`, `/werk`, `/werkwijze`, `/over-kopvast`, `/websitecheck`, `/aanvraag`, `/start`, `/maatwerk`, `/contact`, plus privacy, cookies en voorwaarden. Daarnaast: `/admin`, `/klant`, `/scout`, `/voorstel/[token]`, `/domein`, `/inloggen`.
+Kopvast is de site en console van een digitaal bureau: marketingroutes, `/admin`, `/klant`, `/scout`, `/voorstel/[token]`. Prijzen in `src/lib/products.ts` zijn bureau-pakketten. Facturen zijn aanbetalingen voor opdrachten. Er is geen Mollie, geen `performances`, geen ticketcheckout. De enige treffer op Persingen is acquisitiecopy over `kerkjepersingen.nl`.
 
-Prijzen in `src/lib/products.ts` zijn bureau-pakketten (o.a. website €1.495 excl. btw). Facturen in de admin zijn aanbetaling en restant voor opdrachten. Er is geen Stripe, Mollie of andere betaalprovider in de dependencies. “Tickets” in de code zijn supporttickets van klanten.
+Beelden in `public/images` zijn Unsplash-conceptbeelden, geen kerkfoto’s.
 
-Beelden in `public/images` (`hero.jpg`, `house.jpg`, `venue.jpg`) zijn Unsplash-conceptbeelden, geen bevestigde locatiefoto’s.
+## 2. Wat de brief verwacht, en waar dat wél staat
 
-## Afwijkingen en ontbrekende invoer
+Read-only bekeken op GitHub, niet gecloned en niet gewijzigd: private repo [Hoevenaars/kerklicht.nl](https://github.com/Hoevenaars/kerklicht.nl).
 
-Niet aanwezig in de repo of in de uploads:
+| Feit | Waarde |
+| --- | --- |
+| Taal | Astro |
+| Tip van `main` | `8bc942a` (11 okt 2026, “Release 2: digitale geschenkverpakking”) |
+| Homepage-vermelding | `https://kerklichtnl.vercel.app` |
+| Dependencies | `astro` ^5, `@astrojs/vercel` ^8, `@supabase/supabase-js`, `@mollie/api-client`, `resend`, Bodoni Moda, Hanken Grotesk |
+| Scripts | `dev`, `build`, `preview`, `check`, `test` |
 
-- `05_CURSOR_BUILD_BRIEF_V2_1.md` (inclusief STOP-criteria §0 en acceptatiematrix §9)
-- `01_Kerklicht_Premium_Prototype.html`
+Aanwezig, passend bij §2 en §3 van de brief:
 
-Daardoor is Concept A niet te bouwen zonder het ontwerp, de faseregels en de productfeiten te verzinnen. Dat is verboden.
+- Pagina’s: `src/pages/index.astro`, `de-avond.astro`, `praktisch.astro`, `vragen.astro`, `tickets.astro`, `bedankt.astro`, `privacy.astro`, `voorwaarden.astro`, `prive-avonden.astro`
+- Componenten: `Header.astro`, `Footer.astro`, `ShowList.astro`, `PriceNote.astro`, `PreviewCheckout.astro`, `GuestlistForm.astro`, `Wordmark.astro`, `Monogram.astro`
+- Lib: `settings.ts`, `performances.ts`, `orders.ts`, `mollie.ts`, `mail.ts`, `sales-mode.ts`, `sales-decision.ts`, `auth.ts`, `db.ts`, `gift.ts`
+- `supabase/`, `astro.config.mjs`, `.env.example`
 
-De opdracht vraagt een redesign **met behoud van het bestaande product** en hergebruik van bestaande bronnen voor shows, capaciteit, prijzen, fases, tickets en checkout. Die bronnen bestaan hier niet. Een Kerklicht-frontend op deze branch zou een nieuw product zijn, geen redesign.
+Een eerdere commit op die repo zet `SALES_PREVIEW` als Vercel-runtimevlag en houdt bestellen en de gastenlijst dicht. Juridische teksten staan daar als concept-2026-10-10. Die vlag en de echte fase zijn niet in deze Kopvast-checkout gecontroleerd.
 
-## Besluit
+## 3. Risicomatrix (deze workspace)
 
-**STOP.** Concept A is niet gestart. Geen branch met UI-wijzigingen, geen preview-deploy, geen migratie, geen mail, geen live-secret, geen merge naar `main`.
+| Keten | Pad hier | Intact laten | Verificatie |
+| --- | --- | --- | --- |
+| Homepage / UI | `src/app/(marketing)/` | ja, niet aangeraakt | bestandslocaties |
+| Showdata, prijs, voorraad, fases | ontbreekt | n.v.t. | geen `performances` of Mollie |
+| Bestellen, webhooks, QR, beheer | ontbreekt | n.v.t. | geen order-API |
+| Resend | aanvragen, acquisitie, webhook | ja | `EMAIL_MODE=TEST` in voorbeeld-env |
+| Privacy / auth | Kopvast-sessies en Scout-allowlist | ja | `.env.example` |
 
-Hervatten kan pas als de brief en het prototype er zijn, én als duidelijk is welke repo het bestaande ticketproduct is. Is dat een andere repository, dan hoort het werk dáár. Is de bedoeling toch de publieke Kopvast-site, dan moet de opdracht worden herschreven naar de routes en data die hier wél bestaan.
+Een redesign in deze repo zou de bureau-site vervangen of een tweede product verzinnen. Beide vallen buiten de brief. Backend, database of betaling wijzigen is niet nodig en niet toegestaan; de juiste code staat elders.
 
-## Veilige preview, zodra er een GO is
+## 4. Ontbrekende ontwerpinvoer
 
-1. Featurebranch `cursor/<onderwerp>-a1e0`, nooit `main`.
-2. Alleen lokaal: `npm install` en `npm run dev` (poort 43127). Geen `vercel --prod`.
-3. `.env.local` alleen met al aanwezige lokale waarden. `EMAIL_MODE` blijft `TEST`. Geen nieuwe secrets, geen service-role in de client.
-4. Geen `supabase`-migraties en geen writes naar productie.
-5. Preview-placeholders voor ontbrekende beelden of feiten zichtbaar labelen.
-6. Checkout, mailverzending en live data niet nabouwen met demo-JavaScript.
+Wel aanwezig: de brief, drie pagina-overzichten (desktop, mobiel, tablet) en twee illustraties (spitsboog, nachtkerk). Die illustraties zijn volgens de brief alleen compositie, geen campagnefoto’s.
 
-## Wat nog nodig is voor de rest van de opdracht
+Niet aanwezig: `01_Kerklicht_Premium_Prototype.html`. Zonder dat bestand en zonder de kerklicht-repo is de frontend niet te bouwen op bestaande shows, prijzen en checkout.
 
-- De build brief en het HTML-prototype.
-- Bevestiging van de juiste repo (Kopvast is dit niet als ticketproduct).
-- Echte shows, capaciteit, prijzen, fases en checkoutbronnen, of een expliciet besluit om met gelabelde placeholders te werken.
+## 5. Stop en gevraagde beslissing
+
+§0.5: de repo wijkt wezenlijk af van de brief. Geen featurebranch met UI, geen preview, geen migratie, geen mail, geen secret, geen merge, geen productiedeploy.
+
+Beslissing die nodig is: start deze opdracht in `Hoevenaars/kerklicht.nl` op `main` (`8bc942a` of nieuwer na fetch). Lever daar ook het HTML-prototype aan. In Kopvast blijft het bij dit document.
+
+## 6. Veilige preview, pas in de kerklicht-repo
+
+1. Branch `cursor/kerklicht-concept-a-v2-a1e0` vanaf actuele `main`.
+2. Alleen frontend: homepage, header, footer, `/de-avond`, `/praktisch`, `/vragen`, tokens en gelabelde placeholders.
+3. Niet wijzigen: `supabase/`, `src/pages/api/`, `orders.ts`, `mollie.ts`, `mail.ts`, `auth.ts`, prijs- en faselogica, voorwaarden.
+4. Preview zonder productie-Supabase-writes, live Mollie of Resend. Bestaande `SALES_PREVIEW` respecteren.
+5. Ontbrekende kerkfoto’s en onbevestigde feiten zichtbaar als placeholder labelen.
