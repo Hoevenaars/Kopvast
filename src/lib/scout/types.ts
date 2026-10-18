@@ -113,6 +113,12 @@ export type ScoutLead = {
   domain: string;
   canonical_url: string | null;
   company_name: string | null;
+  contact_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  facebook_url: string | null;
+  social_url: string | null;
+  source_url: string | null;
   note: string | null;
   industry: string | null;
   city: string | null;
