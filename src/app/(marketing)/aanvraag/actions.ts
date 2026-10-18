@@ -43,6 +43,7 @@ export async function submitAanvraag(
     source,
     details: safeDetails,
     message: String(formData.get("message") ?? ""),
+    idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
   });
   if (result.ok && website.trim()) {
     after(() =>

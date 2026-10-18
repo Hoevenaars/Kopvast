@@ -16,7 +16,7 @@ import { cta, pageMeta, products, routes } from "@/lib/site";
 export const metadata: Metadata = pageMeta(
   routes.marketing,
   "Marketing & activatie",
-  "Presentaties, offertes, social formats, flyers, campagnes en landingspagina’s. Concrete middelen, geen onbeperkt bureau."
+  "Presentaties, offertes, social formats, flyers, campagnes en landingspagina’s die je team echt kan gebruiken."
 );
 
 export default function MarketingPage() {
@@ -25,7 +25,7 @@ export default function MarketingPage() {
       <PageHero
         eyebrow="Marketing & activatie"
         title="Middelen die je bedrijf echt kan gebruiken."
-        text="Presentaties, offertes, flyers, social formats, e-mailtemplates, landingspagina’s en campagnes. Kopvast levert concrete middelen. Geen onbeperkt fullservice-bureau."
+        text="Presentaties, offertes, flyers, social formats, e-mailtemplates, landingspagina’s en campagnes. Middelen die dezelfde lijn volgen als je website en merk, en die je daarna zelf kunt bijwerken."
         actions={
           <ButtonLink href={cta.campaign.href}>
             {cta.campaign.label}

@@ -11,26 +11,24 @@ export const metadata: Metadata = pageMeta(
   "Minder handmatig werk door praktische automatisering, slimme koppelingen en AI waar dat echt waarde toevoegt. Op maat, zonder vaste pakketprijs."
 );
 
-const applications = [
+const situations = [
   {
-    title: "Procesautomatisering",
-    text: "Terugkerende handelingen automatisch verwerken.",
+    title: "Aanvragen komen binnen en worden handmatig overgezet",
+    problem: "Een formulier, een mail of een appje belandt in een inbox. Iemand typt de gegevens daarna opnieuw over in de agenda, de administratie of een spreadsheet.",
+    solution: "De aanvraag kan op één plek binnenkomen en de gegevens die je al hebt meteen op de juiste plek zetten.",
+    meaning: "Minder overtikken, minder kans dat een aanvraag blijft liggen, en een snellere eerste reactie naar de klant.",
   },
   {
-    title: "Softwarekoppelingen",
-    text: "Systemen laten samenwerken, zodat gegevens niet meerdere keren worden ingevoerd.",
+    title: "Verschillende systemen bevatten dezelfde gegevens",
+    problem: "Naam, adres of opdracht staat in het ene systeem anders dan in het andere. Bij elke wijziging moet iemand onthouden waar die nog meer moet worden aangepast.",
+    solution: "Een koppeling kan het bronsysteem leidend maken en de andere systemen bijwerken met dezelfde gegevens.",
+    meaning: "Eén waarheid voor je klantgegevens, minder correctiewerk en minder kans dat een factuur of planning van een verouderd gegeven uitgaat.",
   },
   {
-    title: "Digitale assistenten",
-    text: "AI die helpt bij structureren, verwerken, analyseren en voorbereiden.",
-  },
-  {
-    title: "Slimmere klantprocessen",
-    text: "Aanvragen, opvolging en informatieoverdracht efficiënter organiseren.",
-  },
-  {
-    title: "Maatwerk",
-    text: "Een specifieke oplossing wanneer bestaande software onvoldoende aansluit.",
+    title: "Terugkerende werkzaamheden kosten onnodig tijd",
+    problem: "Elke week dezelfde stappen: een overzicht maken, een herinnering sturen, een map vullen of een status bijwerken.",
+    solution: "Die vaste reeks kan een workflow worden die start zodra de aanleiding er is, met een menselijke controle op het moment dat een keuze nodig is.",
+    meaning: "De uren gaan naar het werk dat echt aandacht vraagt. Wat zich herhaalt, loopt op de achtergrond mee.",
   },
 ];
 
@@ -58,12 +56,26 @@ export default function AutomationPage() {
       />
 
       <section className="container-page py-16">
-        <h2 className="text-3xl text-ink">Wat Kopvast kan betekenen</h2>
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          {applications.map((item) => (
+        <h2 className="text-3xl text-ink">Drie situaties die we vaak tegenkomen</h2>
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-olive">
+          Voorbeelden van hoe het werk kan lopen. Geen klantcases en geen belofte van een vaste besparing.
+        </p>
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          {situations.map((item) => (
             <article key={item.title} className="rounded-2xl border border-stone/50 p-6">
               <h3 className="text-xl text-ink">{item.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-olive">{item.text}</p>
+              <p className="mt-4 text-sm leading-6 text-olive">
+                <span className="font-medium text-ink">Het probleem. </span>
+                {item.problem}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-olive">
+                <span className="font-medium text-ink">Een mogelijke oplossing. </span>
+                {item.solution}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-ink">
+                <span className="font-medium">Wat dat kan betekenen. </span>
+                {item.meaning}
+              </p>
             </article>
           ))}
         </div>
@@ -74,8 +86,7 @@ export default function AutomationPage() {
           <div>
             <h2 className="text-3xl text-ink">Zo pakken we het aan</h2>
             <p className="mt-4 text-base leading-7 text-olive">
-              Eerst het werk begrijpen. Daarna pas een oplossing. Geen belofte dat alles vanzelf door AI
-              wordt gedaan.
+              Eerst het werk begrijpen. Daarna een oplossing die past bij die stappen, met een mens waar een keuze nodig blijft.
             </p>
           </div>
           <ol className="space-y-4">
@@ -90,11 +101,10 @@ export default function AutomationPage() {
       </section>
 
       <section className="container-page py-16">
-        <h2 className="text-3xl text-ink">Geen vaste pakketprijs</h2>
+        <h2 className="text-3xl text-ink">De prijs volgt uit de situatie</h2>
         <p className="mt-4 max-w-2xl text-base leading-7 text-olive">
-          Automatisering beoordelen we per situatie. Er is geen automatische prijs, geen gegarandeerde
-          besparing en geen belofte van een volledig autonome oplossing. Als het past, volgt een
-          maatwerkvoorstel via dezelfde aanvraag.
+          Automatisering heeft geen vaste pakketprijs. We kijken naar het proces en zetten de prijs in het
+          voorstel. Een besparing hangt af van hoe het werk nu loopt; die beloven we niet vooraf.
         </p>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-olive">
           De vier stappen van Kopvast blijven hetzelfde: {processSteps.map((step) => step.title.toLowerCase()).join(", ")}.
