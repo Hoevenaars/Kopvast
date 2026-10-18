@@ -5,11 +5,12 @@ import { MAIL_TEMPLATE_VERSION, SCOUT_MAIL_PROMPT_VERSION, SCOUT_MAIL_TEMPLATE_V
 import { MANUAL_REASONS_PROMPT_VERSION } from "@/lib/acquisition/manual-reasons";
 import { UNREACHABLE_SITE_PROMPT_VERSION, UNREACHABLE_SITE_TEMPLATE_VERSION } from "@/lib/acquisition/unreachable-site-mail";
 import { withManualEmailEnrichment } from "@/lib/contact-email";
+import type { ParsedProspectProfile } from "@/lib/prospect-profile";
 import { isEmail, normalizeEmail, workspaceRoutes } from "@/lib/product";
 import { nowIso } from "@/lib/workspace-store";
 import { scoutServiceClient } from "./auth";
 import { mergeScoutNote, prospectStatusFromScout } from "./crm-map";
-import { getDraft, getLeadById, mapLead, upsertDraft } from "./leads";
+import { getDraft, getLeadById, mapLead, scoutLeadHasWebsite, upsertDraft } from "./leads";
 import { mutateLocalScout } from "./store";
 import {
   SCOUT_STATUS_LABELS,
@@ -181,17 +182,26 @@ export async function syncProspectFromScout(leadId: string): Promise<string | nu
   if (!prospect) return lead.prospect_id;
 
   const locked = LOCKED_PROSPECT_STATUSES.has(String(prospect.status)) || Boolean(prospect.is_archived);
-  const nextStatus = prospectStatusFromScout(lead.status, lead.score);
+  const hasWebsite = scoutLeadHasWebsite(lead);
+  const nextStatus = prospectStatusFromScout(lead.status, lead.score, { hasWebsite });
   const draft = await getDraft(lead.id);
   const patch: Record<string, unknown> = {
     company_name: pickStoredCompanyName(lead.company_name, prospect.company_name as string | null),
     notes: mergeScoutNote(prospect.notes as string | null, lead.note),
-    opportunity_score: lead.score,
-    last_scan_at: lead.last_scan_at ?? nowIso(),
     last_activity_at: nowIso(),
     updated_at: nowIso(),
   };
+  if (hasWebsite) {
+    patch.opportunity_score = lead.score;
+    patch.last_scan_at = lead.last_scan_at ?? nowIso();
+  }
+  if (lead.contact_name?.trim()) patch.contact_name = lead.contact_name.trim();
+  if (lead.first_name?.trim()) patch.first_name = lead.first_name.trim();
+  if (lead.last_name?.trim()) patch.last_name = lead.last_name.trim();
+  if (lead.phone?.trim()) patch.phone = lead.phone.trim();
   if (lead.city?.trim()) patch.city = lead.city.trim();
+  if (lead.facebook_url?.trim()) patch.facebook_url = lead.facebook_url.trim();
+  if (lead.social_url?.trim()) patch.social_url = lead.social_url.trim();
   if (!locked) {
     patch.status = nextStatus;
     if (draft && !SENT_MAIL_STATUSES.has(String(prospect.mail_status ?? ""))) {
@@ -253,6 +263,32 @@ export async function syncScoutEmailFromProspect(prospectId: string, email: stri
         lead.enrichment = withManualEmailEnrichment(lead.enrichment, email);
         lead.updated_at = updatedAt;
       }
+    }
+  });
+}
+
+export async function syncScoutProfileFromProspect(prospectId: string, profile: ParsedProspectProfile) {
+  const supabase = scoutServiceClient();
+  const updatedAt = nowIso();
+  const patch = {
+    first_name: profile.firstName,
+    last_name: profile.lastName,
+    contact_name: profile.contactName,
+    phone: profile.phone,
+    city: profile.city,
+    facebook_url: profile.facebookUrl,
+    social_url: profile.socialUrl,
+    note: profile.notes,
+    updated_at: updatedAt,
+  };
+  if (supabase) {
+    await supabase.from("scout_leads").update(patch).eq("prospect_id", prospectId);
+    revalidateAdminSurfaces(prospectId);
+    return;
+  }
+  await mutateLocalScout((store) => {
+    for (const lead of store.leads) {
+      if (lead.prospect_id === prospectId) Object.assign(lead, patch);
     }
   });
 }
