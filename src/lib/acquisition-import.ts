@@ -53,6 +53,10 @@ export function looksLikePhone(value: string) {
   return PHONE_VALUE.test(value.replace(/\s+/g, " ").trim());
 }
 
+export function isConsumerEmailHost(host: string) {
+  return CONSUMER_EMAIL_HOSTS.has(host.trim().toLowerCase().replace(/^www\./, ""));
+}
+
 export function normalizePhone(value: string) {
   return value.replace(/[^\d+]/g, "");
 }
@@ -89,7 +93,7 @@ function websiteFromLabel(label: string, email: string | null): { website: strin
   }
   if (email) {
     const host = hostFromEmail(email);
-    if (host && !CONSUMER_EMAIL_HOSTS.has(host)) {
+    if (host && !isConsumerEmailHost(host)) {
       return { website: host, company: prettyCompanyName(cleaned) };
     }
   }
