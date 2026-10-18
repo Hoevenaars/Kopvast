@@ -4,12 +4,15 @@ import { scoutPublicBase, withBase } from "@/lib/scout/base-path";
 import { getDraft, getLead, latestScan } from "@/lib/scout/leads";
 import { SCOUT_STATUS_LABELS } from "@/lib/scout/types";
 import {
+  applyScoutApproachAction,
   approveDraftAction,
+  attachScoutWebsiteAction,
   createManualReasonsMailScoutAction,
   createUnreachableDraftAction,
   rescanAction,
   saveDraftAction,
   sendScoutMailAction,
+  updateScoutProfileAction,
 } from "@/app/(scout)/scout/actions";
 import { ManualReasonsForm } from "@/components/acquisition/manual-reasons-form";
 import { ScoutContactEmailForm } from "@/components/scout/contact-email-form";
@@ -22,6 +25,8 @@ import {
   approachSourceLabel,
   buildPersonalApproachLetter,
 } from "@/lib/acquisition/outreach-policy";
+import { scoutLeadHasWebsite } from "@/lib/scout/leads";
+import { greetingForContact, knownFirstName } from "@/lib/prospect-profile";
 import { resolveEmailSettings } from "@/lib/email-mode";
 
 export default async function ScoutLeadDetailPage({
@@ -47,11 +52,13 @@ export default async function ScoutLeadDetailPage({
     lead.email && scanFailed && (!draft || isUnreachableSiteMail(draft.message))
       ? buildUnreachableSiteMail({ domain: lead.domain, companyName: lead.company_name })
       : null;
+  const hasWebsite = scoutLeadHasWebsite(lead);
   const approach = buildPersonalApproachLetter({
     companyName: lead.company_name,
     domain: lead.domain,
     place: lead.city,
-    websitePresence: "HAS_WEBSITE",
+    websitePresence: hasWebsite ? "HAS_WEBSITE" : "NO_WEBSITE",
+    greeting: greetingForContact(knownFirstName({ firstName: lead.first_name, contactName: lead.contact_name })),
   });
   const approachLabels = [
     approach.geographicReason ? GEOGRAPHIC_REASON_LABELS[approach.geographicReason] : null,
@@ -65,17 +72,20 @@ export default async function ScoutLeadDetailPage({
   return (
     <main className="space-y-8 pb-8">
       <header>
-        <p className="text-[11px] tracking-[0.28em] text-olive uppercase">{lead.domain}</p>
-        <h1 className="font-heading mt-2 text-4xl text-ink">{lead.company_name || lead.domain}</h1>
+        <p className="text-[11px] tracking-[0.28em] text-olive uppercase">{hasWebsite ? lead.domain : "Geen website"}</p>
+        <h1 className="font-heading mt-2 text-4xl text-ink">{lead.company_name || lead.domain || "Prospect"}</h1>
         <p className="mt-3 text-sm text-olive">
           {SCOUT_STATUS_LABELS[lead.status]}
-          {lead.score != null ? ` · Kopvast Score ${lead.score}` : ""}
+          {hasWebsite && lead.score != null ? ` · Kopvast Score ${lead.score}` : ""}
         </p>
       </header>
 
       <section>
         <h2 className="text-xs tracking-[0.18em] text-olive uppercase">Waarom interessant</h2>
-        <p className="mt-2 text-base leading-7 text-ink">{lead.why_interesting || "Scan loopt of is nog niet klaar."}</p>
+        <p className="mt-2 text-base leading-7 text-ink">
+          {lead.why_interesting ||
+            (hasWebsite ? "Scan loopt of is nog niet klaar." : "Dit bedrijf heeft nog geen website. Er is geen scan en geen score.")}
+        </p>
       </section>
 
       <section>
@@ -90,6 +100,8 @@ export default async function ScoutLeadDetailPage({
         </ul>
       </section>
 
+      {hasWebsite ? (
+      <>
       <section className="grid grid-cols-2 gap-3">
         {[
           ["Technical", scan?.technical_score ?? "—"],
@@ -108,6 +120,8 @@ export default async function ScoutLeadDetailPage({
       <p className="text-xs leading-5 text-olive">
         De Kopvast Score is een commerciële prioritering, geen objectieve of wetenschappelijke websitebenchmark.
       </p>
+      </>
+      ) : null}
 
       <section>
         <h2 className="text-xs tracking-[0.18em] text-olive uppercase">Mijn opmerking</h2>
@@ -123,10 +137,25 @@ export default async function ScoutLeadDetailPage({
           scanFailed={lead.status === "scan_mislukt" || Boolean(lead.last_error)}
         />
         <ul className="space-y-1 text-sm text-ink">
+          <li>Voornaam: {lead.first_name || "niet ingevuld"}</li>
+          <li>Achternaam: {lead.last_name || "niet ingevuld"}</li>
           <li>Telefoon: {lead.phone || enrichment?.phone?.value || "niet gevonden"}</li>
-          <li>LinkedIn: {lead.linkedin_url || "niet gevonden"}</li>
+          <li>Facebook: {lead.facebook_url || "niet ingevuld"}</li>
+          <li>Andere social: {lead.social_url || "niet ingevuld"}</li>
+          <li>LinkedIn uit scan: {lead.linkedin_url || "niet gevonden"}</li>
           <li>Plaats: {lead.city || "niet gevonden"}</li>
         </ul>
+        <form action={updateScoutProfileAction} className="space-y-3 rounded-2xl border border-ink/10 bg-white px-4 py-4">
+          <input type="hidden" name="leadId" value={lead.id} />
+          <input name="firstName" defaultValue={lead.first_name ?? ""} placeholder="Voornaam" className="h-12 w-full rounded-2xl border border-ink/10 px-4" />
+          <input name="lastName" defaultValue={lead.last_name ?? ""} placeholder="Achternaam" className="h-12 w-full rounded-2xl border border-ink/10 px-4" />
+          <input name="phone" defaultValue={lead.phone ?? ""} placeholder="Telefoon" className="h-12 w-full rounded-2xl border border-ink/10 px-4" />
+          <input name="city" defaultValue={lead.city ?? ""} placeholder="Vestigingsplaats" className="h-12 w-full rounded-2xl border border-ink/10 px-4" />
+          <input name="facebookUrl" defaultValue={lead.facebook_url ?? ""} placeholder="Facebook-URL" className="h-12 w-full rounded-2xl border border-ink/10 px-4" />
+          <input name="socialUrl" defaultValue={lead.social_url ?? ""} placeholder="Andere social URL" className="h-12 w-full rounded-2xl border border-ink/10 px-4" />
+          <textarea name="note" defaultValue={lead.note ?? ""} rows={3} placeholder="Persoonlijke notitie" className="w-full rounded-2xl border border-ink/10 px-4 py-3" />
+          <button className="h-12 w-full rounded-2xl border border-ink/15 text-sm">Gegevens opslaan</button>
+        </form>
       </section>
 
       <section>
@@ -140,7 +169,12 @@ export default async function ScoutLeadDetailPage({
                 ? " · opening gebruikt de plaats"
                 : " · neutrale opening"}
           </p>
-          <p>Onderbouwing: {approach.evidence || "Onvoldoende bewijs. De opening blijft neutraal."}</p>
+          <p>
+            Onderbouwing:{" "}
+            {approach.sufficient
+              ? approach.evidence || "Aanleiding gekozen."
+              : "Personalisatie is onvoldoende onderbouwd. De concepttekst blijft neutraal tot je een eigen aanleiding invult of de tekst beoordeelt."}
+          </p>
           <p>
             Bron:{" "}
             {approachSourceLabel({
@@ -151,6 +185,33 @@ export default async function ScoutLeadDetailPage({
           </p>
           <p className="text-olive">Een notitie is context en wordt niet vanzelf een aanleiding. De eerste mail noemt geen prijs.</p>
         </div>
+        {!approach.sufficient ? (
+          <form action={applyScoutApproachAction} className="mt-3 space-y-3 rounded-2xl border border-ink/10 bg-white px-4 py-3">
+            <p className="text-sm text-ink">Eigen aanleiding</p>
+            <select name="geographicReason" defaultValue="" className="h-12 w-full rounded-2xl border border-ink/10 px-3">
+              <option value="">Geen plaatselijke reden</option>
+              <option value="GROESBEEK">Groesbeek</option>
+              <option value="BERG_EN_DAL">Gemeente Berg en Dal</option>
+              <option value="REGION_NIJMEGEN">Regio Nijmegen</option>
+            </select>
+            <select name="contentReason" defaultValue="" className="h-12 w-full rounded-2xl border border-ink/10 px-3">
+              <option value="">Geen inhoudelijke reden</option>
+              {Object.entries(CONTENT_REASON_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <textarea
+              name="evidence"
+              rows={3}
+              placeholder="Korte onderbouwing, alleen als je die zelf kent"
+              className="w-full rounded-2xl border border-ink/10 px-4 py-3"
+            />
+            <input type="hidden" name="leadId" value={lead.id} />
+            <button className="h-12 w-full rounded-2xl border border-ink/15 text-sm">Werk de opening bij</button>
+          </form>
+        ) : null}
         {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
         {showManualReasons ? (
           <div className="mt-3">
@@ -178,7 +239,7 @@ export default async function ScoutLeadDetailPage({
               name="message"
               defaultValue={message}
               rows={10}
-              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3"
+              className="w-full scroll-mb-[calc(8rem+env(safe-area-inset-bottom))] rounded-2xl border border-ink/10 bg-white px-4 py-3"
             />
             <div className="flex flex-col gap-2">
               <button className="h-12 rounded-2xl border border-ink/15 bg-white text-sm">Aanpassen</button>
@@ -187,9 +248,17 @@ export default async function ScoutLeadDetailPage({
                 Goedkeuren
               </button>
               {lead.email ? (
-                <button formAction={sendScoutMailAction} className="h-12 rounded-2xl bg-copper-dark text-sm text-ivory">
-                  Versturen
-                </button>
+                <>
+                  {!approach.sufficient ? (
+                    <label className="flex items-start gap-2 text-sm text-ink">
+                      <input type="checkbox" name="reviewed" value="ja" className="mt-1" />
+                      <span>Ik heb deze tekst beoordeeld. Live verzending wacht op die beoordeling.</span>
+                    </label>
+                  ) : null}
+                  <button formAction={sendScoutMailAction} className="h-12 rounded-2xl bg-copper-dark text-sm text-ivory">
+                    Versturen
+                  </button>
+                </>
               ) : null}
             </div>
             <p className="text-xs text-olive">
@@ -212,22 +281,41 @@ export default async function ScoutLeadDetailPage({
             </button>
           </form>
         ) : showManualReasons ? null : (
-          <p className="mt-2 text-sm text-olive">Nog geen concept. {lead.last_error || "De scan loopt op de achtergrond."}</p>
+          <p className="mt-2 text-sm text-olive">
+            {hasWebsite
+              ? `Nog geen concept. ${lead.last_error || "De scan loopt op de achtergrond."}`
+              : "De eerste mail wordt klaargezet zonder scan en zonder verzonnen bevindingen."}
+          </p>
         )}
       </section>
 
-      {lead.status === "scan_mislukt" || lead.last_error ? (
+      {hasWebsite ? null : (
+        <form action={attachScoutWebsiteAction} className="space-y-3 rounded-2xl border border-ink/10 bg-white px-4 py-4">
+          <h2 className="text-xs tracking-[0.18em] text-olive uppercase">Later een website toevoegen</h2>
+          <p className="text-sm leading-6 text-olive">Hetzelfde bedrijf blijft bestaan. Daarna kan de websitecheck starten.</p>
+          <input type="hidden" name="leadId" value={lead.id} />
+          <input
+            name="website"
+            required
+            placeholder="https://"
+            className="h-12 w-full rounded-2xl border border-ink/10 px-4"
+          />
+          <button className="h-12 w-full rounded-2xl bg-ink text-sm text-ivory">Website koppelen</button>
+        </form>
+      )}
+
+      {hasWebsite && (lead.status === "scan_mislukt" || lead.last_error) ? (
         <form action={rescanAction}>
           <input type="hidden" name="leadId" value={lead.id} />
           <p className="mb-3 text-sm text-olive">De oorspronkelijke URL en opmerking blijven bewaard.</p>
           <button className="h-12 w-full rounded-2xl bg-copper-dark text-sm text-ivory">Opnieuw scannen</button>
         </form>
-      ) : (
+      ) : hasWebsite ? (
         <form action={rescanAction}>
           <input type="hidden" name="leadId" value={lead.id} />
           <button className="text-sm text-olive underline-offset-4 hover:underline">Nieuwe scan uitvoeren</button>
         </form>
-      )}
+      ) : null}
     </main>
   );
 }
