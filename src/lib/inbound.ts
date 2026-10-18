@@ -117,44 +117,88 @@ export function mapInboundLead(lead: InboundLeadInput) {
   };
 }
 
-export async function persistInboundLead(lead: InboundLeadInput): Promise<string | null> {
+export type PublicLeadSaveResult =
+  | { ok: true; id: string; duplicate: boolean }
+  | { ok: false; message: string };
+
+function storeErrorCode(error: { code?: string; message?: string } | null | undefined) {
+  return error?.code || "unknown";
+}
+
+function logStoreFailure(error: { code?: string; message?: string } | null | undefined) {
+  const message = (error?.message ?? "").replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]");
+  console.error("[kopvast] Aanvraag opslaan mislukt", {
+    code: storeErrorCode(error),
+    message: message.slice(0, 180),
+  });
+}
+
+function isUniqueViolation(error: { code?: string; message?: string } | null | undefined) {
+  return error?.code === "23505" || /duplicate key|idempotency_key/i.test(error?.message ?? "");
+}
+
+function isMissingColumn(error: { message?: string } | null | undefined, column: string) {
+  return new RegExp(column, "i").test(error?.message ?? "") && /column|schema cache|does not exist/i.test(error?.message ?? "");
+}
+
+async function attachSavedLead(lead: InboundLeadInput, requestId: string) {
+  const { attachInboundLeadToProspect } = await import("@/lib/commercial-handoffs");
+  await attachInboundLeadToProspect({
+    requestId,
+    email: lead.email,
+    website: lead.website,
+    organization: lead.company,
+    prospectId: typeof lead.details.prospect_id === "string" ? lead.details.prospect_id : null,
+  });
+}
+
+export async function persistPublicInboundLead(
+  lead: InboundLeadInput,
+  idempotencyKey?: string | null
+): Promise<PublicLeadSaveResult> {
   const supabase = refreshClient();
   if (!supabase) {
-    console.info("[kopvast] Inbound lead overgeslagen (geen Website Refresh-sleutel)");
-    return null;
+    return { ok: false, message: "Aanvraag opslaan lukt nu niet. Probeer het zo opnieuw." };
   }
 
-  const row = mapInboundLead(lead);
-  const first = await supabase.from("inbound_leads").insert(row).select("id").single();
-  if (!first.error && first.data) {
-    const { attachInboundLeadToProspect } = await import("@/lib/commercial-handoffs");
-    await attachInboundLeadToProspect({
-      requestId: first.data.id as string,
-      email: lead.email,
-      website: lead.website,
-      organization: lead.company,
-      prospectId: typeof lead.details.prospect_id === "string" ? lead.details.prospect_id : null,
-    });
-    return first.data.id as string;
+  const mapped = mapInboundLead(lead);
+  const key = idempotencyKey?.trim() || null;
+  const withKey = key ? { ...mapped, idempotency_key: key } : mapped;
+  const first = await supabase.from("inbound_leads").insert(withKey).select("id").single();
+  if (!first.error && first.data?.id) {
+    await attachSavedLead(lead, first.data.id as string);
+    return { ok: true, id: first.data.id as string, duplicate: false };
   }
 
-  const { product_fit, ...legacy } = row;
-  void product_fit;
-  const retry = await supabase.from("inbound_leads").insert(legacy).select("id").single();
-  if (!retry.error && retry.data) {
-    const { attachInboundLeadToProspect } = await import("@/lib/commercial-handoffs");
-    await attachInboundLeadToProspect({
-      requestId: retry.data.id as string,
-      email: lead.email,
-      website: lead.website,
-      organization: lead.company,
-      prospectId: typeof lead.details.prospect_id === "string" ? lead.details.prospect_id : null,
-    });
-    return retry.data.id as string;
+  if (key && isUniqueViolation(first.error)) {
+    const existing = await supabase.from("inbound_leads").select("id").eq("idempotency_key", key).maybeSingle();
+    if (existing.data?.id) {
+      await attachSavedLead(lead, existing.data.id as string);
+      return { ok: true, id: existing.data.id as string, duplicate: true };
+    }
   }
 
-  console.error("[kopvast] Inbound lead opslaan mislukt", first.error?.message || retry.error?.message);
-  return null;
+  const missingKey = key && isMissingColumn(first.error, "idempotency_key");
+  const missingFit = isMissingColumn(first.error, "product_fit");
+  if (missingKey || missingFit) {
+    const { product_fit: _fit, ...legacy } = mapped;
+    void _fit;
+    const retry = await supabase.from("inbound_leads").insert(legacy).select("id").single();
+    if (!retry.error && retry.data?.id) {
+      await attachSavedLead(lead, retry.data.id as string);
+      return { ok: true, id: retry.data.id as string, duplicate: false };
+    }
+    logStoreFailure(retry.error);
+    return { ok: false, message: "Aanvraag opslaan lukt nu niet. Probeer het zo opnieuw." };
+  }
+
+  logStoreFailure(first.error);
+  return { ok: false, message: "Aanvraag opslaan lukt nu niet. Probeer het zo opnieuw." };
+}
+
+export async function persistInboundLead(lead: InboundLeadInput, idempotencyKey?: string | null): Promise<string | null> {
+  const saved = await persistPublicInboundLead(lead, idempotencyKey);
+  return saved.ok ? saved.id : null;
 }
 
 export async function logInboundEmail(input: {

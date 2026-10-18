@@ -8,24 +8,34 @@ import { confirmationCopy, humanizeValue, notificationFields, notificationIntro 
 import { DOMAIN_LANDING_SOURCE } from "./domain-landing";
 import { fromAddress } from "./email";
 import { inboundType, mapInboundLead } from "./inbound";
-import { createLead, formatLeadDetails } from "./leads";
+import { createLead, formatLeadDetails, resetMemoryLeadStoreForTests } from "./leads";
 import { webhookTypeToStatus } from "./email-log";
 
 test("weigert een te lang veld en een prijs wordt niet verplicht", async () => {
-  const huge = await createLead({
-    name: "A".repeat(121),
-    email: "eva@example.com",
-    message: "Kort",
-  });
-  assert.equal(huge.ok, false);
-  const priced = await createLead({
-    name: "Eva",
-    email: "eva-prijs-test@example.com",
-    source: "interesse",
-    message: "Vraag",
-    details: { Prijs: "1", Dienst: "website-nieuw" },
-  });
-  assert.equal(priced.ok, true);
+  const previous = process.env.KOPVAST_LEAD_STORE;
+  process.env.KOPVAST_LEAD_STORE = "memory";
+  resetMemoryLeadStoreForTests();
+  try {
+    const huge = await createLead({
+      name: "A".repeat(121),
+      email: "eva@example.com",
+      message: "Kort",
+    });
+    assert.equal(huge.ok, false);
+    const priced = await createLead({
+      name: "Eva",
+      email: "eva-prijs-test@example.com",
+      source: "interesse",
+      message: "Vraag",
+      details: { Prijs: "1", Dienst: "website-nieuw" },
+    });
+    assert.equal(priced.ok, true);
+    if (priced.ok) assert.equal(priced.duplicate, undefined);
+  } finally {
+    resetMemoryLeadStoreForTests();
+    if (previous === undefined) delete process.env.KOPVAST_LEAD_STORE;
+    else process.env.KOPVAST_LEAD_STORE = previous;
+  }
 });
 
 test("zet formulierdetails om naar leesbare tekst", () => {
