@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { submitAanvraag } from "@/app/(marketing)/aanvraag/actions";
 import { Field, areaClass, fieldClass } from "@/components/form-fields";
@@ -33,6 +33,9 @@ export function InterestForm({
   submitLabel = "Verstuur je vraag",
 }: InterestFormValues) {
   const [state, action, pending] = useActionState(submitAanvraag, null);
+  const [idempotencyKey] = useState(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().replace(/-/g, "") : ""
+  );
   const knownSubject = interestSubjects.some((item) => item.value === subject);
 
   if (state?.ok) {
@@ -51,6 +54,7 @@ export function InterestForm({
   return (
     <form action={action} className="space-y-5 rounded-2xl border border-stone/50 bg-white p-6 md:p-8">
       <input type="hidden" name="source" value={source} />
+      <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
       <input type="hidden" name="Landing" value={landing} />
       <input type="hidden" name="CTA" value={cta} />
       <input type="hidden" name="utm_source" value={utmSource} />

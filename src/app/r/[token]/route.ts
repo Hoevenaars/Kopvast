@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { recordAcquisitionClick } from "@/lib/acquisition-clicks";
-import { handleAcquisitionChoice } from "@/lib/commercial-handoffs";
 import { acquisitionChoiceUrls } from "@/lib/acquisition-start";
 
 export const runtime = "nodejs";
@@ -19,14 +18,11 @@ export async function GET(
     userAgent: request.headers.get("user-agent"),
     method: request.method,
   });
-  if (result.link && result.recorded) {
-    const business = await handleAcquisitionChoice({
-      prospectId: result.link.prospectId,
-      choice: result.link.choice,
-    });
-    if (business.ok) return redirectTo(business.redirectTo);
-  }
-  return redirectTo(result.destination || acquisitionChoiceUrls().choiceAUrl);
+  const destination = result.destination || acquisitionChoiceUrls().choiceAUrl;
+  if (!result.link) return redirectTo(destination);
+  const landing = new URL(destination);
+  landing.searchParams.set("t", token);
+  return redirectTo(landing.toString());
 }
 
 export async function HEAD() {

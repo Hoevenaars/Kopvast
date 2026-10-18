@@ -10,7 +10,20 @@ import { formatNlDate, labelForMail, labelForResponse, labelForStatus } from "@/
 
 export function NewProspectForm() {
   const [state, action] = useActionState(createProspectAction, null);
-  const [draft, setDraft] = useState({ website: "", email: "", company: "", notes: "" });
+  const [hasWebsite, setHasWebsite] = useState(true);
+  const [draft, setDraft] = useState({
+    website: "",
+    email: "",
+    company: "",
+    notes: "",
+    firstName: "",
+    lastName: "",
+    phone: "",
+    city: "",
+    facebookUrl: "",
+    socialUrl: "",
+    sourceUrl: "",
+  });
   const submitting = useRef(false);
 
   useEffect(() => {
@@ -33,47 +46,149 @@ export function NewProspectForm() {
             email: String(data.get("email") ?? ""),
             company: String(data.get("company") ?? ""),
             notes: String(data.get("notes") ?? ""),
+            firstName: String(data.get("firstName") ?? ""),
+            lastName: String(data.get("lastName") ?? ""),
+            phone: String(data.get("phone") ?? ""),
+            city: String(data.get("city") ?? ""),
+            facebookUrl: String(data.get("facebookUrl") ?? ""),
+            socialUrl: String(data.get("socialUrl") ?? ""),
+            sourceUrl: String(data.get("sourceUrl") ?? ""),
           });
         }}
         className="relative space-y-5 rounded-2xl border border-ink/10 bg-white p-5 md:p-6"
       >
-        <Field id="website" label="Website">
-          <input
-            id="website"
-            name="website"
-            required
-            inputMode="url"
-            autoComplete="url"
-            placeholder="https://bedrijf.nl"
-            value={draft.website}
-            onChange={(event) => setDraft((current) => ({ ...current, website: event.target.value }))}
-            className={fieldClass}
-          />
-        </Field>
-        <Field id="email" label="E-mailadres">
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="info@bedrijf.nl"
-            value={draft.email}
-            onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
-            className={fieldClass}
-          />
-        </Field>
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Website aanwezig</legend>
+          <label className="mr-4 text-sm">
+            <input type="radio" name="hasWebsite" value="ja" checked={hasWebsite} onChange={() => setHasWebsite(true)} /> Ja
+          </label>
+          <label className="text-sm">
+            <input type="radio" name="hasWebsite" value="nee" checked={!hasWebsite} onChange={() => setHasWebsite(false)} /> Nee
+          </label>
+        </fieldset>
+        {hasWebsite ? (
+          <Field id="website" label="Website">
+            <input
+              id="website"
+              name="website"
+              required
+              inputMode="url"
+              autoComplete="url"
+              placeholder="https://bedrijf.nl"
+              value={draft.website}
+              onChange={(event) => setDraft((current) => ({ ...current, website: event.target.value }))}
+              className={fieldClass}
+            />
+          </Field>
+        ) : null}
         <Field id="company" label="Bedrijfsnaam">
           <input
             id="company"
             name="company"
-            placeholder="Optioneel"
+            required={!hasWebsite}
+            placeholder={hasWebsite ? "Optioneel" : "Verplicht zonder website"}
             value={draft.company}
             onChange={(event) => setDraft((current) => ({ ...current, company: event.target.value }))}
             className={fieldClass}
           />
         </Field>
-        <Field id="notes" label="Notitie">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id="firstName" label="Voornaam">
+            <input
+              id="firstName"
+              name="firstName"
+              autoComplete="given-name"
+              placeholder="Optioneel"
+              value={draft.firstName}
+              onChange={(event) => setDraft((current) => ({ ...current, firstName: event.target.value }))}
+              className={fieldClass}
+            />
+          </Field>
+          <Field id="lastName" label="Achternaam">
+            <input
+              id="lastName"
+              name="lastName"
+              autoComplete="family-name"
+              placeholder="Optioneel"
+              value={draft.lastName}
+              onChange={(event) => setDraft((current) => ({ ...current, lastName: event.target.value }))}
+              className={fieldClass}
+            />
+          </Field>
+        </div>
+        <Field id="email" label="E-mailadres">
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="Ook een Gmailadres is geldig"
+            value={draft.email}
+            onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
+            className={fieldClass}
+          />
+        </Field>
+        <Field id="phone" label="Telefoon">
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            placeholder="Optioneel"
+            value={draft.phone}
+            onChange={(event) => setDraft((current) => ({ ...current, phone: event.target.value }))}
+            className={fieldClass}
+          />
+        </Field>
+        <Field id="facebookUrl" label="Facebook">
+          <input
+            id="facebookUrl"
+            name="facebookUrl"
+            inputMode="url"
+            placeholder="Optioneel, dit is geen website"
+            value={draft.facebookUrl}
+            onChange={(event) => setDraft((current) => ({ ...current, facebookUrl: event.target.value }))}
+            className={fieldClass}
+          />
+        </Field>
+        <Field id="socialUrl" label="Andere social URL">
+          <input
+            id="socialUrl"
+            name="socialUrl"
+            inputMode="url"
+            placeholder="Optioneel"
+            value={draft.socialUrl}
+            onChange={(event) => setDraft((current) => ({ ...current, socialUrl: event.target.value }))}
+            className={fieldClass}
+          />
+        </Field>
+        <Field id="city" label="Vestigingsplaats">
+          <input
+            id="city"
+            name="city"
+            placeholder="Optioneel"
+            value={draft.city}
+            onChange={(event) => setDraft((current) => ({ ...current, city: event.target.value }))}
+            className={fieldClass}
+          />
+        </Field>
+        <Field id="sourceType" label="Bron">
+          <select id="sourceType" name="sourceType" defaultValue="kopvast" className={fieldClass}>
+            <option value="kopvast">Handmatig</option>
+            <option value="referral">Doorverwijzing</option>
+            <option value="import">Import</option>
+          </select>
+        </Field>
+        <Field id="sourceUrl" label="Bron-URL">
+          <input
+            id="sourceUrl"
+            name="sourceUrl"
+            placeholder="Optioneel"
+            value={draft.sourceUrl}
+            onChange={(event) => setDraft((current) => ({ ...current, sourceUrl: event.target.value }))}
+            className={fieldClass}
+          />
+        </Field>
+        <Field id="notes" label="Persoonlijke notitie">
           <textarea
             id="notes"
             name="notes"
@@ -86,12 +201,12 @@ export function NewProspectForm() {
         {state && "ok" in state && state.ok === false && "message" in state ? (
           <p className="text-sm text-destructive">{state.message}</p>
         ) : null}
-        <FormBusyOverlay label="Website scannen… dit kan even duren." />
+        <FormBusyOverlay label={hasWebsite ? "Website scannen… dit kan even duren." : "Prospect opslaan…"} />
         <SubmitButton
-          pendingLabel="Website scannen…"
+          pendingLabel={hasWebsite ? "Website scannen…" : "Opslaan…"}
           className="inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory sm:w-auto"
         >
-          Scan website
+          {hasWebsite ? "Scan website" : "Prospect opslaan"}
         </SubmitButton>
       </form>
 
