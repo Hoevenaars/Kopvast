@@ -315,6 +315,53 @@ export async function prepareTrackedAcquisitionEmail(input: {
   });
 }
 
+export async function loadTrackedLanding(token: string) {
+  if (!isValidClickToken(token)) return null;
+  const link = await findLinkByHash(hashToken(token));
+  if (!link) return null;
+  let company = "";
+  let website = "";
+  try {
+    const url = new URL(link.destinationUrl);
+    company = url.searchParams.get("bedrijf") ?? "";
+    website = url.searchParams.get("website") ?? "";
+  } catch {
+    company = "";
+    website = "";
+  }
+  let hasWebsite = Boolean(website);
+  const supabase = refreshClient();
+  let place = "";
+  if (supabase) {
+    const { data } = await supabase
+      .from("prospects")
+      .select("company_name, domain, website_url, city")
+      .eq("id", link.prospectId)
+      .maybeSingle();
+    if (data) {
+      company = String(data.company_name || company || "");
+      const siteUrl = String(data.website_url || "").trim();
+      hasWebsite = Boolean(siteUrl);
+      website = hasWebsite ? siteUrl : "";
+      place = String(data.city || "").trim();
+    }
+  }
+  const reason = place
+    ? `We schreven je omdat ${company || "jullie"} in ${place} zit.`
+    : hasWebsite
+      ? "We namen contact op naar aanleiding van jullie bedrijf en website."
+      : "We namen contact op omdat een eigen website hier een logische stap kan zijn.";
+  return {
+    token,
+    prospectId: link.prospectId,
+    choice: link.choice,
+    company,
+    website,
+    hasWebsite,
+    reason,
+  };
+}
+
 export async function recordAcquisitionClick(input: {
   token: string;
   userAgent?: string | null;
@@ -350,21 +397,12 @@ export async function recordAcquisitionClick(input: {
       eventType: ACTIVITY.MAIL_CLICKED,
       actorType: "user",
       actorId: link.choice,
-      metadata: { choice: link.choice, mailId: link.mailId, destination: link.destinationUrl },
+      metadata: { choice: link.choice, mailId: link.mailId, interest: false },
     });
-    const { data: prospect } = await supabase
+    await supabase
       .from("prospects")
-      .select("response_status, next_action, company_name, domain")
-      .eq("id", link.prospectId)
-      .maybeSingle();
-    const patch: Record<string, unknown> = { last_activity_at: now, updated_at: now };
-    if (!prospect?.response_status || prospect.response_status === "NO_RESPONSE") {
-      patch.response_status = clickResponseStatus(link.choice);
-    }
-    if (!prospect?.next_action?.trim()) {
-      patch.next_action = clickActivityLabel(link.choice);
-    }
-    await supabase.from("prospects").update(patch).eq("id", link.prospectId);
+      .update({ last_activity_at: now, updated_at: now })
+      .eq("id", link.prospectId);
   }
 
   let notified = false;
@@ -397,10 +435,11 @@ async function notifyAcquisitionClick(input: {
     : { data: null };
   const who = prospect?.company_name?.trim() || prospect?.domain || "Een prospect";
   const label = choiceClickLabel(input.choice);
-  const subject = `Klik · ${who} · ${label}`;
+  const subject = `Link geopend · ${who}`;
   const href = `${site.url}/admin/acquisitie/${input.prospectId}`;
   const text = [
-    `${who} klikte op "${label}" in de acquisitiemail.`,
+    `${who} opende de acquisitielink (${label}).`,
+    "Dit is nog geen bevestigde interesse.",
     prospect?.domain ? `Website: ${prospect.domain}` : "",
     `Open in admin: ${href}`,
   ]
