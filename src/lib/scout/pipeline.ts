@@ -1,21 +1,47 @@
 import { pickLeadEmail, withManualEmailEnrichment } from "@/lib/contact-email";
 import { pickStoredCompanyName } from "@/lib/company-name";
+import { normalizeEmail } from "@/lib/product";
+import { prospectIdentityKey } from "@/lib/acquisition";
+import { greetingForContact, knownFirstName, prospectIdentityForProfile } from "@/lib/prospect-profile";
+import { findSuppression } from "@/lib/suppression";
+import { buildPersonalApproachLetter } from "@/lib/acquisition/outreach-policy";
 import { newId, nowIso } from "@/lib/workspace-store";
 import { allowExpensiveSideEffects } from "./config";
 import { analyseScoutLead } from "./ai";
 import { scoutServiceClient } from "./auth";
 import { enrichFromFacts } from "./enrichment";
 import { enqueuePipelineJob, failJob, claimPendingJobs, completeJob } from "./jobs";
-import { appendEvent, getLeadById, insertScan, updateLead, upsertDraft } from "./leads";
+import { appendEvent, getLeadById, insertScan, scoutLeadHasWebsite, updateLead, upsertDraft } from "./leads";
 import { scanPublicWebsite } from "./scanner";
 import { syncProspectFromScout } from "./crm";
-import type { ScoutEnrichment } from "./types";
+import type { ScoutEnrichment, ScoutLead } from "./types";
 
 export { enqueuePipelineJob };
 
 async function linkProspect(leadId: string, domain: string, websiteUrl: string, note: string | null, source: string) {
   const supabase = scoutServiceClient();
-  if (!supabase) return null;
+  if (!supabase || !domain.trim()) return null;
+  const current = await getLeadById(leadId);
+  if (current?.prospect_id) {
+    await supabase
+      .from("prospects")
+      .update({
+        domain,
+        website_url: websiteUrl,
+        status: "SCANNING",
+        updated_at: nowIso(),
+        last_activity_at: nowIso(),
+      })
+      .eq("id", current.prospect_id);
+    await supabase.from("prospect_sources").insert({
+      prospect_id: current.prospect_id,
+      source_type: "kopvast",
+      source_url: websiteUrl,
+      source_name: `Kopvast Scout (${source})`,
+      notes: note,
+    });
+    return current.prospect_id;
+  }
   const { data: existing } = await supabase
     .from("prospects")
     .select("id")
@@ -53,6 +79,120 @@ async function linkProspect(leadId: string, domain: string, websiteUrl: string, 
   return created.id as string;
 }
 
+async function linkProspectWithoutWebsite(record: ScoutLead) {
+  const supabase = scoutServiceClient();
+  if (!supabase || !record.company_name) return null;
+  if (record.prospect_id) return record.prospect_id;
+  const identity = record.email
+    ? prospectIdentityKey(record.email, record.company_name)
+    : prospectIdentityForProfile({ email: null, phone: record.phone, company: record.company_name });
+  const { data: existing } = await supabase
+    .from("prospects")
+    .select("id")
+    .eq("is_archived", false)
+    .is("domain", null)
+    .eq("identity_key", identity)
+    .maybeSingle();
+  if (existing?.id) {
+    await updateLead(record.id, { prospect_id: existing.id });
+    return existing.id as string;
+  }
+  if (record.email) {
+    const { data: emailOwner } = await supabase
+      .from("prospect_contacts")
+      .select("prospect_id")
+      .ilike("email", normalizeEmail(record.email))
+      .limit(1)
+      .maybeSingle();
+    if (emailOwner?.prospect_id) {
+      await updateLead(record.id, { prospect_id: emailOwner.prospect_id });
+      return emailOwner.prospect_id as string;
+    }
+  }
+  const suppression = record.email ? await findSuppression(supabase, { email: record.email }) : null;
+  const { data: created, error } = await supabase
+    .from("prospects")
+    .insert({
+      company_name: record.company_name,
+      contact_name: record.contact_name,
+      first_name: record.first_name,
+      last_name: record.last_name,
+      phone: record.phone,
+      city: record.city,
+      facebook_url: record.facebook_url,
+      social_url: record.social_url,
+      domain: null,
+      website_url: null,
+      identity_key: identity,
+      source_type: "kopvast",
+      source_reference: `scout_${record.source}`,
+      status: "NEW",
+      notes: record.note,
+      contact_status: suppression ? "BLOCKED" : "UNKNOWN",
+      contact_source: "scout",
+      do_not_contact: Boolean(suppression),
+      legal_note: suppression ? `Suppression: ${suppression.reason}` : null,
+      public_check_token: crypto.randomUUID().replace(/-/g, ""),
+      last_activity_at: nowIso(),
+      opportunity_score: null,
+      website_score: null,
+    })
+    .select("id")
+    .single();
+  if (error || !created) return null;
+  if (record.email) {
+    await supabase.from("prospect_contacts").insert({
+      prospect_id: created.id,
+      email: normalizeEmail(record.email),
+      first_name: record.first_name,
+      last_name: record.last_name,
+      email_source: "scout",
+      contact_status: suppression ? "BLOCKED" : "UNKNOWN",
+      do_not_contact: Boolean(suppression),
+    });
+  }
+  await supabase.from("prospect_sources").insert({
+    prospect_id: created.id,
+    source_type: "kopvast",
+    source_url: record.source_url,
+    source_name: `Kopvast Scout (${record.source})`,
+    notes: record.note,
+  });
+  await updateLead(record.id, { prospect_id: created.id });
+  return created.id as string;
+}
+
+async function finishLeadWithoutWebsite(record: ScoutLead) {
+  await updateLead(record.id, {
+    status: "nieuw",
+    pipeline_stage: "qualify",
+    score: null,
+    last_error: null,
+    last_scan_at: null,
+    why_interesting: null,
+    commercial_summary: null,
+    biggest_opportunity: null,
+    opportunities: [],
+  });
+  await linkProspectWithoutWebsite(record);
+  const letter = buildPersonalApproachLetter({
+    companyName: record.company_name,
+    domain: null,
+    place: record.city,
+    websitePresence: "NO_WEBSITE",
+    greeting: greetingForContact(knownFirstName({ firstName: record.first_name, contactName: record.contact_name })),
+  });
+  await upsertDraft(record.id, { subject: letter.subject, message: letter.body });
+  await updateLead(record.id, { status: "concept_klaar", pipeline_stage: "draft", score: null, last_scan_at: null });
+  await appendEvent({
+    lead_id: record.id,
+    event_type: "draft_generated",
+    actor_type: "agent",
+    metadata: { website: false, sufficient: letter.sufficient },
+  });
+  await syncProspectFromScout(record.id);
+}
+
 export async function runLeadPipeline(leadId: string) {
   const recordRow = await getLeadById(leadId);
   const record = recordRow
@@ -67,7 +207,11 @@ export async function runLeadPipeline(leadId: string) {
         source: recordRow.source,
       }
     : null;
-  if (!record) throw new Error("Lead ontbreekt.");
+  if (!record || !recordRow) throw new Error("Lead ontbreekt.");
+  if (!scoutLeadHasWebsite(recordRow)) {
+    await finishLeadWithoutWebsite(recordRow);
+    return;
+  }
 
   await updateLead(record.id, { status: "scannen", pipeline_stage: "scan", last_error: null });
   await appendEvent({ lead_id: record.id, event_type: "scan_started", actor_type: "system", metadata: {} });

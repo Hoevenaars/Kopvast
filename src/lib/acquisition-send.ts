@@ -20,7 +20,8 @@ import {
   type ProductFit,
 } from "./acquisition-constants";
 import { explicitOfferPriceInText } from "./acquisition-start";
-import { parseStoredPersonalApproach } from "./acquisition/outreach-policy";
+import { containsInternalAcquisitionInstruction, parseStoredPersonalApproach, personalApproachForProspect } from "./acquisition/outreach-policy";
+import { greetingForContact, knownFirstName } from "./prospect-profile";
 import { isStructuredAcquisitionBody } from "./mail-body";
 import { isEmail, normalizeEmail } from "./product";
 import {
@@ -142,7 +143,7 @@ export async function storeGeneratedMail(
   input: {
     prospectId: string;
     contactId?: string | null;
-    scanId: string;
+    scanId: string | null;
     analysisId?: string | null;
     companyName?: string | null;
     domain: string;
@@ -158,7 +159,7 @@ export async function storeGeneratedMail(
   let websitePresence: "HAS_WEBSITE" | "NO_WEBSITE" | undefined;
   const { data: location } = await supabase
     .from("prospects")
-    .select("city, notes, website_url")
+    .select("city, notes, website_url, first_name, contact_name")
     .eq("id", input.prospectId)
     .maybeSingle();
   if (place === undefined) place = (location?.city as string | null) ?? null;
@@ -175,6 +176,12 @@ export async function storeGeneratedMail(
     place,
     manualNote,
     websitePresence,
+    greeting: greetingForContact(
+      knownFirstName({
+        firstName: typeof location?.first_name === "string" ? location.first_name : null,
+        contactName: typeof location?.contact_name === "string" ? location.contact_name : null,
+      })
+    ),
   });
   let html: string;
   let body = generated.body;
@@ -211,7 +218,7 @@ export async function storeGeneratedMail(
       scan_id: input.scanId,
       analysis_id: input.analysisId ?? null,
       kind: "acquisition_outreach",
-      to_email: to || `draft@${input.domain}`,
+      to_email: to || (input.domain ? `draft@${input.domain}` : "draft@kopvast.nl"),
       intended_to_email: to || null,
       subject: generated.subject,
       body_text: body,
@@ -662,6 +669,30 @@ export async function regenerateProspectMail(prospectId: string, actorEmail: str
   if (failedScan) {
     return ensureUnreachableSiteMail(prospectId, actorEmail, { replaceDraft: true });
   }
+  if (detail && !detail.website_url?.trim()) {
+    if (detail.mail?.status === "draft") {
+      await supabase
+        .from("email_messages")
+        .update({ status: "cancelled", cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("id", detail.mail.id)
+        .eq("status", "draft");
+    }
+    const id = await storeGeneratedMail(supabase, {
+      prospectId,
+      contactId: detail.contact?.id,
+      scanId: null,
+      analysisId: null,
+      companyName: detail.company_name,
+      domain: detail.domain,
+      fit: detail.product_fit ?? "REVIEW_REQUIRED",
+      findings: [],
+      place: detail.city,
+      actorType: "human",
+      actorId: actorEmail,
+    });
+    if (!id) return { ok: false as const, message: "Opnieuw genereren is mislukt." };
+    return { ok: true as const };
+  }
   if (!detail?.scan) return { ok: false as const, message: "Er is nog geen scan om een mail op te baseren." };
   if (detail.mail?.status === "draft") {
     await supabase
@@ -694,6 +725,7 @@ export async function saveProspectMailDraft(input: {
   body: string;
   actorEmail: string;
   approach?: unknown;
+  reviewed?: boolean;
 }) {
   const supabase = refreshClient();
   if (!supabase) return { ok: false as const, message: "Website Refresh is niet geconfigureerd." };
@@ -752,6 +784,7 @@ export async function saveProspectMailDraft(input: {
     metadata: {
       mailId: input.mailId,
       ...(approach ? { approach } : {}),
+      ...(input.reviewed ? { reviewed: true } : {}),
     },
   });
   return { ok: true as const };
@@ -879,7 +912,12 @@ export async function sendProspectTestMail(input: { prospectId: string; mailId: 
   return { ok: true as const };
 }
 
-export async function sendProspectLiveMail(input: { prospectId: string; mailId: string; actorEmail: string }) {
+export async function sendProspectLiveMail(input: {
+  prospectId: string;
+  mailId: string;
+  actorEmail: string;
+  humanReviewed?: boolean;
+}) {
   const supabase = refreshClient();
   if (!supabase) return { ok: false as const, message: "Website Refresh is niet geconfigureerd." };
   const detail = await loadProspectDetail(input.prospectId);
@@ -887,6 +925,22 @@ export async function sendProspectLiveMail(input: { prospectId: string; mailId: 
   const mail = detail.mails.find((item) => item.id === input.mailId) ?? detail.mail;
   const issues = evaluatePreSend({ prospect: detail, mail, live: true });
   if (issues.length) return { ok: false as const, message: issues[0].message };
+  if (!isShortAcquisitionKind(mail?.kind) && containsInternalAcquisitionInstruction(mail?.body_text ?? "")) {
+    return { ok: false as const, message: "De mail bevat nog een interne instructie. Haal die eruit voordat je verstuurt." };
+  }
+  if (!isShortAcquisitionKind(mail?.kind)) {
+    const letter = personalApproachForProspect({
+      companyName: detail.company_name,
+      domain: detail.domain,
+      place: detail.city,
+      websiteUrl: detail.website_url,
+      activities: detail.activities,
+      greeting: greetingForContact(knownFirstName({ firstName: detail.first_name, contactName: detail.contact_name })),
+    });
+    if (!letter.sufficient && !input.humanReviewed) {
+      return { ok: false as const, message: "Beoordeel de tekst voordat je hem verstuurt." };
+    }
+  }
 
   const intended = normalizeEmail(detail.contact!.email);
   const settings = await resolveEmailSettings();
@@ -1239,8 +1293,20 @@ export async function sendAutomaticFollowUp(prospectId: string) {
     return { ok: true as const, prospectId, skipped: "missing_email" };
   }
   const recipient = recipientForMode(intended, settings.mode, settings.testEmail);
-  const subject = `Nog even over ${detail.domain}`;
-  const body = buildAutoFollowUpBody({ domain: detail.domain, fit: detail.product_fit, place: detail.city });
+  const priorMail = detail.mails.find((item) => item.kind === "acquisition_outreach" && item.body_text?.trim());
+  const noWebsite = !detail.website_url?.trim();
+  const subject = noWebsite
+    ? `Nog even over ${detail.company_name?.trim() || "jullie bedrijf"}`
+    : `Nog even over ${detail.domain}`;
+  const body = buildAutoFollowUpBody({
+    domain: detail.domain,
+    companyName: detail.company_name,
+    fit: detail.product_fit,
+    place: detail.city,
+    priorMailText: priorMail?.body_text,
+    websitePresence: noWebsite ? "NO_WEBSITE" : "HAS_WEBSITE",
+    greeting: greetingForContact(knownFirstName({ firstName: detail.first_name, contactName: detail.contact_name })),
+  });
 
   if (!mailId) {
     const { data: created, error } = await supabase
@@ -1310,7 +1376,7 @@ export async function sendAutomaticFollowUp(prospectId: string) {
       companyName: fresh.company_name,
       subject,
       body,
-      offerPrice: explicitOfferPriceInText(body) ?? followUpChoicePrice({ fit: fresh.product_fit, place: fresh.city }),
+      offerPrice: explicitOfferPriceInText(body),
     });
     html = prepared.html;
     text = prepared.text;

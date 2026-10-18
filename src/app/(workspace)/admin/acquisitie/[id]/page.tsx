@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
+  attachWebsiteAction,
   convertProspectForm,
   createManualReasonsMailAction,
   createUnreachableMailForm,
+  generateFirstMailAction,
   rescanProspectAction,
   updateFollowUpForm,
+  updateProspectProfileAction,
 } from "@/app/(workspace)/admin/acquisitie/actions";
 import { CommercialFollowUp } from "@/components/acquisition/commercial-follow-up";
 import { SentMails } from "@/components/acquisition/sent-mails";
 import { ManualReasonsForm } from "@/components/acquisition/manual-reasons-form";
 import { PageIntro } from "@/components/workspace/page-frame";
 import { FormBusyOverlay, SubmitButton } from "@/components/workspace/form-busy";
-import { fieldClass, Field } from "@/components/form-fields";
+import { fieldClass, areaClass, Field } from "@/components/form-fields";
 import { loadProspectDetail } from "@/lib/acquisition";
 import { mailHasFindings } from "@/lib/acquisition/manual-reasons";
 import { isUnreachableProspect } from "@/lib/acquisition/unreachable-site-mail";
@@ -35,6 +38,7 @@ import {
 import { isShortAcquisitionKind } from "@/lib/acquisition/follow-up";
 import { sentMailRecords } from "@/lib/acquisition/sent-mails";
 import { explainOutreachOffer, personalApproachForProspect } from "@/lib/acquisition/outreach-policy";
+import { greetingForContact, knownFirstName } from "@/lib/prospect-profile";
 import { resolveEmailSettings } from "@/lib/email-mode";
 import { ProspectContactEmailForm } from "../contact-email-form";
 import { ProspectCompanyNameForm } from "../company-name-form";
@@ -76,10 +80,15 @@ export default async function ProspectDetailPage({
   const mailSent = sentMails.some((mail) => mail.kind === "acquisition_outreach");
   const showManualReasons = scanFailed && !mailSent && !mailHasFindings(prospect.mail);
   const showUnreachableCreate = scanFailed && Boolean(prospect.contact?.email) && !prospect.mail;
+  const hasWebsite = Boolean(prospect.website_url?.trim());
 
   return (
     <div className="space-y-8">
-      <PageIntro eyebrow={prospect.domain} title={prospect.company_name || prospect.domain} text={prospect.website_url} />
+      <PageIntro
+        eyebrow={hasWebsite ? prospect.domain : "Geen website"}
+        title={prospect.company_name || prospect.domain || "Prospect"}
+        text={hasWebsite ? prospect.website_url : "Nog geen website. Er is geen scan en geen score."}
+      />
       {scout ? <ScoutCapturePanel capture={scout} /> : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -93,8 +102,58 @@ export default async function ProspectDetailPage({
         <Stat label="Kosten" value={`€ ${prospect.total_cost.toFixed(4)}`} />
       </section>
       <p className="text-sm text-ink/55">
-        De opportunity score is een rangorde voor later automatisch werk. Jij bepaalt of je mailt.
+        {hasWebsite
+          ? "De opportunity score is een rangorde voor later automatisch werk. Jij bepaalt of je mailt."
+          : "Zonder website is er geen opportunity score. De eerste mail gebruikt alleen wat je zelf hebt vastgelegd."}
       </p>
+      {prospect.contact_name || prospect.phone ? (
+        <p className="text-sm text-ink/70">
+          {prospect.contact_name ? `Contactpersoon: ${prospect.contact_name}` : "Contactpersoon nog onbekend"}
+          {prospect.phone ? ` · Telefoon: ${prospect.phone}` : ""}
+          {prospect.facebook_url ? ` · Facebook: ${prospect.facebook_url}` : ""}
+        </p>
+      ) : (
+        <p className="text-sm text-ink/55">Contactpersoon nog onbekend. Een Gmailadres of telefoonnummer is genoeg om later contact te leggen.</p>
+      )}
+
+      <form action={updateProspectProfileAction} className="relative space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+        <FormBusyOverlay label="Gegevens opslaan…" />
+        <h2 className="font-semibold">Prospectgegevens</h2>
+        <input type="hidden" name="prospectId" value={prospect.id} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id="firstName" label="Voornaam">
+            <input id="firstName" name="firstName" defaultValue={prospect.first_name ?? ""} className={fieldClass} />
+          </Field>
+          <Field id="lastName" label="Achternaam">
+            <input id="lastName" name="lastName" defaultValue={prospect.last_name ?? ""} className={fieldClass} />
+          </Field>
+        </div>
+        <Field id="phone" label="Telefoon">
+          <input id="phone" name="phone" defaultValue={prospect.phone ?? ""} className={fieldClass} />
+        </Field>
+        <Field id="city" label="Vestigingsplaats">
+          <input id="city" name="city" defaultValue={prospect.city ?? ""} className={fieldClass} />
+        </Field>
+        <Field id="facebookUrl" label="Facebook">
+          <input id="facebookUrl" name="facebookUrl" defaultValue={prospect.facebook_url ?? ""} placeholder="Geen website, geen scan" className={fieldClass} />
+        </Field>
+        <Field id="socialUrl" label="Andere social URL">
+          <input id="socialUrl" name="socialUrl" defaultValue={prospect.social_url ?? ""} className={fieldClass} />
+        </Field>
+        <Field id="sourceType" label="Bron">
+          <select id="sourceType" name="sourceType" defaultValue={prospect.source_type ?? "kopvast"} className={fieldClass}>
+            <option value="kopvast">Handmatig</option>
+            <option value="referral">Doorverwijzing</option>
+            <option value="import">Import</option>
+          </select>
+        </Field>
+        <Field id="notes" label="Persoonlijke notitie">
+          <textarea id="notes" name="notes" defaultValue={prospect.notes ?? ""} className={areaClass} />
+        </Field>
+        <SubmitButton pendingLabel="Opslaan…" className="h-12 cursor-pointer rounded-md bg-ink px-5 text-sm font-semibold text-ivory">
+          Gegevens opslaan
+        </SubmitButton>
+      </form>
 
       {prospect.scan ? <ScanProgress running={running} steps={prospect.scan.progress} /> : null}
       {prospect.scan?.error_message ? (
@@ -112,7 +171,11 @@ export default async function ProspectDetailPage({
       <section className="rounded-2xl border border-ink/10 bg-white p-5">
         <h2 className="font-semibold">Wat valt op?</h2>
         {commercialFindings.length === 0 ? (
-          <p className="mt-3 text-sm text-ink/45">Nog geen commerciële findings. De scan loopt of leverde te weinig signaal.</p>
+          <p className="mt-3 text-sm text-ink/45">
+            {hasWebsite
+              ? "Nog geen commerciële findings. De scan loopt of leverde te weinig signaal."
+              : "Geen websitebevindingen. Die verzinnen we niet."}
+          </p>
         ) : (
           <ol className="mt-4 space-y-4">
             {commercialFindings.map((finding, index) => (
@@ -179,6 +242,7 @@ export default async function ProspectDetailPage({
                   place: prospect.city,
                   websiteUrl: prospect.website_url,
                   activities: prospect.activities,
+                  greeting: greetingForContact(knownFirstName({ firstName: prospect.first_name, contactName: prospect.contact_name })),
                 })
           }
         />
@@ -195,6 +259,21 @@ export default async function ProspectDetailPage({
             className="h-12 cursor-pointer rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory"
           >
             Maak mail voor onbereikbare site
+          </SubmitButton>
+        </form>
+      ) : !hasWebsite && !showManualReasons && !sentMails.length ? (
+        <form action={generateFirstMailAction} className="relative space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+          <FormBusyOverlay label="Mail klaarzetten…" />
+          <input type="hidden" name="prospectId" value={prospect.id} />
+          <h2 className="font-semibold">Eerste acquisitiemail</h2>
+          <p className="text-sm leading-6 text-ink/70">
+            Er is geen website om te analyseren. De mail blijft persoonlijk en noemt geen technische bevindingen en geen prijs.
+          </p>
+          <SubmitButton
+            pendingLabel="Mail klaarzetten…"
+            className="h-12 cursor-pointer rounded-md bg-copper-dark px-5 text-sm font-semibold text-ivory"
+          >
+            Maak de eerste mail
           </SubmitButton>
         </form>
       ) : showManualReasons || sentMails.length ? null : (
@@ -245,6 +324,23 @@ export default async function ProspectDetailPage({
 
         <div className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
           <h2 className="font-semibold">Acties</h2>
+          {hasWebsite ? null : (
+            <form action={attachWebsiteAction} className="relative space-y-3">
+              <FormBusyOverlay label="Website koppelen…" />
+              <p className="text-sm leading-6 text-ink/70">
+                Komt er later een website bij, dan blijft dit dezelfde prospect. Daarna start de websitecheck.
+              </p>
+              <input type="hidden" name="prospectId" value={prospect.id} />
+              <input name="website" required placeholder="https://" className={fieldClass} />
+              <SubmitButton
+                pendingLabel="Website koppelen…"
+                className="h-12 w-full cursor-pointer rounded-md border border-ink/15 text-sm font-semibold"
+              >
+                Website koppelen
+              </SubmitButton>
+            </form>
+          )}
+          {hasWebsite ? (
           <form action={rescanProspectAction} className="relative">
             <FormBusyOverlay label="Nieuwe scan starten…" />
             <input type="hidden" name="prospectId" value={prospect.id} />
@@ -257,6 +353,7 @@ export default async function ProspectDetailPage({
               Nieuwe scan uitvoeren
             </SubmitButton>
           </form>
+          ) : null}
           {prospect.status !== "CONVERTED" ? (
             <form action={convertProspectForm} className="relative">
               <FormBusyOverlay label="Lead maken…" />

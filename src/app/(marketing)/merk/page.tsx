@@ -43,7 +43,7 @@ export default function MerkPage() {
         <div className="container-page grid gap-10 py-16 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
             <p className="text-xs tracking-[0.18em] text-olive uppercase">{products.merkrefresh.name}</p>
-            <h2 className="mt-3 text-3xl text-ink md:text-4xl">Geen onnodige rebranding.</h2>
+            <h2 className="mt-3 text-3xl text-ink md:text-4xl">Wat werkt, blijft staan.</h2>
             <p className="mt-4 max-w-xl text-base leading-7 text-olive">{products.merkrefresh.summary}</p>
             <p className="mt-6 font-heading text-5xl text-ink">{products.merkrefresh.price}</p>
             <p className="mt-1 text-xs text-stone">{products.merkrefresh.cadence}</p>

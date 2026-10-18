@@ -6,7 +6,7 @@ import { pageMeta, routes } from "@/lib/site";
 export const metadata: Metadata = pageMeta(
   routes.maatwerk,
   "Maatwerk",
-  "Voor een grotere of specifiekere vraag: webshop, portaal, koppeling of campagne. Geen automatische vaste prijs."
+  "Voor een grotere of specifiekere vraag: webshop, portaal, koppeling of campagne. De prijs staat in het voorstel."
 );
 
 export default function CustomPage() {
@@ -19,8 +19,7 @@ export default function CustomPage() {
         </h1>
         <p className="mt-5 text-base leading-7 text-olive">
           Maatwerk is voor een grotere of specifiekere vraag: extra pagina’s, een webshop, een klantomgeving,
-          een campagne of een koppeling. We maken een passende aanpak en prijs. Er is geen automatische
-          pakketprijs.
+          een campagne of een koppeling. We maken een passende aanpak. De prijs staat in het voorstel, niet in deze pagina.
         </p>
         <p className="mt-4 text-sm leading-6 text-olive">
           Weet je nog niet of het maatwerk is?{" "}

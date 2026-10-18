@@ -54,6 +54,9 @@ test("zet requeststatus en next action voor handoffs", () => {
   assert.equal(nextActionForHandoff({ intent: "PROPOSAL" }), NEXT_ACTIONS.MAKE_PROPOSAL);
   assert.equal(nextActionForHandoff({ intent: "MORE_INFO", hasAnalysis: false }), NEXT_ACTIONS.FINISH_ANALYSIS);
   assert.equal(nextActionForHandoff({ intent: "MORE_INFO", hasAnalysis: true }), NEXT_ACTIONS.CALL_CLIENT);
+  assert.equal(nextActionForHandoff({ intent: "MORE_INFO", hasWebsite: false }), NEXT_ACTIONS.SHOW_DIRECTION);
+  assert.equal(nextActionForHandoff({ intent: "MORE_INFO", hasWebsite: true }), NEXT_ACTIONS.DISCUSS_OPTIONS);
+  assert.equal(nextActionForHandoff({ intent: "PROPOSAL", hasWebsite: false }), NEXT_ACTIONS.MAKE_PROPOSAL);
   assert.equal(shouldFinishAnalysisManually({ hasAnalysis: false }), true);
   assert.equal(shouldFinishAnalysisManually({ hasAnalysis: true }), false);
   assert.equal(shouldFinishAnalysisManually({ hasAnalysis: false, existingNextAction: NEXT_ACTIONS.CALL_CLIENT }), false);

@@ -3,6 +3,7 @@ import { MORE_INFO_CTA_LABEL, PROPOSAL_CTA_LABEL } from "@/emails/acquisition-ou
 import { logProspectActivity } from "@/lib/acquisition-activity";
 import { ACTIVITY, FINDING_CATEGORY_LABELS, type ProductFit } from "@/lib/acquisition-constants";
 import { explainOutreachOffer } from "@/lib/acquisition/outreach-policy";
+import type { WebsitePresence } from "@/lib/acquisition/special-offer-rules";
 import { loadProspectDetail, type DashboardAction, type ProspectDetail } from "@/lib/acquisition";
 import { addSuppression } from "@/lib/suppression";
 import { getEmailMode } from "@/lib/email-mode";
@@ -118,14 +119,22 @@ export function nurtureUntilFromChoice(choice: string, customDate: string | null
   return base.toISOString();
 }
 
-export function followUpOfferSentence(input: { fit: ProductFit | null; place?: string | null }) {
-  const view = explainOutreachOffer({ fit: input.fit, place: input.place });
-  if (!input.fit || input.fit === "NOT_FIT" || input.fit === "REVIEW_REQUIRED") return null;
-  if (input.fit === "CUSTOM_FIT") {
-    return "Voor jullie denk ik nog steeds aan maatwerk, passend bij wat de website nodig heeft.";
-  }
-  if (view.eligible) return "Voor jullie staat mijn aanbod van €995 excl. btw. nog steeds.";
-  return `Voor jullie staat mijn aanbod van ${products.website.price} excl. btw. nog steeds.`;
+function priceAlreadyInMail(prior: string | null | undefined): 995 | 1495 | null {
+  if (/€\s*995\b/.test(prior ?? "")) return 995;
+  if (/€\s*1[.,]495\b/.test(prior ?? "")) return 1495;
+  return null;
+}
+
+export function followUpOfferSentence(input: {
+  fit: ProductFit | null;
+  place?: string | null;
+  priorMailText?: string | null;
+}) {
+  if (!input.fit || input.fit !== "STANDARD_FIT") return null;
+  const price = priceAlreadyInMail(input.priorMailText);
+  if (price === 995) return "Voor jullie staat mijn aanbod van €995 excl. btw. nog steeds.";
+  if (price === 1495) return `Voor jullie staat mijn aanbod van ${products.website.price} excl. btw. nog steeds.`;
+  return null;
 }
 
 export function followUpChoicePrice(input: { fit: ProductFit | null; place?: string | null }): 995 | 1495 | null {
@@ -133,14 +142,28 @@ export function followUpChoicePrice(input: { fit: ProductFit | null; place?: str
   return explainOutreachOffer(input).eligible ? 995 : 1495;
 }
 
-export function buildAutoFollowUpBody(input: { domain: string; fit: ProductFit | null; place?: string | null }) {
+export function buildAutoFollowUpBody(input: {
+  domain: string;
+  fit: ProductFit | null;
+  place?: string | null;
+  priorMailText?: string | null;
+  companyName?: string | null;
+  websitePresence?: WebsitePresence;
+  greeting?: string | null;
+}) {
+  const greeting = input.greeting?.trim() || "Goedendag,";
   const offer = followUpOfferSentence(input);
+  const noWebsite = input.websitePresence === "NO_WEBSITE";
   return [
-    "Goedendag,",
+    greeting,
     "",
-    `Ik stuur mijn mail over ${input.domain} nog één keer naar boven.`,
+    noWebsite
+      ? "Ik stuur mijn eerdere bericht over jullie bedrijf nog één keer naar boven."
+      : `Ik stuur mijn mail over ${input.domain} nog één keer naar boven.`,
     "",
-    "Ik zie nog steeds voldoende aanknopingspunten om hier iets sterkers van te maken.",
+    noWebsite
+      ? "Een sterke online presentatie blijft voor jullie de moeite waard."
+      : "Ik zie nog steeds voldoende aanknopingspunten om hier iets sterkers van te maken.",
     "",
     ...(offer ? [offer, ""] : []),
     PROPOSAL_CTA_LABEL,

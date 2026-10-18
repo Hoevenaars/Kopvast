@@ -10,6 +10,7 @@ import { parseManualCompanyName, replaceCompanyNameInText } from "./company-name
 import { prepareTrackedAcquisitionEmail } from "./acquisition-clicks";
 import { isEmail, normalizeEmail } from "./product";
 import { canonicalDomainFromInput } from "./acquire-score";
+import { decideCompanyWebsite, parseProspectProfile, prospectIdentityForProfile } from "./prospect-profile";
 import { addSuppression, findSuppression, type SuppressionHit } from "./suppression";
 import { logProspectActivity } from "./acquisition-activity";
 import {
@@ -158,6 +159,13 @@ export type ProspectDetail = {
   is_archived: boolean;
   legal_note: string | null;
   notes: string | null;
+  contact_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  facebook_url: string | null;
+  social_url: string | null;
+  source_type: string | null;
   last_scan_at: string | null;
   last_contacted_at: string | null;
   last_activity_at: string | null;
@@ -201,7 +209,7 @@ export type DuplicateProspect = {
 };
 
 export type CreateProspectResult =
-  | { ok: true; prospectId: string; scanId: string; reused: boolean }
+  | { ok: true; prospectId: string; scanId: string | null; reused: boolean }
   | { ok: false; message: string }
   | { ok: false; duplicate: true; existing: DuplicateProspect; suppressed?: SuppressionHit | null }
   | { ok: false; emailConflict: true; existing: DuplicateProspect };
@@ -366,6 +374,22 @@ async function loadDuplicate(supabase: SupabaseClient, prospectId: string): Prom
   };
 }
 
+export function prospectIdentityKey(email: string, company: string) {
+  return prospectIdentityForProfile({ email, company });
+}
+
+const PROSPECT_SOURCE_TYPES = ["kopvast", "referral", "import"] as const;
+
+function allowedSourceType(value: string | undefined) {
+  const source = (value ?? "").trim();
+  return PROSPECT_SOURCE_TYPES.includes(source as (typeof PROSPECT_SOURCE_TYPES)[number]) ? source : "kopvast";
+}
+
+function textOrNull(value: string | null | undefined) {
+  const text = (value ?? "").trim();
+  return text || null;
+}
+
 export async function createAcquisitionProspect(input: {
   website: string;
   email?: string;
@@ -376,12 +400,33 @@ export async function createAcquisitionProspect(input: {
   sourceReference?: string;
   sourceName?: string;
   contactSource?: string;
+  hasWebsite?: boolean;
+  contactName?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  facebookUrl?: string;
+  socialUrl?: string;
+  city?: string;
+  sourceUrl?: string;
+  sourceType?: string;
 }): Promise<CreateProspectResult> {
+  if (input.hasWebsite === false) return createProspectWithoutWebsite(input);
   const supabase = refreshClient();
   if (!supabase) return { ok: false, message: "Website Refresh is niet geconfigureerd." };
 
   const email = input.email?.trim() ? normalizeEmail(input.email) : "";
   if (input.email?.trim() && !isEmail(email)) return { ok: false, message: "Vul een geldig e-mailadres in." };
+  const profile = parseProspectProfile({
+    firstName: input.firstName || input.contactName,
+    lastName: input.lastName,
+    phone: input.phone,
+    facebookUrl: input.facebookUrl,
+    socialUrl: input.socialUrl,
+    city: input.city,
+    notes: input.notes,
+  });
+  if (!profile.ok) return profile;
 
   let parsed: ReturnType<typeof canonicalDomainFromInput>;
   try {
@@ -442,10 +487,17 @@ export async function createAcquisitionProspect(input: {
       company_name: input.company?.trim() || null,
       domain: parsed.domain,
       website_url: parsed.websiteUrl,
-      source_type: "kopvast",
+      source_type: allowedSourceType(input.sourceType),
       source_reference: input.sourceReference || "kopvast_admin",
       status: "SCANNING",
-      notes: input.notes?.trim() || null,
+      notes: profile.profile.notes,
+      contact_name: profile.profile.contactName,
+      first_name: profile.profile.firstName,
+      last_name: profile.profile.lastName,
+      phone: profile.profile.phone,
+      facebook_url: profile.profile.facebookUrl,
+      social_url: profile.profile.socialUrl,
+      city: profile.profile.city,
       contact_status: suppression ? "BLOCKED" : "UNKNOWN",
       contact_source: contactSource,
       do_not_contact: Boolean(suppression),
@@ -467,6 +519,8 @@ export async function createAcquisitionProspect(input: {
         source: contactSource,
         doNotContact: Boolean(suppression),
         status: suppression ? "BLOCKED" : "UNKNOWN",
+        firstName: profile.profile.firstName,
+        lastName: profile.profile.lastName,
       })
     : null;
 
@@ -490,7 +544,7 @@ export async function createAcquisitionProspect(input: {
   await supabase.from("prospect_sources").insert({
     prospect_id: created.id,
     source_type: "kopvast",
-    source_url: parsed.websiteUrl,
+    source_url: textOrNull(input.sourceUrl) || parsed.websiteUrl,
     source_name: input.sourceName || "Kopvast admin",
     notes: contact?.email || email || input.notes || null,
   });
@@ -513,6 +567,277 @@ export async function createAcquisitionProspect(input: {
   });
 
   return { ok: true, prospectId: created.id, scanId: scan.id, reused: false };
+}
+
+async function createProspectWithoutWebsite(input: {
+  email?: string;
+  company?: string;
+  notes?: string;
+  actorEmail: string;
+  sourceReference?: string;
+  sourceName?: string;
+  contactSource?: string;
+  contactName?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  facebookUrl?: string;
+  socialUrl?: string;
+  city?: string;
+  sourceUrl?: string;
+  sourceType?: string;
+}): Promise<CreateProspectResult> {
+  const supabase = refreshClient();
+  if (!supabase) return { ok: false, message: "Website Refresh is niet geconfigureerd." };
+  const company = input.company?.trim() ?? "";
+  if (!company) return { ok: false, message: "Vul een bedrijfsnaam in." };
+  const profile = parseProspectProfile({
+    firstName: input.firstName || input.contactName,
+    lastName: input.lastName,
+    email: input.email,
+    phone: input.phone,
+    facebookUrl: input.facebookUrl,
+    socialUrl: input.socialUrl,
+    city: input.city,
+    notes: input.notes,
+  });
+  if (!profile.ok) return profile;
+  const email = profile.profile.email ?? "";
+  const identity = prospectIdentityForProfile({
+    email,
+    phone: profile.profile.phone,
+    company,
+  });
+  const suppression = email ? await findSuppression(supabase, { email }) : null;
+  const { data: existing } = await supabase
+    .from("prospects")
+    .select("id")
+    .eq("is_archived", false)
+    .is("domain", null)
+    .eq("identity_key", identity)
+    .maybeSingle();
+  if (existing?.id) {
+    return {
+      ok: false,
+      duplicate: true,
+      existing: await loadDuplicate(supabase, existing.id),
+      suppressed: suppression,
+    };
+  }
+  if (email) {
+    const { data: emailOwner } = await supabase
+      .from("prospect_contacts")
+      .select("prospect_id")
+      .ilike("email", email)
+      .limit(1)
+      .maybeSingle();
+    if (emailOwner?.prospect_id) {
+      return { ok: false, emailConflict: true, existing: await loadDuplicate(supabase, emailOwner.prospect_id) };
+    }
+  }
+  const contactSource = input.contactSource || "admin";
+  const { data: created, error } = await supabase
+    .from("prospects")
+    .insert({
+      company_name: company,
+      domain: null,
+      website_url: null,
+      identity_key: identity,
+      source_type: allowedSourceType(input.sourceType),
+      source_reference: input.sourceReference || "kopvast_admin",
+      status: "NEW",
+      notes: profile.profile.notes,
+      contact_name: profile.profile.contactName,
+      first_name: profile.profile.firstName,
+      last_name: profile.profile.lastName,
+      phone: profile.profile.phone,
+      facebook_url: profile.profile.facebookUrl,
+      social_url: profile.profile.socialUrl,
+      city: profile.profile.city,
+      contact_status: suppression ? "BLOCKED" : "UNKNOWN",
+      contact_source: contactSource,
+      do_not_contact: Boolean(suppression),
+      legal_note: suppression ? `Suppression: ${suppression.reason}` : null,
+      public_check_token: crypto.randomUUID().replace(/-/g, ""),
+      last_activity_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
+    console.error("[kopvast] Prospect zonder website aanmaken mislukt", error?.message);
+    return { ok: false, message: "Prospect opslaan is mislukt." };
+  }
+  if (email) {
+    await upsertContact(supabase, {
+      prospectId: created.id,
+      email,
+      source: contactSource,
+      doNotContact: Boolean(suppression),
+      status: suppression ? "BLOCKED" : "UNKNOWN",
+      firstName: profile.profile.firstName,
+      lastName: profile.profile.lastName,
+    });
+  }
+  await supabase.from("prospect_sources").insert({
+    prospect_id: created.id,
+    source_type: allowedSourceType(input.sourceType),
+    source_url: textOrNull(input.sourceUrl),
+    source_name: input.sourceName || "Kopvast admin",
+    notes: profile.profile.notes,
+  });
+  await logProspectActivity(supabase, {
+    prospectId: created.id,
+    eventType: ACTIVITY.PROSPECT_CREATED,
+    actorType: "human",
+    actorId: input.actorEmail,
+    newStatus: "NEW",
+    metadata: { website: false, email: email || null, company },
+  });
+  return { ok: true, prospectId: created.id, scanId: null, reused: false };
+}
+
+export async function attachProspectWebsite(input: { prospectId: string; website: string; actorEmail: string }) {
+  const supabase = refreshClient();
+  if (!supabase) return { ok: false as const, message: "Website Refresh is niet geconfigureerd." };
+  const decision = decideCompanyWebsite(input.website);
+  if (decision.action !== "website") {
+    return { ok: false as const, message: decision.action === "reject" ? decision.message : "Vul een website in." };
+  }
+  try {
+    await assertPublicHostname(decision.url.hostname);
+  } catch (error) {
+    return { ok: false as const, message: error instanceof Error ? error.message : "Dit websiteadres is niet geldig." };
+  }
+  const { data: prospect } = await supabase.from("prospects").select("id").eq("id", input.prospectId).maybeSingle();
+  if (!prospect) return { ok: false as const, message: "Prospect niet gevonden." };
+  const { data: existing } = await supabase
+    .from("prospects")
+    .select("id")
+    .eq("is_archived", false)
+    .ilike("domain", decision.domain)
+    .neq("id", input.prospectId)
+    .maybeSingle();
+  if (existing?.id) return { ok: false as const, message: `${decision.domain} hoort al bij een andere prospect.` };
+  const { error: updateError } = await supabase
+    .from("prospects")
+    .update({
+      domain: decision.domain,
+      website_url: decision.websiteUrl,
+      identity_key: null,
+      status: "SCANNING",
+      updated_at: new Date().toISOString(),
+      last_activity_at: new Date().toISOString(),
+    })
+    .eq("id", input.prospectId);
+  if (updateError) return { ok: false as const, message: "Website koppelen is mislukt." };
+  const { data: scan, error: scanError } = await supabase
+    .from("website_scans")
+    .insert({
+      prospect_id: input.prospectId,
+      status: "queued",
+      website_url: decision.websiteUrl,
+      canonical_domain: decision.domain,
+      scanner_version: SCANNER_VERSION,
+      progress: emptyScanProgress(),
+    })
+    .select("id")
+    .single();
+  if (scanError || !scan) return { ok: false as const, message: "Scan starten is mislukt." };
+  await supabase.from("prospect_sources").insert({
+    prospect_id: input.prospectId,
+    source_type: "kopvast",
+    source_url: decision.websiteUrl,
+    source_name: "Website gekoppeld",
+  });
+  await logProspectActivity(supabase, {
+    prospectId: input.prospectId,
+    eventType: ACTIVITY.SCAN_STARTED,
+    actorType: "human",
+    actorId: input.actorEmail,
+    newStatus: "SCANNING",
+    metadata: { scanId: scan.id, domain: decision.domain },
+  });
+  return { ok: true as const, prospectId: input.prospectId, scanId: String(scan.id) };
+}
+
+export async function updateProspectProfile(input: {
+  prospectId: string;
+  actorEmail: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  city?: string;
+  notes?: string;
+  facebookUrl?: string;
+  socialUrl?: string;
+  sourceType?: string;
+}) {
+  const supabase = refreshClient();
+  if (!supabase) return { ok: false as const, message: "Website Refresh is niet geconfigureerd." };
+  const profile = parseProspectProfile({
+    firstName: input.firstName,
+    lastName: input.lastName,
+    phone: input.phone,
+    facebookUrl: input.facebookUrl,
+    socialUrl: input.socialUrl,
+    city: input.city,
+    notes: input.notes,
+  });
+  if (!profile.ok) return profile;
+  const { data: prospect } = await supabase
+    .from("prospects")
+    .select("id, domain, company_name, contact_name")
+    .eq("id", input.prospectId)
+    .maybeSingle();
+  if (!prospect) return { ok: false as const, message: "Prospect niet gevonden." };
+  const patch: Record<string, unknown> = {
+    first_name: profile.profile.firstName,
+    last_name: profile.profile.lastName,
+    contact_name: profile.profile.contactName,
+    phone: profile.profile.phone,
+    city: profile.profile.city,
+    notes: profile.profile.notes,
+    facebook_url: profile.profile.facebookUrl,
+    social_url: profile.profile.socialUrl,
+    updated_at: new Date().toISOString(),
+    last_activity_at: new Date().toISOString(),
+  };
+  const sourceType = (input.sourceType ?? "").trim();
+  if (PROSPECT_SOURCE_TYPES.includes(sourceType as (typeof PROSPECT_SOURCE_TYPES)[number])) {
+    patch.source_type = sourceType;
+  }
+  if (!textOrNull(prospect.domain) && textOrNull(prospect.company_name)) {
+    const { data: contact } = await supabase
+      .from("prospect_contacts")
+      .select("email")
+      .eq("prospect_id", input.prospectId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    patch.identity_key = prospectIdentityForProfile({
+      email: contact?.email,
+      phone: profile.profile.phone,
+      company: String(prospect.company_name),
+    });
+  }
+  const { error } = await supabase.from("prospects").update(patch).eq("id", input.prospectId);
+  if (error) return { ok: false as const, message: "Gegevens opslaan is mislukt." };
+  await supabase
+    .from("prospect_contacts")
+    .update({
+      first_name: profile.profile.firstName,
+      last_name: profile.profile.lastName,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("prospect_id", input.prospectId);
+  await logProspectActivity(supabase, {
+    prospectId: input.prospectId,
+    eventType: ACTIVITY.CONTACT_UPDATED,
+    actorType: "human",
+    actorId: input.actorEmail,
+    metadata: { profile: true },
+  });
+  return { ok: true as const };
 }
 
 export async function importAcquisitionProspects(input: {
@@ -541,7 +866,7 @@ export async function importAcquisitionProspects(input: {
       sourceName: "Kopvast import",
       contactSource: "import",
     });
-    if (result.ok) {
+    if (result.ok && result.scanId) {
       items.push({
         ok: true,
         website: row.website,
@@ -549,6 +874,17 @@ export async function importAcquisitionProspects(input: {
         company: row.company,
         prospectId: result.prospectId,
         scanId: result.scanId,
+      });
+      continue;
+    }
+    if (result.ok) {
+      items.push({
+        ok: false,
+        reason: "error",
+        website: row.website,
+        email: row.email,
+        company: row.company,
+        message: "Scan starten is mislukt.",
       });
       continue;
     }
@@ -708,6 +1044,8 @@ export async function upsertContact(
     source: string;
     doNotContact?: boolean;
     status?: ContactStatus;
+    firstName?: string | null;
+    lastName?: string | null;
   }
 ) {
   const email = normalizeEmail(input.email);
@@ -723,6 +1061,8 @@ export async function upsertContact(
       .update({
         do_not_contact: input.doNotContact ?? existing.do_not_contact,
         contact_status: input.status ?? existing.contact_status,
+        first_name: input.firstName ?? existing.first_name,
+        last_name: input.lastName ?? existing.last_name,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id)
@@ -736,6 +1076,8 @@ export async function upsertContact(
       prospect_id: input.prospectId,
       email,
       email_source: input.source,
+      first_name: input.firstName ?? null,
+      last_name: input.lastName ?? null,
       do_not_contact: Boolean(input.doNotContact),
       contact_status: input.status ?? "UNKNOWN",
     })
@@ -970,8 +1312,8 @@ export const loadProspectDetail = cache(async (id: string): Promise<ProspectDeta
   return {
     id: prospect.id,
     company_name: prospect.company_name,
-    domain: prospect.domain,
-    website_url: prospect.website_url,
+    domain: prospect.domain ?? "",
+    website_url: prospect.website_url ?? "",
     city: typeof prospect.city === "string" && prospect.city.trim() ? prospect.city.trim() : null,
     status: prospect.status,
     opportunity_score: prospect.opportunity_score == null ? null : Number(prospect.opportunity_score),
@@ -999,6 +1341,13 @@ export const loadProspectDetail = cache(async (id: string): Promise<ProspectDeta
     is_archived: Boolean(prospect.is_archived),
     legal_note: prospect.legal_note,
     notes: prospect.notes,
+    contact_name: textOrNull(prospect.contact_name),
+    first_name: textOrNull(prospect.first_name),
+    last_name: textOrNull(prospect.last_name),
+    phone: textOrNull(prospect.phone),
+    facebook_url: textOrNull(prospect.facebook_url),
+    social_url: textOrNull(prospect.social_url),
+    source_type: textOrNull(prospect.source_type),
     last_scan_at: prospect.last_scan_at,
     last_contacted_at: prospect.last_contacted_at,
     last_activity_at: prospect.last_activity_at,

@@ -20,7 +20,16 @@ export function isScoutSourceReference(value: string | null | undefined) {
   return Boolean(value?.startsWith("scout_"));
 }
 
-export function prospectStatusFromScout(status: ScoutStatus, score: number | null): ProspectStatus {
+export function prospectStatusFromScout(
+  status: ScoutStatus,
+  score: number | null,
+  options?: { hasWebsite?: boolean }
+): ProspectStatus {
+  if (options?.hasWebsite === false) {
+    if (status === "gewonnen") return "SALES_READY";
+    if (status === "afgevallen") return "WATCHLIST";
+    return "NEW";
+  }
   if (status === "nieuw" || status === "scannen") return "SCANNING";
   if (status === "scan_mislukt") return "SCAN_FAILED";
   if (status === "gewonnen") return "SALES_READY";

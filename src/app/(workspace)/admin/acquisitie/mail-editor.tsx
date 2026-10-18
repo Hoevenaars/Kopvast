@@ -91,6 +91,7 @@ export function MailEditor({
   const [approachSourceKind, setApproachSourceKind] = useState<"" | SourceChoice>(approach?.sourceKind ?? "");
   const [opening, setOpening] = useState(approach?.opening ?? "");
   const hasWebsite = approach?.websitePresence !== "NO_WEBSITE";
+  const [reviewed, setReviewed] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [actionPending, startAction] = useTransition();
@@ -105,6 +106,7 @@ export function MailEditor({
 
   const pending = actionPending || Boolean(busyLabel);
   const openingAxis = approachContent && approachEvidence.trim() ? "content" : approachGeo ? "geographic" : null;
+  const needsReview = Boolean(approach && !approach.sufficient && !openingAxis);
   const dirty = subject !== savedSubject || body !== savedBody;
 
   function run(
@@ -122,6 +124,7 @@ export function MailEditor({
     data.set("mailId", mailId);
     data.set("subject", subject);
     data.set("body", body);
+    if (reviewed || openingAxis) data.set("reviewed", "ja");
     if (layout !== "short" && opening.trim()) {
       data.set(
         "approach",
@@ -465,7 +468,7 @@ export function MailEditor({
             <h3 className="text-sm font-semibold">Commercieel aanbod</h3>
             <p className="mt-1 text-sm leading-6 text-ink/60">
               Apart van de persoonlijke aanleiding. Zet hier alleen een prijs in als de commerciële situatie daarom
-              vraagt. Hooguit één plaats en één inhoudelijke reden. Zonder reden blijft €1.495 staan.
+              vraagt. De eerste mail noemt geen prijs tot je hier bewust een aanbod toevoegt.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -521,6 +524,26 @@ export function MailEditor({
         </div>
       ) : null}
 
+      {needsReview ? (
+        <div className="max-w-xl rounded-xl border border-copper/30 bg-[#FBF6F2] px-4 py-4 text-sm leading-6 text-ink">
+          <p className="font-semibold">Personalisatie is onvoldoende onderbouwd.</p>
+          <p className="mt-1 text-ink/70">
+            De concepttekst is neutraal en mag zo de deur uit, maar alleen nadat je hem hebt beoordeeld. Vul hierboven een
+            eigen aanleiding in, of vink de beoordeling aan. Interne instructies horen niet in de mail.
+          </p>
+          <label className="mt-3 flex items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={reviewed}
+              disabled={pending}
+              onChange={(event) => setReviewed(event.target.checked)}
+            />
+            <span>Ik heb deze tekst beoordeeld.</span>
+          </label>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-3">
         {phase === "edit" ? (
           <>
@@ -558,7 +581,7 @@ export function MailEditor({
         ) : (
           <button
             type="button"
-            disabled={pending || !canSend}
+              disabled={pending || !canSend || (needsReview && !reviewed)}
             onClick={() => {
               if (mode === "LIVE") {
                 const target = intended || "het prospectadres";

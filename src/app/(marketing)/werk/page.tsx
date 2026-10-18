@@ -21,7 +21,7 @@ import { conceptCases, cta, pageMeta, routes } from "@/lib/site";
 export const metadata: Metadata = pageMeta(
   routes.werk,
   "Werk",
-  "Conceptcases van Kopvast. Duidelijk gelabeld als concept. Geen verzonnen reviews of resultaten. Echte projecten volgen na toestemming."
+  "Conceptcases van Kopvast voor website, merk en marketing, plus een voorbeeld van automatisering."
 );
 
 export default function WerkPage() {
@@ -29,8 +29,8 @@ export default function WerkPage() {
     <>
       <PageHero
         eyebrow="Werk"
-        title="Conceptwerk, duidelijk als concept."
-        text="Er staan nog geen gepubliceerde klantcases op deze pagina. De voorbeelden hieronder zijn conceptcases: ze laten zien hoe website, merk en middelen samen kunnen lopen. Geen testimonials en geen verzonnen resultaten."
+        title="Zo kan het eruitzien."
+        text="Drie conceptcases laten een website, een merk en marketingmiddelen zien. Onderaan staat een voorbeeld van automatisering. Het zijn geen klantresultaten."
       />
 
       <section id="lindenhof" className="container-page scroll-mt-24 space-y-8 py-16">
@@ -67,6 +67,18 @@ export default function WerkPage() {
             <FlyerCard />
             <SocialCard brand="NORA" title="Nieuwe lijn, dezelfde herkenning." image="/images/house.jpg" />
           </div>
+        </div>
+      </section>
+
+      <section className="border-t border-stone/40 bg-[#f7f4ec]">
+        <div className="container-page py-16">
+          <p className="text-xs tracking-[0.16em] text-olive uppercase">Voorbeeld, geen klantcase</p>
+          <h2 className="mt-3 text-3xl text-ink">Een aanvraag die nu drie keer wordt overgetypt.</h2>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-olive">
+            Iemand vult een formulier in. Dezelfde naam en datum gaan daarna handmatig naar de agenda en de
+            administratie. Een koppeling kan dat gegeven één keer laten landen, met een controle voordat er
+            een afspraak of factuur uit gaat. Wat dat in uren scheelt, hangt van het huidige werk af.
+          </p>
         </div>
       </section>
 

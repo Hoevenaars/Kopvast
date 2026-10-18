@@ -376,6 +376,7 @@ export function composeAcquisitionBody(
     contentEvidence?: OfferEvidence[];
     allowLaunchOffer?: boolean;
     websitePresence?: WebsitePresence;
+    greeting?: string;
     choiceAUrl?: string;
     choiceBUrl?: string;
     unsubscribeUrl?: string | null;
@@ -390,7 +391,7 @@ export function composeAcquisitionBody(
     municipality: input.municipality,
     contentEvidence: input.contentEvidence,
     websitePresence: input.websitePresence,
-    greeting: fill(template.greeting, vars),
+    greeting: input.greeting?.trim() || fill(template.greeting, vars),
     signatureName: fill(template.signatureName, vars),
     signatureTagline: fill(template.signatureTagline, vars),
     openingOverride: input.opening,
@@ -412,6 +413,7 @@ export function fallbackAcquisitionMail(
     contentEvidence?: OfferEvidence[];
     allowLaunchOffer?: boolean;
     websitePresence?: WebsitePresence;
+    greeting?: string;
     opening?: string;
   },
   template: AcquisitionMailTemplate = defaultAcquisitionMailTemplate()
@@ -425,7 +427,7 @@ export function fallbackAcquisitionMail(
     municipality: input.municipality,
     contentEvidence: input.contentEvidence,
     websitePresence: input.websitePresence,
-    greeting: fill(template.greeting, vars),
+    greeting: input.greeting?.trim() || fill(template.greeting, vars),
     signatureName: fill(template.signatureName, vars),
     signatureTagline: fill(template.signatureTagline, vars),
     openingOverride: input.opening,
@@ -492,6 +494,7 @@ export async function generateAcquisitionMail(input: {
   allowLaunchOffer?: boolean;
   contentEvidence?: OfferEvidence[];
   websitePresence?: WebsitePresence;
+  greeting?: string;
   manualNote?: string | null;
 }): Promise<GeneratedAcquisitionMail> {
   const template = await loadAcquisitionMailTemplate();

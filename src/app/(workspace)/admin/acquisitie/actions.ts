@@ -8,12 +8,14 @@ import { workspaceRoutes } from "@/lib/product";
 import { acquireAdminScan, processQueuedAcquisitionScans } from "@/lib/acquire";
 import {
   convertProspectToLead,
+  attachProspectWebsite,
   createAcquisitionProspect,
   importAcquisitionProspects,
   reuseProspectScan,
   updateProspectCompanyName,
   updateProspectContactEmail,
   updateProspectFollowUp,
+  updateProspectProfile,
   type CreateProspectResult,
   type ImportProspectsResult,
   type UpdateCompanyNameResult,
@@ -71,26 +73,61 @@ export async function createProspectAction(
   formData: FormData
 ): Promise<CreateProspectResult> {
   const session = await requireAdmin();
+  const hasWebsite = String(formData.get("hasWebsite") ?? "ja") !== "nee";
   const result = await createAcquisitionProspect({
     website: String(formData.get("website") ?? ""),
     email: String(formData.get("email") ?? ""),
     company: String(formData.get("company") ?? ""),
     notes: String(formData.get("notes") ?? ""),
     actorEmail: session.email,
+    hasWebsite,
+    contactName: String(formData.get("contactName") ?? ""),
+    firstName: String(formData.get("firstName") ?? ""),
+    lastName: String(formData.get("lastName") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    facebookUrl: String(formData.get("facebookUrl") ?? ""),
+    socialUrl: String(formData.get("socialUrl") ?? ""),
+    city: String(formData.get("city") ?? ""),
+    sourceUrl: String(formData.get("sourceUrl") ?? ""),
+    sourceType: String(formData.get("sourceType") ?? ""),
+    sourceName: String(formData.get("sourceName") ?? "") || undefined,
   });
   if (result.ok) {
-    after(() =>
-      acquireAdminScan({
-        prospectId: result.prospectId,
-        scanId: result.scanId,
-        website: String(formData.get("website") ?? ""),
-        force: true,
-      }).catch((error) => console.error("[kopvast] Admin-scan mislukt", error))
-    );
+    if (result.scanId) {
+      after(() =>
+        acquireAdminScan({
+          prospectId: result.prospectId,
+          scanId: result.scanId!,
+          website: String(formData.get("website") ?? ""),
+          force: true,
+        }).catch((error) => console.error("[kopvast] Admin-scan mislukt", error))
+      );
+    }
     revalidateAcquisition(result.prospectId);
     redirect(`${workspaceRoutes.adminAcquisition}/${result.prospectId}`);
   }
   return result;
+}
+
+export async function attachWebsiteAction(formData: FormData) {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const website = String(formData.get("website") ?? "");
+  const result = await attachProspectWebsite({ prospectId, website, actorEmail: session.email });
+  if (result.ok && result.scanId) {
+    after(() =>
+      acquireAdminScan({
+        prospectId: result.prospectId,
+        scanId: result.scanId!,
+        website,
+        force: true,
+      }).catch((error) => console.error("[kopvast] Website-scan mislukt", error))
+    );
+    revalidateAcquisition(result.prospectId);
+    redirect(`${workspaceRoutes.adminAcquisition}/${result.prospectId}`);
+  }
+  revalidateAcquisition(prospectId);
+  redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}?fout=website`);
 }
 
 export async function reuseProspectAction(formData: FormData) {
@@ -103,11 +140,12 @@ export async function reuseProspectAction(formData: FormData) {
     notes: String(formData.get("notes") ?? ""),
     actorEmail: session.email,
   });
-  if (result.ok) {
+  if (result.ok && result.scanId) {
+    const scanId = result.scanId;
     after(() =>
       acquireAdminScan({
         prospectId: result.prospectId,
-        scanId: result.scanId,
+        scanId,
         website: String(formData.get("website") ?? ""),
         force: true,
       }).catch((error) => console.error("[kopvast] Admin-scan mislukt", error))
@@ -119,6 +157,28 @@ export async function reuseProspectAction(formData: FormData) {
     redirect(`${workspaceRoutes.adminAcquisition}/${result.existing.id}?conflict=email`);
   }
   redirect(`${workspaceRoutes.adminAcquisitionNew}?fout=scan`);
+}
+
+export async function updateProspectProfileAction(formData: FormData) {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  const result = await updateProspectProfile({
+    prospectId,
+    actorEmail: session.email,
+    firstName: String(formData.get("firstName") ?? ""),
+    lastName: String(formData.get("lastName") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    city: String(formData.get("city") ?? ""),
+    notes: String(formData.get("notes") ?? ""),
+    facebookUrl: String(formData.get("facebookUrl") ?? ""),
+    socialUrl: String(formData.get("socialUrl") ?? ""),
+    sourceType: String(formData.get("sourceType") ?? ""),
+  });
+  revalidateAcquisition(prospectId);
+  if (!result.ok) {
+    redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}?mailError=${encodeURIComponent(result.message)}`);
+  }
+  redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}`);
 }
 
 export async function saveMailAction(formData: FormData) {
@@ -133,6 +193,14 @@ export async function saveMailAction(formData: FormData) {
   });
   revalidateAcquisition(prospectId);
   return result;
+}
+
+export async function generateFirstMailAction(formData: FormData) {
+  const session = await requireAdmin();
+  const prospectId = String(formData.get("prospectId") ?? "");
+  await regenerateProspectMail(prospectId, session.email);
+  revalidateAcquisition(prospectId);
+  redirect(`${workspaceRoutes.adminAcquisition}/${prospectId}`);
 }
 
 export async function regenerateMailAction(formData: FormData) {
@@ -163,6 +231,7 @@ async function persistDraftIfPresent(formData: FormData, actorEmail: string) {
     body,
     actorEmail,
     approach,
+    reviewed: String(formData.get("reviewed") ?? "") === "ja",
   });
 }
 
@@ -195,6 +264,7 @@ export async function sendLiveMailAction(formData: FormData) {
     prospectId,
     mailId: String(formData.get("mailId") ?? ""),
     actorEmail: session.email,
+    humanReviewed: String(formData.get("reviewed") ?? "") === "ja",
   });
   revalidateAcquisition(prospectId);
   return result;

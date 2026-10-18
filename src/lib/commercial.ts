@@ -59,6 +59,8 @@ export const NEXT_ACTIONS = {
   MAKE_PROPOSAL: "Voorstel maken",
   FINISH_ANALYSIS: "Analyse handmatig afronden",
   CALL_CLIENT: "Klant bellen",
+  SHOW_DIRECTION: "Richting laten zien",
+  DISCUSS_OPTIONS: "Mogelijkheden bespreken",
   WAIT_ACCEPT: "Wachten op akkoord",
   MAKE_ORDER: "Opdracht maken",
   WAIT_PHOTOS: "Wachten op foto's",
@@ -125,8 +127,11 @@ export function nextActionForHandoff(input: {
   intent: CommercialIntent;
   productFit?: ProductFit | null;
   hasAnalysis?: boolean;
+  hasWebsite?: boolean;
 }): string {
   if (input.intent === "PROPOSAL") return NEXT_ACTIONS.MAKE_PROPOSAL;
+  if (input.hasWebsite === false) return NEXT_ACTIONS.SHOW_DIRECTION;
+  if (input.hasWebsite === true) return NEXT_ACTIONS.DISCUSS_OPTIONS;
   if (!input.hasAnalysis) return NEXT_ACTIONS.FINISH_ANALYSIS;
   return NEXT_ACTIONS.CALL_CLIENT;
 }

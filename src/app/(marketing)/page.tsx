@@ -6,7 +6,7 @@ import { CtaBand } from "@/components/cta-band";
 import { ScanForm } from "@/components/scan-form";
 import { ConceptLabel } from "@/components/work/frames";
 import { ArdeaDesktop, LindenhofDesktop, NoraDesktop } from "@/components/work/concept-mocks";
-import { conceptCases, cta, needs, pageMeta, processSteps, reasons, routes, services, site } from "@/lib/site";
+import { cta, needs, pageMeta, processSteps, reasons, routes, services, site } from "@/lib/site";
 
 export const metadata: Metadata = pageMeta(routes.home, site.promise, site.description);
 
@@ -29,10 +29,12 @@ export default function HomePage() {
               <em className="italic">Slim geregeld.</em>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-olive md:text-lg">
-              Kopvast helpt ondernemers en organisaties met websites, merken, marketing en slimme
-              automatisering die echt iets toevoegen.
+              Sterk werk verdwijnt als de site, het merk of de opvolging achterblijft. Kopvast maakt je
+              online even duidelijk als in het echt, en haalt terugkerend handwerk uit de weg.
             </p>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-olive">{site.line}</p>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-olive">
+              Een bericht is genoeg om te kijken wat de eerste zinvolle stap is.
+            </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <ButtonLink href={cta.discover.href}>
                 {cta.discover.label}
@@ -99,7 +101,7 @@ export default function HomePage() {
             </Link>
           </div>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-olive">
-            Dit is conceptwerk. Geen klantresultaat en geen testimonial.
+            Conceptcases: zo kan een website, een merk en een set middelen samenlopen.
           </p>
           <div className="mt-10 grid gap-6 lg:grid-cols-3">
             {previews.map((item) => {
@@ -112,15 +114,6 @@ export default function HomePage() {
                 </article>
               );
             })}
-          </div>
-          <div className="mt-10 grid gap-8 lg:grid-cols-3">
-            {conceptCases.map((item) => (
-              <Link key={item.slug} href={`${routes.werk}#${item.slug}`} className="group">
-                <p className="text-xs tracking-[0.16em] text-olive uppercase">{item.sector}</p>
-                <h3 className="mt-2 text-2xl text-ink group-hover:underline">{item.name}</h3>
-                <p className="mt-2 text-sm leading-6 text-olive">{item.title}</p>
-              </Link>
-            ))}
           </div>
         </div>
       </section>

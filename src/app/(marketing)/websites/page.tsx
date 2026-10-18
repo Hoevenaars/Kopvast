@@ -21,16 +21,16 @@ export const metadata: Metadata = pageMeta(
 
 const situations = [
   {
-    title: "Nog geen website",
-    text: "Bezoekers moeten in één oogopslag zien wie je bent, wat je doet en hoe ze contact opnemen.",
+    title: "Eerste website",
+    text: "Je hebt nog geen site, of alleen een vermelding ergens anders. Bezoekers zien in één oogopslag wie je bent, wat je doet en hoe ze contact opnemen.",
   },
   {
-    title: "Bestaande website vernieuwen",
-    text: "De site loopt achter op het bedrijf. We maken de presentatie, de pagina’s en de contactroute weer kloppend.",
+    title: "Website vernieuwen",
+    text: "De site loopt achter op het bedrijf. We maken presentatie, pagina’s en de route naar een aanvraag weer kloppend, zonder het hele verhaal opnieuw te verzinnen.",
   },
   {
-    title: "Maatwerk",
-    text: "Meer pagina’s, een webshop, een boeking of een koppeling. Dat valt buiten de standaard en krijgt een eigen voorstel.",
+    title: "Maatwerkwebsite",
+    text: `Meer dan zes pagina’s, een webshop, een boeking of een koppeling. Eerst de waarde van die extra stap, daarna een eigen voorstel naast de standaard van ${websitePrice}.`,
   },
 ];
 

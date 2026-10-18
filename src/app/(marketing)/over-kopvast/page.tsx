@@ -43,7 +43,7 @@ export default function AboutPage() {
             </a>
           </p>
           <p className="mt-4 text-sm leading-6 text-olive">
-            Een bericht is een vraag, geen opdracht. Je krijgt een menselijke opvolging.
+            Stuur een bericht. Je krijgt een persoonlijk antwoord, en een voorstel alleen als dat past.
           </p>
           <div className="mt-6">
             <ButtonLink href={cta.discuss.href}>

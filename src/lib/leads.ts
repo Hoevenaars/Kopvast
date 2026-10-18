@@ -1,8 +1,9 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { recordPublicRequestActivity } from "@/lib/aanvragen";
 import { sendLeadNotification } from "@/lib/email";
-import { persistInboundLead } from "@/lib/inbound";
+import { persistPublicInboundLead, type InboundLeadInput, type PublicLeadSaveResult } from "@/lib/inbound";
 import { stripUntrustedCommercialFields } from "@/lib/interest";
 
 export type StoredLead = {
@@ -27,6 +28,7 @@ export type LeadInput = {
   source?: string;
   phone?: string;
   details?: Record<string, string>;
+  idempotencyKey?: string;
 };
 
 export type LeadResult =
@@ -34,6 +36,44 @@ export type LeadResult =
   | { ok: false; message: string };
 
 const storeFile = path.join("/tmp", "kopvast-leads.json");
+const memoryLeads = new Map<string, StoredLead>();
+let forcedSave: ((lead: InboundLeadInput, idempotencyKey: string) => Promise<PublicLeadSaveResult>) | null = null;
+
+export function setLeadSaveForTests(
+  save: ((lead: InboundLeadInput, idempotencyKey: string) => Promise<PublicLeadSaveResult>) | null
+) {
+  forcedSave = save;
+}
+
+export function resetMemoryLeadStoreForTests() {
+  memoryLeads.clear();
+}
+
+export function publicLeadIdempotencyKey(input: {
+  clientKey?: string | null;
+  email: string;
+  source: string;
+  company: string;
+  website: string;
+  message: string;
+  now?: number;
+}) {
+  const client = (input.clientKey ?? "").trim();
+  if (/^[A-Za-z0-9_-]{16,80}$/.test(client)) return `client:${client}`;
+  const fingerprint = createHash("sha256")
+    .update(
+      [input.email.toLowerCase(), input.source, input.company.toLowerCase(), input.website.toLowerCase(), input.message]
+        .join("\n")
+    )
+    .digest("hex");
+  const bucket = Math.floor((input.now ?? Date.now()) / (6 * 60 * 60 * 1000));
+  return `content:${fingerprint}:${bucket}`;
+}
+
+function explicitLeadStore() {
+  const mode = process.env.KOPVAST_LEAD_STORE;
+  return mode === "memory" || mode === "file" ? mode : null;
+}
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -65,27 +105,32 @@ export function formatLeadDetails(details: Record<string, string>): string {
     .join("\n");
 }
 
-async function persistLead(lead: StoredLead) {
+async function persistExplicitFileLead(lead: StoredLead, idempotencyKey: string): Promise<PublicLeadSaveResult> {
   await mkdir(path.dirname(storeFile), { recursive: true });
-  let existing: StoredLead[] = [];
+  let existing: Array<StoredLead & { idempotencyKey?: string }> = [];
   try {
-    existing = JSON.parse(await readFile(storeFile, "utf8")) as StoredLead[];
+    existing = JSON.parse(await readFile(storeFile, "utf8")) as Array<StoredLead & { idempotencyKey?: string }>;
   } catch {
     existing = [];
   }
-  const duplicate = existing.some(
-    (item) =>
-      item.email === lead.email &&
-      item.website === lead.website &&
-      item.source === lead.source &&
-      Date.now() - Date.parse(item.createdAt) < 1000 * 60 * 10
-  );
-  if (duplicate) {
-    return { stored: false as const };
-  }
-  existing.push(lead);
+  const prior = existing.find((item) => item.idempotencyKey === idempotencyKey);
+  if (prior) return { ok: true, id: prior.id, duplicate: true };
+  existing.push({ ...lead, idempotencyKey });
   await writeFile(storeFile, JSON.stringify(existing, null, 2));
-  return { stored: true as const };
+  return { ok: true, id: lead.id, duplicate: false };
+}
+
+async function saveLead(lead: StoredLead, idempotencyKey: string): Promise<PublicLeadSaveResult> {
+  if (forcedSave) return forcedSave(lead, idempotencyKey);
+  const mode = explicitLeadStore();
+  if (mode === "memory") {
+    const existing = memoryLeads.get(idempotencyKey);
+    if (existing) return { ok: true, id: existing.id, duplicate: true };
+    memoryLeads.set(idempotencyKey, lead);
+    return { ok: true, id: lead.id, duplicate: false };
+  }
+  if (mode === "file") return persistExplicitFileLead(lead, idempotencyKey);
+  return persistPublicInboundLead(lead, idempotencyKey);
 }
 
 export async function createLead(input: LeadInput): Promise<LeadResult> {
@@ -114,6 +159,14 @@ export async function createLead(input: LeadInput): Promise<LeadResult> {
     return { ok: false, message: "Een van de velden is te lang. Kort de tekst in en probeer het opnieuw." };
   }
 
+  const idempotencyKey = publicLeadIdempotencyKey({
+    clientKey: input.idempotencyKey,
+    email,
+    source,
+    company,
+    website,
+    message,
+  });
   const lead: StoredLead = {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
@@ -127,28 +180,22 @@ export async function createLead(input: LeadInput): Promise<LeadResult> {
     details,
   };
 
-  const stored = await persistLead(lead);
-  if (!stored.stored) {
-    return { ok: true, duplicate: true, emailed: false, id: lead.id };
-  }
-
-  const inboundId = await persistInboundLead(lead).catch((error) => {
-    console.error("[kopvast] Inbound lead opslaan mislukt", error);
-    return null;
-  });
+  const stored = await saveLead(lead, idempotencyKey);
+  if (!stored.ok) return stored;
+  if (stored.duplicate) return { ok: true, duplicate: true, emailed: false, id: stored.id };
 
   await recordPublicRequestActivity({
-    leadId: inboundId ?? lead.id,
+    leadId: stored.id,
     source,
     dienst: details.Dienst,
   }).catch((error) => {
-    console.error("[kopvast] Aanvraag-activiteit opslaan mislukt", error);
+    console.error("[kopvast] Aanvraag-activiteit opslaan mislukt", error instanceof Error ? error.name : "activity");
   });
 
   try {
     const sent = await sendLeadNotification({
-      id: lead.id,
-      inboundId: inboundId ?? undefined,
+      id: stored.id,
+      inboundId: explicitLeadStore() ? undefined : stored.id,
       name,
       email,
       company,
@@ -158,9 +205,9 @@ export async function createLead(input: LeadInput): Promise<LeadResult> {
       phone,
       details,
     });
-    return { ok: true, emailed: sent.delivered, id: lead.id };
+    return { ok: true, emailed: sent.delivered, id: stored.id };
   } catch (error) {
-    console.error("[kopvast] Lead opgeslagen, e-mail mislukt", error);
-    return { ok: true, emailed: false, id: lead.id };
+    console.error("[kopvast] Aanvraag opgeslagen, e-mail mislukt", error instanceof Error ? error.name : "email");
+    return { ok: true, emailed: false, id: stored.id };
   }
 }

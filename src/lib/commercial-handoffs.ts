@@ -103,20 +103,29 @@ export async function resolveOrCreateRequest(input: {
 
   if (!email) return fail("Er is nog geen e-mailadres om een aanvraag aan te koppelen.");
 
-  const created = await persistInboundLead({
-    id: crypto.randomUUID(),
-    name: detail.company_name || detail.domain,
-    email,
-    company: detail.company_name || detail.domain,
-    website: detail.website_url || detail.domain,
-    message: input.intent === "PROPOSAL" ? "Klik: Ja, doe me een voorstel" : "Klik: Stuur me eerst meer info",
-    source: input.intent === "PROPOSAL" ? "acquisitie-voorstel" : "acquisitie-info",
-    phone: "",
-    details: {
-      Keuze: input.intent === "PROPOSAL" ? "Voorstel" : "Meer info",
-      prospect_id: detail.id,
+  const created = await persistInboundLead(
+    {
+      id: crypto.randomUUID(),
+      name: detail.company_name || detail.domain || "Prospect",
+      email,
+      company: detail.company_name || detail.domain || "",
+      website: detail.website_url || "",
+      message:
+        input.intent === "PROPOSAL"
+          ? "Bevestigd: maak een voorstel."
+          : detail.website_url
+            ? "Bevestigd: vertel meer over de mogelijkheden."
+            : "Bevestigd: laat zien wat je in gedachten hebt.",
+      source: input.intent === "PROPOSAL" ? "acquisitie-voorstel" : "acquisitie-info",
+      phone: "",
+      details: {
+        Keuze: input.intent === "PROPOSAL" ? "Voorstel" : "Meer info",
+        prospect_id: detail.id,
+        Dienst: detail.website_url ? "website-vernieuwen" : "website-nieuw",
+      },
     },
-  });
+    `acquisition-interest/${detail.id}/${input.intent}`
+  );
   if (!created) return fail("Aanvraag aanmaken is mislukt.");
   await linkProspectAndRequest({ prospectId: detail.id, requestId: created });
   return { ok: true, requestId: created };
@@ -130,11 +139,13 @@ export async function handleAcquisitionChoice(input: {
   if (!detail) return fail("Prospect niet gevonden.");
 
   const intent = intentFromAcquisitionChoice(input.choice);
+  const hasWebsite = Boolean(detail.website_url?.trim());
   const hasAnalysis = Boolean(detail.findings.length || detail.scan?.status === "completed");
   const nextAction = nextActionForHandoff({
     intent,
     productFit: detail.product_fit,
     hasAnalysis,
+    hasWebsite,
   });
   const supabase = refreshClient();
 
@@ -160,21 +171,21 @@ export async function handleAcquisitionChoice(input: {
 
   let requestId: string | null = detail.inbound_lead_id;
   let already = Boolean(requestId);
-  if (intent === "PROPOSAL") {
-    const request = await resolveOrCreateRequest({ prospectId: detail.id, intent });
-    if (request.ok) {
-      requestId = request.requestId;
-      already = Boolean(request.already);
-      await saveAanvraagNextAction({
-        id: request.requestId,
-        nextAction: NEXT_ACTIONS.MAKE_PROPOSAL,
-        nextActionAt: new Date().toISOString(),
-        actorEmail: "kopvast.nl",
-      }).catch(() => null);
+  const request = await resolveOrCreateRequest({ prospectId: detail.id, intent });
+  if (request.ok) {
+    requestId = request.requestId;
+    already = Boolean(request.already);
+    await saveAanvraagNextAction({
+      id: request.requestId,
+      nextAction,
+      nextActionAt: new Date().toISOString(),
+      actorEmail: "kopvast.nl",
+    }).catch(() => null);
+    if (!request.already) {
       await logLeadActivity({
         leadId: request.requestId,
         eventType: AANVRAAG_ACTIVITY.REQUEST_CREATED,
-        metadata: { source: "acquisition_choice", intent },
+        metadata: { source: "acquisition_interest", intent },
       });
     }
   }

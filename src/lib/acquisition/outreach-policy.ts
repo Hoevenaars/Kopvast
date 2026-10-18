@@ -45,7 +45,15 @@ export const APPROACH_SOURCE_LABELS: Record<ApproachSourceKind, string> = {
   manual_note: "Handmatige notitie",
   project_description: "Projectbeschrijving",
   company_profile: "Bedrijfsprofiel",
+  facebook: "Facebook",
 };
+
+const INTERNAL_ACQUISITION_INSTRUCTION =
+  /verzin ik niet|controleerbare aanleiding|geen website om na te kijken|opening daarop worden aangevuld|interne instructie/i;
+
+export function containsInternalAcquisitionInstruction(value: string) {
+  return INTERNAL_ACQUISITION_INSTRUCTION.test(value);
+}
 
 const FACT_BLOCKLIST = [
   ...FORBIDDEN_MAIL_CLAIMS,
@@ -136,9 +144,9 @@ function mailSafeFact(evidence: string | null) {
 
 function neutralOpening(who: string, websitePresence: WebsitePresence) {
   if (websitePresence === "NO_WEBSITE") {
-    return `Ik kwam ${who} tegen. Er is geen website om na te kijken, en ik heb nog geen controleerbare aanleiding om deze mail persoonlijker te maken. Die verzin ik niet. Een notitie, projectbeschrijving of bedrijfsprofiel kan die aanleiding alsnog geven.`;
+    return `Ik kwam ${who} tegen. Jullie hebben nog geen eigen website. Dit is een korte kennismaking, zonder aannames over wat ik niet zelf heb gezien.`;
   }
-  return `Ik kwam ${who} tegen. Ik heb nog geen controleerbare aanleiding om deze mail persoonlijker te maken, en die verzin ik niet. Zodra die er is, kan de opening daarop worden aangevuld.`;
+  return `Ik kwam ${who} tegen. Dit is een korte kennismaking. Ik schrijf zonder aannames over rol, omvang of wat ik nog niet heb kunnen controleren.`;
 }
 
 export function personalApproachOpening(input: {

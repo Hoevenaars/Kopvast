@@ -11,7 +11,7 @@ function first(value: string | string[] | undefined) {
 export const metadata: Metadata = pageMeta(
   routes.contact,
   "Contact",
-  "Stel een vrijblijvende vraag over een website, merk, marketing of automatisering. Geen koopverplichting."
+  "Stel een vrijblijvende vraag over een website, merk, marketing of automatisering."
 );
 
 export default async function ContactPage({
@@ -25,7 +25,7 @@ export default async function ContactPage({
       <PageHero
         eyebrow="Contact"
         title="Bespreek je idee."
-        text="Een algemene vraag is genoeg. Kies het onderwerp dat het dichtst in de buurt komt. Dit is geen opdracht en geen aankoop."
+        text="Een korte vraag is genoeg. Kies het onderwerp dat het dichtst in de buurt komt. We reageren persoonlijk."
       />
       <section className="container-page grid gap-12 py-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
         <div>
