@@ -147,20 +147,20 @@ export const needs = [
 
 export const reasons = [
   {
-    title: "Scherp kijken",
-    text: "Eerst wat echt nodig is. Geen traject dat groter wordt dan de vraag.",
+    title: "Je weet wat je krijgt",
+    text: "Eerst de vraag, dan een voorstel dat daarbij past. Scope en prijs staan op papier.",
   },
   {
-    title: "Een consistente uitstraling",
-    text: "Website, merk en middelen sluiten op elkaar aan.",
+    title: "Eén herkenbare lijn",
+    text: "Website, merk en middelen vertellen hetzelfde verhaal, online en op papier.",
   },
   {
-    title: "Efficiënte uitvoering",
-    text: "Heldere stappen, zonder onnodige lagen.",
+    title: "Een partij die het ook maakt",
+    text: "Van de eerste pagina tot het formulier dat een aanvraag opvangt. Jij kijkt mee op de momenten die ertoe doen.",
   },
   {
-    title: "Heldere afspraken",
-    text: "Scope en prijs staan in het voorstel. Maatwerk blijft apart.",
+    title: "Laagdrempelig beginnen",
+    text: "Een bericht is genoeg. Kennismaken verplicht tot niets. Een opdracht ontstaat pas na een voorstel dat je accepteert.",
   },
 ];
 

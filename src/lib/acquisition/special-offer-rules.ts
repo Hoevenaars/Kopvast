@@ -18,7 +18,7 @@ export type ContentOfferReason =
 
 export const CONTENT_CONFIDENCE_THRESHOLD = 0.75;
 
-export const APPROACH_SOURCE_KINDS = ["website", "manual_note", "project_description", "company_profile"] as const;
+export const APPROACH_SOURCE_KINDS = ["website", "manual_note", "project_description", "company_profile", "facebook"] as const;
 
 export type ApproachSourceKind = (typeof APPROACH_SOURCE_KINDS)[number];
 

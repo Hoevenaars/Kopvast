@@ -175,8 +175,55 @@ test("Scout-push krijgt een admin-prospectstatus zonder afwijzen", async () => {
   assert.equal(prospectStatusFromScout("scan_mislukt", 12), "SCAN_FAILED");
   assert.equal(prospectStatusFromScout("concept_klaar", 40), "WATCHLIST");
   assert.equal(prospectStatusFromScout("concept_klaar", 82), "SALES_READY");
+  assert.equal(prospectStatusFromScout("nieuw", null, { hasWebsite: false }), "NEW");
+  assert.equal(prospectStatusFromScout("concept_klaar", null, { hasWebsite: false }), "NEW");
   assert.equal(scoutSourceLabel("safari_share"), "Deelblad");
   assert.equal(mergeScoutNote(null, "Nieuwe showroom"), "Nieuwe showroom");
   assert.equal(mergeScoutNote("Nieuwe showroom", "Nieuwe showroom"), "Nieuwe showroom");
   assert.match(mergeScoutNote("Bestaande notitie", "Nieuwe showroom") ?? "", /Scout: Nieuwe showroom/);
+});
+
+test("bedrijf zonder website krijgt een mail zonder scan, score of prijs", async () => {
+  const { scoutServiceClient } = await import("./scout/auth");
+  if (scoutServiceClient()) return;
+  const { insertLead, getLeadById, getDraft, latestScan, findLeadWithoutWebsite } = await import("./scout/leads");
+  const { runLeadPipeline } = await import("./scout/pipeline");
+  const { rescanScoutLead } = await import("./scout/capture");
+  const { containsInternalAcquisitionInstruction } = await import("./acquisition/outreach-policy");
+  const user = { id: "scout-no-site-test", email: "test@kopvast.nl" };
+  const lead = await insertLead({
+    user,
+    url: "",
+    domain: "",
+    canonicalUrl: null,
+    note: "Persoonlijke notitie",
+    email: "bakkerij-test@example.com",
+    company: "Bakkerij Zonder Site",
+    contactName: "Jan Bakker",
+    phone: "06-12345678",
+    facebookUrl: "https://www.facebook.com/bakkerijzondersite",
+    socialUrl: "https://www.instagram.com/bakkerij",
+    sourceUrl: null,
+    source: "scout_manual",
+  });
+  await runLeadPipeline(lead.id);
+  const stored = await getLeadById(lead.id);
+  assert.equal(stored?.status, "concept_klaar");
+  assert.equal(stored?.score, null);
+  assert.equal(stored?.domain, "");
+  assert.equal(stored?.first_name, "Jan");
+  assert.equal(stored?.last_name, "Bakker");
+  assert.equal(stored?.phone, "0612345678");
+  assert.equal(stored?.facebook_url, "https://www.facebook.com/bakkerijzondersite");
+  assert.equal(stored?.social_url, "https://www.instagram.com/bakkerij");
+  assert.equal(await latestScan(lead.id), null);
+  const draft = await getDraft(lead.id);
+  assert.match(draft?.message ?? "", /^Hoi Jan,/);
+  assert.match(draft?.message ?? "", /nog geen eigen website/i);
+  assert.equal(containsInternalAcquisitionInstruction(draft?.message ?? ""), false);
+  assert.doesNotMatch(draft?.message ?? "", /€|995|1\.495|lighthouse|opportunity score/i);
+  const duplicate = await findLeadWithoutWebsite(user.id, "bakkerij-test@example.com", "Bakkerij Zonder Site");
+  assert.equal(duplicate?.id, lead.id);
+  const rescan = await rescanScoutLead({ user, leadId: lead.id });
+  assert.equal(rescan.ok, false);
 });
