@@ -12,7 +12,7 @@ import {
   verifyScoutLoginCode,
 } from "@/lib/scout/auth";
 import { scoutPublicBase, withBase } from "@/lib/scout/base-path";
-import { pushScoutLead, rescanScoutLead } from "@/lib/scout/capture";
+import { attachScoutWebsite, pushScoutLead, rescanScoutLead, updateScoutLeadProfile } from "@/lib/scout/capture";
 import { interpretScoutPhoto } from "@/lib/scout/camera";
 import {
   ensureUnreachableSiteMail,
@@ -22,7 +22,10 @@ import {
 } from "@/lib/acquisition-send";
 import { loadProspectDetail } from "@/lib/acquisition";
 import { isUnreachableSiteMail } from "@/lib/acquisition/unreachable-site-mail";
-import { approveDraft, getLead, saveDraft, updateScoutLeadCompanyName, updateScoutLeadEmail } from "@/lib/scout/leads";
+import { buildPersonalApproachLetter } from "@/lib/acquisition/outreach-policy";
+import { greetingForContact, knownFirstName } from "@/lib/prospect-profile";
+import { isContentOfferReason, isGeographicOfferReason } from "@/lib/acquisition/special-offer-rules";
+import { approveDraft, getLead, saveDraft, scoutLeadHasWebsite, updateScoutLeadCompanyName, updateScoutLeadEmail } from "@/lib/scout/leads";
 import { syncProspectFromScout } from "@/lib/scout/crm";
 import { ensureScoutUnreachableDraft } from "@/lib/scout/unreachable";
 import { consumeRateLimit, rateLimitMessage } from "@/lib/scout/rate-limit";
@@ -63,7 +66,32 @@ export async function pushLeadAction(_prev: ScoutPushState, formData: FormData):
     email: String(formData.get("email") ?? ""),
     source: inferSource({ source: String(formData.get("source") ?? "") }),
     forceRescanOf: String(formData.get("rescanId") ?? "") || undefined,
+    hasWebsite: String(formData.get("hasWebsite") ?? "ja") !== "nee",
+    company: String(formData.get("company") ?? ""),
+    contactName: String(formData.get("contactName") ?? ""),
+    firstName: String(formData.get("firstName") ?? ""),
+    lastName: String(formData.get("lastName") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    facebookUrl: String(formData.get("facebookUrl") ?? ""),
+    socialUrl: String(formData.get("socialUrl") ?? ""),
+    city: String(formData.get("city") ?? ""),
+    sourceUrl: String(formData.get("sourceUrl") ?? ""),
   });
+}
+
+export async function attachScoutWebsiteAction(formData: FormData) {
+  const user = await requireScoutUser();
+  const leadId = String(formData.get("leadId") ?? "");
+  const result = await attachScoutWebsite({
+    user,
+    leadId,
+    website: String(formData.get("website") ?? ""),
+  });
+  const base = await scoutPublicBase();
+  if (!result.ok) {
+    redirect(withBase(base, `/leads/${leadId}?error=${encodeURIComponent(result.message)}`));
+  }
+  redirect(withBase(base, `/leads/${leadId}`));
 }
 
 export async function pushLeadFormAction(formData: FormData) {
@@ -112,6 +140,61 @@ export async function updateScoutCompanyAction(_prev: ScoutCompanyState, formDat
     return { ok: false, message: "message" in result ? result.message : "Naam opslaan is mislukt." };
   }
   const base = await scoutPublicBase();
+  redirect(withBase(base, `/leads/${leadId}`));
+}
+
+export async function applyScoutApproachAction(formData: FormData) {
+  const user = await requireScoutUser();
+  const leadId = String(formData.get("leadId") ?? "");
+  const base = await scoutPublicBase();
+  const lead = await getLead(user.id, leadId);
+  if (!lead) redirect(withBase(base, `/leads/${leadId}?error=${encodeURIComponent("Lead niet gevonden.")}`));
+  const geographicRaw = String(formData.get("geographicReason") ?? "");
+  const contentRaw = String(formData.get("contentReason") ?? "");
+  const evidence = String(formData.get("evidence") ?? "").trim();
+  const geographicReason = isGeographicOfferReason(geographicRaw) ? geographicRaw : null;
+  const contentReason = isContentOfferReason(contentRaw) ? contentRaw : null;
+  const letter = buildPersonalApproachLetter({
+    companyName: lead.company_name,
+    domain: lead.domain,
+    place: lead.city,
+    websitePresence: scoutLeadHasWebsite(lead) ? "HAS_WEBSITE" : "NO_WEBSITE",
+    greeting: greetingForContact(knownFirstName({ firstName: lead.first_name, contactName: lead.contact_name })),
+    manualReasons: { geographicReason, contentReason },
+    contentEvidence:
+      contentReason && evidence
+        ? [
+            {
+              reason: contentReason,
+              evidence,
+              confidence: 1,
+              sourceKind: lead.facebook_url ? "facebook" : "manual_note",
+              sourceUrl: lead.facebook_url ?? undefined,
+            },
+          ]
+        : [],
+  });
+  await saveDraft(user.id, leadId, { subject: letter.subject, message: letter.body });
+  await syncProspectFromScout(leadId);
+  redirect(withBase(base, `/leads/${leadId}`));
+}
+
+export async function updateScoutProfileAction(formData: FormData) {
+  const user = await requireScoutUser();
+  const leadId = String(formData.get("leadId") ?? "");
+  const base = await scoutPublicBase();
+  const result = await updateScoutLeadProfile({
+    user,
+    leadId,
+    firstName: String(formData.get("firstName") ?? ""),
+    lastName: String(formData.get("lastName") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    city: String(formData.get("city") ?? ""),
+    facebookUrl: String(formData.get("facebookUrl") ?? ""),
+    socialUrl: String(formData.get("socialUrl") ?? ""),
+    note: String(formData.get("note") ?? ""),
+  });
+  if (!result.ok) redirect(withBase(base, `/leads/${leadId}?error=${encodeURIComponent(result.message)}`));
   redirect(withBase(base, `/leads/${leadId}`));
 }
 
@@ -166,6 +249,7 @@ export async function sendScoutMailAction(formData: FormData) {
     prospectId: lead.prospect_id,
     mailId: ensured.mailId,
     actorEmail: user.email,
+    humanReviewed: String(formData.get("reviewed") ?? "") === "ja",
   });
   if (!sent.ok) redirect(errorPath("message" in sent ? sent.message : "Versturen is mislukt."));
   redirect(withBase(base, `/leads/${leadId}`));

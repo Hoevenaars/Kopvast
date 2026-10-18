@@ -41,8 +41,7 @@ export default function ProcessPage() {
             ))}
           </ul>
           <p className="mt-8 max-w-2xl text-base leading-7 text-olive">
-            Hosting, beheer of een volgende opdracht volgt alleen als dat is afgesproken. Een eerste gesprek
-            is geen koop.
+            Hosting, beheer of een volgende opdracht volgt als dat in het voorstel staat. Kennismaken is vrijblijvend.
           </p>
           <div className="mt-8">
             <ButtonLink href={cta.discuss.href}>
