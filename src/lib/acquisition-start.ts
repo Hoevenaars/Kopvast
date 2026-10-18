@@ -123,6 +123,35 @@ export function isAcquisitionStartSource(source: string | null | undefined) {
   return source === ACQUISITION_PROPOSAL_SOURCE || source === ACQUISITION_INFO_SOURCE;
 }
 
+export function confirmedInterestCopy(input: { choice: AcquisitionChoice; hasWebsite: boolean; company?: string }) {
+  const who = input.company?.trim();
+  if (input.choice === "voorstel") {
+    return {
+      eyebrow: "Voorstel",
+      title: who ? `Een voorstel voor ${who}.` : "Een voorstel.",
+      text: "Je bevestigt dat Kopvast een voorstel mag maken. Dat is nog geen akkoord en geen opdracht.",
+      confirm: "Maak een voorstel voor mij.",
+      step: "Daarna maakt Kopvast een voorstel. Pas als je dat voorstel accepteert, ontstaat een opdracht.",
+    };
+  }
+  if (!input.hasWebsite) {
+    return {
+      eyebrow: "Kennismaken",
+      title: who ? `${who} heeft nog geen website.` : "Nog geen website.",
+      text: "Je bevestigt dat je wilt zien welke richting Kopvast in gedachten heeft. Geen opdracht.",
+      confirm: "Ja, laat eens zien wat je in gedachten hebt.",
+      step: "Kopvast laat een richting zien. Er komt nog geen voorstel en geen opdracht.",
+    };
+  }
+  return {
+    eyebrow: "Mogelijkheden",
+    title: who ? `De mogelijkheden voor ${who}.` : "De mogelijkheden.",
+    text: "Je bevestigt dat je meer wilt horen over wat er kan. Geen opdracht en geen prijs uit deze link.",
+    confirm: "Vertel me meer over de mogelijkheden.",
+    step: "Kopvast bespreekt de mogelijkheden. Een voorstel volgt alleen als je dat vraagt.",
+  };
+}
+
 export function startLandingCopy(params: AcquisitionStartParams) {
   const who = params.company || params.website;
 
@@ -130,7 +159,7 @@ export function startLandingCopy(params: AcquisitionStartParams) {
     return {
       eyebrow: "Meer info",
       title: who ? `Meer horen over wat Kopvast voor ${who} kan doen.` : "Meer horen, zonder verplichting.",
-      text: "Dit is een vrijblijvende interesse. Geen pakketkoop en geen opdracht. Een prijs volgt pas als er een voorstel is.",
+      text: "Je laat weten dat je wilt horen wat er kan. Een prijs staat pas in een voorstel, en een opdracht pas als je dat voorstel accepteert.",
       submitLabel: "Bevestig je interesse",
     };
   }
