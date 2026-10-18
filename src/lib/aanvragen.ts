@@ -123,7 +123,7 @@ export type RequestTodayAction = {
   status: string;
 };
 
-function requestActionFromRow(row: Pick<AanvraagRecord, "id" | "company_name" | "name" | "next_action" | "next_action_at">): RequestTodayAction {
+export function requestActionFromRow(row: Pick<AanvraagRecord, "id" | "company_name" | "name" | "next_action" | "next_action_at">): RequestTodayAction {
   return {
     title: row.next_action?.trim() || "Aanvraag opvolgen",
     company: row.company_name?.trim() || row.name,
