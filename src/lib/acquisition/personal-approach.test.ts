@@ -155,13 +155,14 @@ test("onvoldoende bewijs blijft neutraal en verzint geen rol of grootte", () => 
     contentEvidence: [evidenceFor("LOCAL_CONTRIBUTION", 0.4)],
   });
   assert.equal(mail.approach.sufficient, false);
-  assert.match(mail.body, /verzin ik niet/);
+  assert.match(mail.body, /korte kennismaking/);
+  assert.doesNotMatch(mail.body, /verzin ik niet|controleerbare aanleiding/);
   assert.doesNotMatch(mail.body, /kleine organisatie|maatschappelijk|toerisme|historische plek|Groesbeek/);
   assertFirstMail(mail.body);
 });
 
 test("NO_WEBSITE gebruikt notitie, project of profiel en claimt geen bekeken website", () => {
-  const sources = ["manual_note", "project_description", "company_profile"] as const;
+  const sources = ["manual_note", "project_description", "company_profile", "facebook"] as const;
   for (const sourceKind of sources) {
     const mail = fallbackAcquisitionMail({
       companyName: "Bakkerij De Horst",
@@ -197,8 +198,8 @@ test("NO_WEBSITE gebruikt notitie, project of profiel en claimt geen bekeken web
     websitePresence: "NO_WEBSITE",
   });
   assert.equal(neutral.approach.sufficient, false);
-  assert.match(neutral.body, /geen website om na te kijken/);
-  assert.match(neutral.body, /verzin ik niet/);
+  assert.match(neutral.body, /nog geen eigen website/);
+  assert.doesNotMatch(neutral.body, /verzin ik niet|controleerbare aanleiding|geen website om na te kijken/);
   assert.doesNotMatch(neutral.body, /kort bekeken|heb de website bekeken/i);
   assertFirstMail(neutral.body);
 });

@@ -68,20 +68,40 @@ test("automatische follow-up wordt maar één keer gepland", () => {
   assert.equal(autoFollowUpIdempotencyKey("prospect-1"), autoFollowUpIdempotencyKey("prospect-1"));
 });
 
-test("follow-up gebruikt het bestaande aanbod en blijft kort", () => {
-  const discounted = buildAutoFollowUpBody({ domain: "fluweel.nl", fit: "STANDARD_FIT", place: "Groesbeek" });
+test("follow-up noemt alleen een prijs die al in de eerste mail stond", () => {
+  const plain = buildAutoFollowUpBody({ domain: "fluweel.nl", fit: "STANDARD_FIT", place: "Groesbeek" });
+  assert.doesNotMatch(plain, /€995|€1\.495|1\.495/);
+  assert.match(plain, /Ja, doe me een voorstel/);
+
+  const prior = "Voor jullie maak ik daar €995 excl. btw. van.";
+  const discounted = buildAutoFollowUpBody({
+    domain: "fluweel.nl",
+    fit: "STANDARD_FIT",
+    place: "Groesbeek",
+    priorMailText: prior,
+  });
   assert.match(discounted, /€995 excl\. btw/);
   assert.doesNotMatch(discounted, /Twee dingen vielen direct op/);
-  assert.match(discounted, /Ja, doe me een voorstel/);
-  assert.match(discounted, /Stuur me eerst meer info/);
 
-  const standard = followUpOfferSentence({ fit: "STANDARD_FIT", place: "Amsterdam" });
+  const standard = followUpOfferSentence({
+    fit: "STANDARD_FIT",
+    place: "Amsterdam",
+    priorMailText: "Een complete Kopvast Website kost €1.495 excl. btw.",
+  });
   assert.match(standard ?? "", /€1\.495/);
   assert.doesNotMatch(standard ?? "", /€995/);
+  assert.equal(followUpOfferSentence({ fit: "STANDARD_FIT", place: "Groesbeek" }), null);
+  assert.equal(followUpOfferSentence({ fit: "CUSTOM_FIT", place: "Groesbeek", priorMailText: prior }), null);
 
-  const custom = followUpOfferSentence({ fit: "CUSTOM_FIT", place: "Groesbeek" });
-  assert.match(custom ?? "", /maatwerk/i);
-  assert.equal(custom?.includes("€995"), false);
+  const noWebsite = buildAutoFollowUpBody({
+    domain: "",
+    companyName: "Bakkerij De Horst",
+    fit: "REVIEW_REQUIRED",
+    websitePresence: "NO_WEBSITE",
+  });
+  assert.match(noWebsite, /eerdere bericht over jullie bedrijf/);
+  assert.match(noWebsite, /sterke online presentatie/);
+  assert.doesNotMatch(noWebsite, /€|websitepakket|audit/i);
 });
 
 test("follow-up blijft tegen wanneer opvolging niet meer mag", () => {
@@ -251,7 +271,12 @@ test("na de follow-up zijn de admin-keuzes er, nurture verstuurt niets vanzelf",
 });
 
 test("korte follow-up rendert zonder de eerste mail te herhalen", async () => {
-  const body = buildAutoFollowUpBody({ domain: "fluweel.nl", fit: "STANDARD_FIT", place: "Groesbeek" });
+  const body = buildAutoFollowUpBody({
+    domain: "fluweel.nl",
+    fit: "STANDARD_FIT",
+    place: "Groesbeek",
+    priorMailText: "Voor jullie maak ik daar €995 excl. btw. van.",
+  });
   const prepared = await prepareFollowUpEmail({
     subject: "Nog even over fluweel.nl",
     body,
