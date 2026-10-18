@@ -17,8 +17,7 @@ export default function WebsiteCheckPage() {
           Benieuwd wat wij zien?
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-olive">
-          Vul je websiteadres in en ontvang maximaal drie concrete aandachtspunten. Geen oordeel over je
-          bedrijf. Geen verzonnen omzetclaims.
+          Vul je websiteadres in. Je krijgt maximaal drie concrete aandachtspunten, of een duidelijke status als de check niet lukt.
         </p>
       </div>
       <div className="mt-12">
