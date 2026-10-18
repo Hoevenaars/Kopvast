@@ -3,6 +3,7 @@ import { canonicalDomainFromInput } from "@/lib/acquire-score";
 import { scoutServiceClient } from "./auth";
 import { mutateLocalScout, readLocalScout } from "./store";
 import { parseManualEmail, withManualEmailEnrichment } from "@/lib/contact-email";
+import { parseOptionalPhone, joinContactName, splitLegacyContactName, parseFacebookUrl, parseSocialUrl } from "@/lib/prospect-profile";
 import { parseManualCompanyName, replaceCompanyNameInText, withManualCompanyEnrichment } from "@/lib/company-name";
 import { emptyEnrichment, type DuplicateLead, type ScoutDraft, type ScoutLead, type ScoutLeadEvent, type ScoutScan, type ScoutSource, type ScoutStatus, type ScoutUser } from "./types";
 
@@ -10,10 +11,16 @@ export function mapLead(row: Record<string, unknown>): ScoutLead {
   return {
     id: String(row.id),
     user_id: String(row.user_id),
-    url: String(row.url),
-    domain: String(row.domain),
+    url: row.url == null ? "" : String(row.url),
+    domain: row.domain == null ? "" : String(row.domain),
     canonical_url: (row.canonical_url as string | null) ?? null,
     company_name: (row.company_name as string | null) ?? null,
+    contact_name: (row.contact_name as string | null) ?? null,
+    first_name: (row.first_name as string | null) ?? null,
+    last_name: (row.last_name as string | null) ?? null,
+    facebook_url: (row.facebook_url as string | null) ?? null,
+    social_url: (row.social_url as string | null) ?? null,
+    source_url: (row.source_url as string | null) ?? null,
     note: (row.note as string | null) ?? null,
     industry: (row.industry as string | null) ?? null,
     city: (row.city as string | null) ?? null,
@@ -38,7 +45,12 @@ export function mapLead(row: Record<string, unknown>): ScoutLead {
   };
 }
 
+export function scoutLeadHasWebsite(lead: { url?: string | null; domain?: string | null }) {
+  return Boolean(lead.domain?.trim() || lead.url?.trim());
+}
+
 export async function findLeadByDomain(userId: string, domain: string): Promise<ScoutLead | null> {
+  if (!domain.trim()) return null;
   const supabase = scoutServiceClient();
   if (supabase) {
     const { data } = await supabase.from("scout_leads").select("*").eq("user_id", userId).ilike("domain", domain).maybeSingle();
@@ -46,6 +58,61 @@ export async function findLeadByDomain(userId: string, domain: string): Promise<
   }
   const store = await readLocalScout();
   return store.leads.find((lead) => lead.user_id === userId && lead.domain === domain) ?? null;
+}
+
+export async function findLeadWithoutWebsite(userId: string, email: string, company: string): Promise<ScoutLead | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedCompany = company.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!normalizedEmail || !normalizedCompany) return null;
+  const supabase = scoutServiceClient();
+  if (supabase) {
+    const { data } = await supabase
+      .from("scout_leads")
+      .select("*")
+      .eq("user_id", userId)
+      .is("domain", null)
+      .ilike("email", normalizedEmail)
+      .ilike("company_name", normalizedCompany)
+      .maybeSingle();
+    return data ? mapLead(data as Record<string, unknown>) : null;
+  }
+  const store = await readLocalScout();
+  return (
+    store.leads.find(
+      (lead) =>
+        lead.user_id === userId &&
+        !scoutLeadHasWebsite(lead) &&
+        (lead.email ?? "").trim().toLowerCase() === normalizedEmail &&
+        (lead.company_name ?? "").trim().toLowerCase().replace(/\s+/g, " ") === normalizedCompany
+    )     ?? null
+  );
+}
+
+export async function findCompanyLeadWithoutWebsite(userId: string, company: string): Promise<ScoutLead | null> {
+  const normalizedCompany = company.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!normalizedCompany) return null;
+  const supabase = scoutServiceClient();
+  if (supabase) {
+    const { data } = await supabase
+      .from("scout_leads")
+      .select("*")
+      .eq("user_id", userId)
+      .is("domain", null)
+      .is("email", null)
+      .ilike("company_name", normalizedCompany)
+      .maybeSingle();
+    return data ? mapLead(data as Record<string, unknown>) : null;
+  }
+  const store = await readLocalScout();
+  return (
+    store.leads.find(
+      (lead) =>
+        lead.user_id === userId &&
+        !scoutLeadHasWebsite(lead) &&
+        !(lead.email ?? "").trim() &&
+        (lead.company_name ?? "").trim().toLowerCase().replace(/\s+/g, " ") === normalizedCompany
+    ) ?? null
+  );
 }
 
 export async function findProspectDuplicate(domain: string): Promise<DuplicateLead | null> {
@@ -79,30 +146,56 @@ export function toDuplicate(lead: ScoutLead): DuplicateLead {
   };
 }
 
+function nullIfBlank(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed ? trimmed : null;
+}
+
 export async function insertLead(input: {
   user: ScoutUser;
   url: string;
   domain: string;
-  canonicalUrl: string;
+  canonicalUrl: string | null;
   note: string | null;
   email?: string | null;
+  company?: string | null;
+  contactName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  facebookUrl?: string | null;
+  socialUrl?: string | null;
+  city?: string | null;
+  sourceUrl?: string | null;
   source: ScoutSource;
 }): Promise<ScoutLead> {
   const now = nowIso();
   const email = input.email?.trim() || null;
+  const legacy = splitLegacyContactName(input.contactName);
+  const firstName = input.firstName?.trim() || legacy.firstName || null;
+  const lastName = input.lastName?.trim() || legacy.lastName || null;
+  const phone = parseOptionalPhone(input.phone);
+  const facebook = parseFacebookUrl(input.facebookUrl);
+  const social = parseSocialUrl(input.socialUrl);
   const row = {
     id: newId(),
     user_id: input.user.id,
-    url: input.url,
-    domain: input.domain,
+    url: input.url.trim(),
+    domain: input.domain.trim(),
     canonical_url: input.canonicalUrl,
-    company_name: null,
+    company_name: input.company?.trim() || null,
+    contact_name: joinContactName(firstName, lastName),
+    first_name: firstName,
+    last_name: lastName,
+    facebook_url: facebook.ok ? facebook.url : null,
+    social_url: social.ok ? social.url : null,
+    source_url: input.sourceUrl?.trim() || null,
     note: input.note,
     industry: null,
-    city: null,
+    city: input.city?.trim() || null,
     description: null,
     email,
-    phone: null,
+    phone: phone.ok ? phone.phone : input.phone?.trim() || null,
     linkedin_url: null,
     source: input.source,
     status: "nieuw" as const,
@@ -112,7 +205,11 @@ export async function insertLead(input: {
     commercial_summary: null,
     biggest_opportunity: null,
     opportunities: [],
-    enrichment: email ? withManualEmailEnrichment(emptyEnrichment(), email) : emptyEnrichment(),
+    enrichment: (() => {
+      const company = input.company?.trim() || null;
+      const base = email ? withManualEmailEnrichment(emptyEnrichment(), email) : emptyEnrichment();
+      return company ? withManualCompanyEnrichment(base, company) : base;
+    })(),
     prospect_id: null,
     last_scan_at: null,
     last_error: null,
@@ -122,7 +219,16 @@ export async function insertLead(input: {
 
   const supabase = scoutServiceClient();
   if (supabase) {
-    const { data, error } = await supabase.from("scout_leads").insert(row).select("*").single();
+    const { data, error } = await supabase
+      .from("scout_leads")
+      .insert({
+        ...row,
+        url: nullIfBlank(row.url),
+        domain: nullIfBlank(row.domain),
+        canonical_url: nullIfBlank(row.canonical_url),
+      })
+      .select("*")
+      .single();
     if (error || !data) throw new Error("Lead opslaan is mislukt.");
     return mapLead(data as Record<string, unknown>);
   }
